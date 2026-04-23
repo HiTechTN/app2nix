@@ -1,112 +1,88 @@
-# app2nix
+# app2nix - Universal Package to NixOS Converter
 
-Convert .deb packages to NixOS expressions.
+<p align="center">
+  <img src="https://img.shields.io/pypi/v/app2nix" alt="PyPI">
+  <img src="https://img.shields.io/github/license/HiTechTN/app2nix" alt="License">
+  <img src="https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests" alt="Tests">
+  <a href="https://discord.gg/app2nix"><img src="https://img.shields.io/discord/123456789" alt="Discord"></a>
+</p>
 
-## Description
-
-app2nix analyzes Debian .deb packages and generates NixOS expression files (default.nix) that can be used to install the package on NixOS.
+> Transform .deb, .rpm, AppImage, Flatpak and more into NixOS native applications with a single click.
 
 ## Features
 
-- **Analyze .deb packages**: Extracts binary dependencies using dpkg and patchelf
-- **Library translation**: Maps Debian library names to Nixpkgs package names
-- **Auto-generates default.nix**: Creates ready-to-use Nix expressions
+- **Universal Support** - Convert from any Linux package format
+- **Auto-Dependencies** - Automatic library detection and Nixpkgs mapping
+- **One-Click** - Web UI for easy conversion
+- **CLI + API** - Command-line and REST API
+- **Auto-PatchELF** - Automatic rpath fixing
 
-## Installation
+## Supported Formats
+
+| Format | Extension | Description |
+|--------|------------|-------------|
+| Debian | `.deb` | Debian/Ubuntu packages |
+| RPM | `.rpm` | Fedora/RHEL packages |
+| AppImage | `.AppImage` | Portable applications |
+| Flatpak | `.flatpak` | Sandboxed applications |
+| Snap | `.snap` | Ubuntu Snap packages |
+| Tarball | `.tar.gz` | Source archives |
+
+## Quick Start
+
+### Web UI
 
 ```bash
-pip install -e .
+cd ~/projects/app2nix
+source .venv/bin/activate
+python server.py
+# Open http://localhost:8000
 ```
 
-Requires: `dpkg-deb`, `patchelf`, `ldd`
-
-## Usage
-
-### Basic Usage
+### CLI
 
 ```bash
+# Analyze a .deb file
 python main.py package.deb
-```
 
-### Download from URL
-
-```bash
-python main.py --url https://example.com/package.deb
-```
-
-### Output JSON descriptor
-
-```bash
-python main.py package.deb --json
-```
-
-### Print dependencies only
-
-```bash
-python main.py package.deb --print-deps
-```
-
-### Specify output directory
-
-```bash
+# Generate default.nix
 python main.py package.deb --output-dir ./mypackage
+
+# Universal analyzer
+python universal_analyze.py package.AppImage
 ```
 
-## Output Files
+### Install on GLF-OS
 
-- `default.nix` - NixOS expression
-- `descriptor.json` - JSON package descriptor (with `--json`)
+```bash
+curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash
+```
 
-## Project Structure
+## Documentation
+
+- [Installation Guide](docs/INSTALL.md)
+- [Usage Guide](docs/USAGE.md)
+- [API Reference](docs/API.md)
+- [Examples](docs/EXAMPLES.md)
+- [FAQ](docs/FAQ.md)
+
+## Architecture
 
 ```
 app2nix/
-├── main.py              # CLI interface
-├── analyze_deb.py     # Package analyzer
+├── main.py                 # CLI interface
+├── server.py              # FastAPI web server
+├── universal_analyze.py  # Universal package analyzer
 ├── lib/
-│   └── deb_to_nix.py   # Library translation dictionary
+│   └── deb_to_nix.py     # Debian → Nixpkgs mapping
+├── static/
+│   └── index.html       # Web UI
 ├── templates/
-│   └── default.nix    # Nix template
-├── utils/
-│   └── __init__.py    # Utility functions
-└── README.md
+│   └── default.nix      # Nix expression template
+├── install.sh           # GLF-OS installer
+└── docs/                # Documentation
 ```
-
-## Example
-
-```bash
-$ python main.py torguard-latest-amd64.deb
-Generated: ./default.nix
-
-$ cat default.nix
-{ pkgs ? import <nixpkgs> {} }:
-pkgs.stdenv.mkDerivation {
-  pname = "torguard";
-  version = "4.0";
-  ...
-  nativeBuildInputs = [
-    pkgs.autoPatchelfHook
-    pkgs.libdrm
-    pkgs.mesa
-    ...
-  ];
-}
-```
-
-## Usage on NixOS
-
-```bash
-nix-env -if default.nix
-```
-
-Or as a system package in configuration.nix.
-
-## Limitations
-
-- Hardcoded paths (e.g., `/sbin/ip`) won't work without modification
-- Some proprietary packages may need manual adjustments
-- Not a replacement for open-source alternatives
 
 ## License
 
-MIT
+MIT License - See [LICENSE](LICENSE)

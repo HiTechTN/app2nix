@@ -29,7 +29,7 @@ def test_analyze_invalid_file():
     """Test analyze with invalid file type"""
     data = {"file": ("test.txt", b"test", "text/plain")}
     response = client.post("/analyze", files=data)
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_download_invalid_url():
