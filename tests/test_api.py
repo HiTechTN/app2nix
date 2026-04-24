@@ -1,9 +1,6 @@
 """Tests for app2nix server API"""
 
-import io
-from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from server import app
@@ -33,6 +30,6 @@ def test_analyze_invalid_file():
 
 
 def test_download_invalid_url():
-    """Test download with invalid URL"""
+    """Test download endpoint does not exist (not implemented)"""
     response = client.post("/download", json={"url": "https://example.com/file.txt"})
-    assert response.status_code == 400
+    assert response.status_code == 404

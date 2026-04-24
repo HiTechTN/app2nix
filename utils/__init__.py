@@ -34,7 +34,7 @@ def get_deb_info(path: str) -> dict:
         text=True,
         timeout=10
     )
-    
+
     info = {}
     for line in result.stdout.splitlines():
         if line.startswith("Package:"):
@@ -47,16 +47,16 @@ def get_deb_info(path: str) -> dict:
             info["depends"] = line.split(":", 1)[1].strip()
         elif line.startswith("Description:"):
             info["description"] = line.split(":", 1)[1].strip()
-    
+
     return info
 
 
-def extract_deb(path: str, dest: Optional[str] = None) -> str:
+def extract_deb(path: str, dest: str | None = None) -> str:
     """Extract .deb to directory."""
     if dest is None:
         import tempfile
         dest = tempfile.mkdtemp(prefix="app2nix_")
-    
+
     subprocess.run(
         ["dpkg-deb", "-x", path, dest],
         check=True,
@@ -65,7 +65,7 @@ def extract_deb(path: str, dest: Optional[str] = None) -> str:
     return dest
 
 
-def list_deb_contents(path: str) -> List[str]:
+def list_deb_contents(path: str) -> list[str]:
     """List contents of .deb file."""
     result = subprocess.run(
         ["dpkg-deb", "-c", path],
@@ -73,36 +73,36 @@ def list_deb_contents(path: str) -> List[str]:
         text=True,
         timeout=10
     )
-    
+
     files = []
     for line in result.stdout.splitlines():
         parts = line.split()
         if len(parts) >= 6:
             files.append(parts[-1])
-    
+
     return files
 
 
-def find_binaries(path: str) -> List[str]:
+def find_binaries(path: str) -> list[str]:
     """Find executable binaries in extracted .deb."""
     binaries = []
-    
+
     for root, dirs, files in os.walk(path):
         for f in files:
             fp = os.path.join(root, f)
             if os.path.isfile(fp) and os.access(fp, os.X_OK):
                 binaries.append(fp)
-    
+
     return binaries
 
 
 def fix_shebang(path: str, new_interpreter: str) -> None:
     """Fix shebang in script."""
-    with open(path, "r") as f:
+    with open(path) as f:
         first_line = f.readline()
-    
+
     if first_line.startswith("#!"):
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
         content = content.replace(first_line, f"#!{new_interpreter}\n", 1)
         with open(path, "w") as f:

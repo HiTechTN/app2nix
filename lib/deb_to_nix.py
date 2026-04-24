@@ -14,7 +14,7 @@ DEB_TO_NIX = {
     "cairo": "cairo",
     "freetype": "freetype",
     "fontconfig": "fontconfig",
-    
+
     # System
     "expat": "expat",
     "dbus-1": "dbus",
@@ -22,14 +22,14 @@ DEB_TO_NIX = {
     "gobject-2": "glib",
     "nss": "nss",
     "nspr": "nspr",
-    
+
     # Compression
     "z": "zlib",
     "zstd": "zstd",
     "bz2": "bzip2",
     "lzma": "lzma",
     "xz": "xz",
-    
+
     # Crypto
     "gcrypt": "libgcrypt",
     "gpg-error": "libgcrypt",
@@ -37,7 +37,7 @@ DEB_TO_NIX = {
     "nettle": "nettle",
     "ssl": "openssl",
     "crypto": "openssl",
-    
+
     # Hardware/OpenGL
     "vulkan": "vulkan-loader",
     "OpenGL": "mesa",
@@ -46,7 +46,7 @@ DEB_TO_NIX = {
     "glut": "freeglut",
     "glew": "glew",
     "glfw": "glfw",
-    
+
     # X11/Wayland
     "xcb": "xcb-util",
     "xkbcommon": "xkbcommon",
@@ -58,7 +58,7 @@ DEB_TO_NIX = {
     "Xcursor": "libXcursor",
     "Xdamage": "libXdamage",
     "wayland-client": "wayland",
-    
+
     # Audio
     "asound": "alsa-lib",
     "pulse": "libpulse",
@@ -66,13 +66,13 @@ DEB_TO_NIX = {
     "opus": "opus",
     "vorbis": "libvorbis",
     "sndfile": "libsndfile",
-    
+
     # Multimedia/FFmpeg
     "avcodec": "ffmpeg",
     "avformat": "ffmpeg",
     "avutil": "ffmpeg",
     "swscale": "ffmpeg",
-    
+
     # Qt
     "Qt5Core": "qt5.qtbase",
     "Qt5Widgets": "qt5.qtbase",
@@ -84,35 +84,35 @@ DEB_TO_NIX = {
     "Qt5Quick": "qt5.qtdeclarative",
     "Qt5Qml": "qt5.qtdeclarative",
     "Qt5WebEngine": "qt5.qtwebengine",
-    
+
     # Image
     "png": "libpng",
     "jpeg": "libjpeg",
     "tiff": "tiff",
     "webp": "libwebp",
-    
+
     # Database
     "sqlite3": "sqlite",
     "pq": "postgresql",
-    
+
     # Network
     "curl": "curl",
     "ssh": "libssh",
     "nghttp2": "nghttp2",
     "ldap": "openldap",
-    
+
     # Python
     "python3.11": "python311",
     "python3.12": "python312",
     "python3": "python3",
     "python3Full": "python3",
-    
+
     # Boost
     "boost_system": "boost",
     "boost_filesystem": "boost",
     "boost_regex": "boost",
     "boost_python3": "boost",
-    
+
     # Misc
     "uuid": "uuid",
     "blkid": "util-linux",
@@ -130,7 +130,7 @@ DEB_TO_NIX = {
     "udev": "systemd",
     "systemd": "systemd",
     "cups": "cups",
-    
+
     # GTK/GNOME
     "gtk-3": "gtk3",
     "gtk2": "gtk2",
@@ -144,46 +144,46 @@ DEB_TO_NIX = {
     "keybinder": "keybinder",
     "appindicator": "libappindicator",
     "notify": "libnotify",
-    
+
     # GStreamer
     "gstreamer-1": "gstreamer",
     "gstbase-1": "gst-plugins-base",
     "gstvideo-1": "gst-plugins-base",
     "gstaudio-1": "gst-plugins-base",
     "gsttag-1": "gst-plugins-base",
-    
+
     # Fonts
     "harfbuzz": "harfbuzz",
     "icuuc": "icu",
     "graphite2": "graphite2",
-    
+
     # Input
     "evdev": "libevdev",
     "input": "libinput",
-    
+
     # Security
     "paludis": "linux-pam",
     "pam": "linux-pam",
     "apparmor": "apparmor",
     "seccomp": "libseccomp",
     "yara": "yara",
-    
+
     # Config
     "yaml": "yaml",
     "toml": "toml",
-    
+
     # Docs
     "poppler": "poppler",
     "pixman": "pixman",
 }
 
 
-def translate(lib_name: str) -> str:
+def translate(lib_name: str) -> str | None:
     """Translate Debian library name to Nixpkgs package name."""
     lib_base = lib_name.split(".so")[0]
     if lib_base.startswith("lib"):
         lib_base = lib_base[3:]
-    
+
     return DEB_TO_NIX.get(lib_base)
 
 
@@ -195,7 +195,7 @@ def translate_all(lib_names: list) -> list:
             nix_pkg = translate(lib)
             if nix_pkg:
                 result.add(nix_pkg)
-    return sorted(list(result))
+    return sorted(result)
 
 
 if __name__ == "__main__":

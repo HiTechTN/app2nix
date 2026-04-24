@@ -2,6 +2,9 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["lib", "utils"]
+
 [project]
 name = "app2nix"
 version = "1.0.0"
@@ -28,6 +31,7 @@ dependencies = [
     "uvicorn[standard]>=0.23.0",
     "python-multipart>=0.0.6",
     "pydantic>=2.0.0",
+    "itsdangerous>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -60,7 +64,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

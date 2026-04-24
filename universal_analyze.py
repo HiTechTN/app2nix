@@ -7,40 +7,38 @@ Supported formats: .deb, .rpm, .AppImage, .tar.gz, .flatpak, .snap
 import argparse
 import json
 import os
-import subprocess
-import sys
-import tempfile
 import shutil
+import subprocess
+import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 
 class PackageAnalyzer:
     """Analyze various package formats and extract dependencies."""
-    
+
     FORMATS = [".deb", ".rpm", ".AppImage", ".tar", ".tar.gz", ".tgz", ".flatpak", ".snap"]
-    
-    def __init__(self, work_dir: Optional[str] = None):
+
+    def __init__(self, work_dir: str | None = None):
         self.work_dir = Path(work_dir or tempfile.mkdtemp(prefix="app2nix_"))
         self.temp_dirs = []
-    
+
     def cleanup(self):
         """Clean up temporary directories."""
         for d in self.temp_dirs:
             shutil.rmtree(d, ignore_errors=True)
         shutil.rmtree(self.work_dir, ignore_errors=True)
-    
-    def analyze(self, package_path: str) -> Dict:
+
+    def analyze(self, package_path: str) -> dict:
         """Analyze package and return metadata."""
         path = Path(package_path)
-        
+
         if not path.exists():
             raise FileNotFoundError(f"Package not found: {package_path}")
-        
+
         suffix = path.suffix.lower()
         if suffix in [".tar", ".gz"]:
             suffix = ".tar.gz"
-        
+
         handlers = {
             ".deb": self._analyze_deb,
             ".rpm": self._analyze_rpm,
@@ -50,23 +48,23 @@ class PackageAnalyzer:
             ".flatpak": self._analyze_flatpak,
             ".snap": self._analyze_snap,
         }
-        
+
         handler = handlers.get(suffix)
         if not handler:
             raise ValueError(f"Unsupported format: {suffix}")
-        
+
         return handler(path)
-    
-    def _analyze_deb(self, path: Path) -> Dict:
+
+    def _analyze_deb(self, path: Path) -> dict:
         """Analyze .deb package."""
         temp_dir = self.work_dir / "deb_extracted"
         temp_dir.mkdir(exist_ok=True)
         self.temp_dirs.append(temp_dir)
-        
+
         subprocess.run(["dpkg-deb", "-x", str(path), str(temp_dir)], check=True, capture_output=True)
-        
+
         result = subprocess.run(["dpkg-deb", "-I", str(path)], capture_output=True, text=True)
-        
+
         info = {
             "format": "deb",
             "name": "unknown",
@@ -76,7 +74,7 @@ class PackageAnalyzer:
             "binaries": [],
             "temp_dir": str(temp_dir)
         }
-        
+
         for line in result.stdout.splitlines():
             if line.startswith("Package:"):
                 info["name"] = line.split(":", 1)[1].strip()
@@ -87,23 +85,23 @@ class PackageAnalyzer:
             elif line.startswith("Depends:"):
                 deps = line.split(":", 1)[1].strip()
                 info["dependencies"] = self._parse_deb_deps(deps)
-        
+
         info["binaries"] = self._find_binaries(temp_dir)
         info["libraries"] = self._find_libraries(temp_dir)
-        
+
         return info
-    
-    def _analyze_rpm(self, path: Path) -> Dict:
+
+    def _analyze_rpm(self, path: Path) -> dict:
         """Analyze .rpm package."""
         temp_dir = self.work_dir / "rpm_extracted"
         temp_dir.mkdir(exist_ok=True)
         self.temp_dirs.append(temp_dir)
-        
-        subprocess.run(["rpm2cpio", str(path), "cpio", "-idmv", "-D", str(temp_dir)], 
+
+        subprocess.run(["rpm2cpio", str(path), "cpio", "-idmv", "-D", str(temp_dir)],
                      capture_output=True, shell=True)
-        
+
         result = subprocess.run(["rpm", "-qip", str(path)], capture_output=True, text=True)
-        
+
         info = {
             "format": "rpm",
             "name": "unknown",
@@ -113,7 +111,7 @@ class PackageAnalyzer:
             "binaries": [],
             "temp_dir": str(temp_dir)
         }
-        
+
         for line in result.stdout.splitlines():
             if line.startswith("Name:"):
                 info["name"] = line.split(":", 1)[1].strip()
@@ -124,20 +122,20 @@ class PackageAnalyzer:
             elif line.startswith("Requires:"):
                 deps = line.split(":", 1)[1].strip()
                 info["dependencies"] = self._parse_rpm_deps(deps)
-        
+
         info["binaries"] = self._find_binaries(temp_dir)
         info["libraries"] = self._find_libraries(temp_dir)
-        
+
         return info
-    
-    def _analyze_appimage(self, path: Path) -> Dict:
+
+    def _analyze_appimage(self, path: Path) -> dict:
         """Analyze AppImage."""
         temp_dir = self.work_dir / "appimage_extracted"
         temp_dir.mkdir(exist_ok=True)
         self.temp_dirs.append(temp_dir)
-        
+
         subprocess.run([str(path), "--appimage-extract"], cwd=temp_dir, capture_output=True)
-        
+
         squashfs = temp_dir / "squashfs-root"
         if squashfs.exists():
             info = {
@@ -152,17 +150,17 @@ class PackageAnalyzer:
             info["libraries"] = self._find_libraries(squashfs)
         else:
             raise ValueError("Failed to extract AppImage")
-        
+
         return info
-    
-    def _analyze_tar(self, path: Path) -> Dict:
+
+    def _analyze_tar(self, path: Path) -> dict:
         """Analyze tarball."""
         temp_dir = self.work_dir / "tar_extracted"
         temp_dir.mkdir(exist_ok=True)
         self.temp_dirs.append(temp_dir)
-        
+
         subprocess.run(["tar", "-xf", str(path), "-C", str(temp_dir)], capture_output=True)
-        
+
         info = {
             "format": "tar",
             "name": path.stem.replace(".tar.gz", "").replace(".tgz", ""),
@@ -173,14 +171,14 @@ class PackageAnalyzer:
             "temp_dir": str(temp_dir)
         }
         info["libraries"] = self._find_libraries(temp_dir)
-        
+
         return info
-    
-    def _analyze_flatpak(self, path: Path) -> Dict:
+
+    def _analyze_flatpak(self, path: Path) -> dict:
         """Analyze Flatpak."""
-        result = subprocess.run(["flatpak-builder", "--show-manifest", str(path)], 
+        result = subprocess.run(["flatpak-builder", "--show-manifest", str(path)],
                                capture_output=True, text=True)
-        
+
         info = {
             "format": "flatpak",
             "name": path.stem.replace(".flatpak", ""),
@@ -190,21 +188,21 @@ class PackageAnalyzer:
             "runtime": "unknown",
             "sdk": "unknown"
         }
-        
+
         try:
             data = json.loads(result.stdout)
             info["name"] = data.get("id", info["name"])
             info["runtime"] = data.get("runtime", "unknown")
             info["sdk"] = data.get("sdk", "unknown")
-        except:
+        except Exception:
             pass
-        
+
         return info
-    
-    def _analyze_snap(self, path: Path) -> Dict:
+
+    def _analyze_snap(self, path: Path) -> dict:
         """Analyze Snap."""
-        result = subprocess.run(["unsquashfs", "-l", str(path)], capture_output=True, text=True)
-        
+        subprocess.run(["unsquashfs", "-l", str(path)], capture_output=True, text=True)
+
         info = {
             "format": "snap",
             "name": path.stem.replace(".snap", ""),
@@ -213,10 +211,10 @@ class PackageAnalyzer:
             "dependencies": [],
             "temp_dir": str(self.work_dir / "snap")
         }
-        
+
         return info
-    
-    def _parse_deb_deps(self, deps: str) -> List[str]:
+
+    def _parse_deb_deps(self, deps: str) -> list[str]:
         """Parse Debian dependencies."""
         result = []
         for dep in deps.split(","):
@@ -224,8 +222,8 @@ class PackageAnalyzer:
             if dep:
                 result.append(dep)
         return result
-    
-    def _parse_rpm_deps(self, deps: str) -> List[str]:
+
+    def _parse_rpm_deps(self, deps: str) -> list[str]:
         """Parse RPM dependencies."""
         result = []
         for dep in deps.split():
@@ -233,8 +231,8 @@ class PackageAnalyzer:
             if dep and not dep.startswith("rpmlib"):
                 result.append(dep)
         return result
-    
-    def _find_binaries(self, directory: Path) -> List[str]:
+
+    def _find_binaries(self, directory: Path) -> list[str]:
         """Find ELF binaries."""
         binaries = []
         for root, _, files in os.walk(directory):
@@ -242,16 +240,16 @@ class PackageAnalyzer:
                 path = Path(root) / f
                 if path.is_file():
                     try:
-                        result = subprocess.run(["file", "-b", str(path)], 
+                        result = subprocess.run(["file", "-b", str(path)],
                                              capture_output=True, text=True)
-                        if "ELF" in result.stdout and ("executable" in result.stdout or 
+                        if "ELF" in result.stdout and ("executable" in result.stdout or
                             "shared object" in result.stdout):
                             binaries.append(str(path.relative_to(directory)))
                     except:
                         pass
         return binaries
-    
-    def _find_libraries(self, directory: Path) -> List[str]:
+
+    def _find_libraries(self, directory: Path) -> list[str]:
         """Find shared libraries."""
         libraries = set()
         for root, _, files in os.walk(directory):
@@ -267,20 +265,20 @@ def main():
     parser.add_argument("--output", "-o", help="Output JSON file")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
-    
+
     analyzer = PackageAnalyzer()
     try:
         info = analyzer.analyze(args.package)
-        
+
         output = json.dumps(info, indent=2)
-        
+
         if args.output:
             with open(args.output, "w") as f:
                 f.write(output)
             print(f"Analyzed: {args.output}")
         else:
             print(output)
-        
+
         if args.verbose:
             print(f"\nFormat: {info['format']}")
             print(f"Binaries found: {len(info['binaries'])}")

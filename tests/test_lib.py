@@ -1,6 +1,5 @@
 """Tests for app2nix"""
 
-import pytest
 from lib.deb_to_nix import translate, translate_all
 
 

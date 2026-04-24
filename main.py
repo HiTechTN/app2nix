@@ -11,14 +11,11 @@ Usage:
 import argparse
 import json
 import os
-import subprocess
 import sys
 import urllib.request
-from pathlib import Path
 
 from analyze_deb import get_all_dependencies
 from lib.deb_to_nix import translate_all
-
 
 DEFAULT_NIX_TEMPLATE = """{{ pkgs ? import <nixpkgs> {{}} }}:
 let
@@ -67,7 +64,7 @@ def analyze_deb_file(deb_path: str) -> dict:
     if not os.path.exists(deb_path):
         print(f"Error: File not found: {deb_path}", file=sys.stderr)
         sys.exit(1)
-    
+
     info = get_all_dependencies(deb_path)
     return info
 
@@ -77,40 +74,40 @@ def generate_default_nix(info: dict, output_dir: str = ".") -> str:
     name = info.get("name", "app")
     version = info.get("version", "1.0")
     deps = info.get("dependencies", [])
-    
+
     nix_deps = translate_all(deps)
-    
+
     deps_lines = ""
     for dep in nix_deps:
         if dep.startswith("#"):
             deps_lines += f"    # pkgs.{dep[1:]} # Not found in nixpkgs\n"
         else:
             deps_lines += f"    pkgs.{dep}\n"
-    
+
     install_extras = ""
     if info.get("executables"):
         install_extras += "\n    # Fix shebang and create bin entries\n"
-    
+
     content = DEFAULT_NIX_TEMPLATE.format(
         name=name,
         version=version,
         deps=deps_lines.rstrip(),
         install_extras=install_extras
     )
-    
+
     output_path = os.path.join(output_dir, "default.nix")
     with open(output_path, "w") as f:
         f.write(content)
-    
+
     return output_path
 
 
-def create_json_from_deb(deb_path: str, output_path: str = None) -> str:
+def create_json_from_deb(deb_path: str, output_path: str | None = None) -> str:
     """Create JSON descriptor from .deb."""
     info = analyze_deb_file(deb_path)
-    
+
     nix_deps = translate_all(info.get("dependencies", []))
-    
+
     output = {
         "name": info.get("name", "unknown"),
         "version": info.get("version", "1.0"),
@@ -118,9 +115,9 @@ def create_json_from_deb(deb_path: str, output_path: str = None) -> str:
         "dependencies": nix_deps,
         "libraries": info.get("dependencies", [])
     }
-    
+
     json_str = json.dumps(output, indent=2)
-    
+
     if output_path:
         with open(output_path, "w") as f:
             f.write(json_str)
@@ -166,27 +163,27 @@ def main():
         action="store_true",
         help="Verbose output"
     )
-    
+
     args = parser.parse_args()
-    
+
     deb_path = args.deb_file
-    
+
     if args.url:
         deb_path = download_deb(args.url)
-    
+
     if not deb_path:
         parser.print_help()
         sys.exit(1)
-    
+
     info = analyze_deb_file(deb_path)
-    
+
     if args.print_deps:
         deps = info.get("dependencies", [])
         nix_deps = translate_all(deps)
         print("Debian libraries:", *deps, sep="\n")
         print("\nNixpkgs packages:", *nix_deps, sep="\n")
         sys.exit(0)
-    
+
     if args.json:
         create_json_from_deb(deb_path, args.output)
         output = args.output or "descriptor.json"
@@ -194,7 +191,7 @@ def main():
     else:
         generate_default_nix(info, args.output_dir)
         print(f"Generated: {args.output_dir}/default.nix")
-    
+
     if args.verbose:
         print("\nPackage info:")
         print(f"  Name: {info.get('name')}")
