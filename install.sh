@@ -115,15 +115,24 @@ create_dirs() {
 create_wrapper_scripts() {
     log_info "Creating commands..."
     
-    # Get Nix profile path
     NIX_PROF="/run/current-system/sw"
     USER_NIX="$HOME/.nix-profile"
+    
+    # Fix permissions for Nix tools - needs sudo
+    log_info "Fixing Nix tools permissions..."
+    chmod 755 "$NIX_PROF/bin/dpkg-deb" 2>/dev/null || true
+    chmod 755 "$NIX_PROF/bin/patchelf" 2>/dev/null || true
+    chmod 755 "$NIX_PROF/bin/file" 2>/dev/null || true
+    chmod 755 "$USER_NIX/bin/dpkg-deb" 2>/dev/null || true
+    chmod 755 "$USER_NIX/bin/patchelf" 2>/dev/null || true
     
     cat > "$BIN_DIR/app2nix" << ENDSCRIPT
 #!/usr/bin/env bash
 # app2nix CLI wrapper
 export PATH="$NIX_PROF/bin:$USER_NIX/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
 export LD_LIBRARY_PATH="$NIX_PROF/lib:$USER_NIX/lib:\$LD_LIBRARY_PATH"
+chmod 755 "$NIX_PROF/bin/dpkg-deb" 2>/dev/null || true
+chmod 755 "$NIX_PROF/bin/file" 2>/dev/null || true
 exec /opt/app2nix/.venv/bin/python /opt/app2nix/main.py "\$@"
 ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix"
@@ -203,6 +212,10 @@ print_summary() {
     echo "To use in current terminal:"
     echo "  source ~/.bashrc"
     echo "  app2nix --help"
+    echo
+    echo "To start web UI:"
+    echo "  app2nix-server"
+    echo "  # Then open http://localhost:8000"
     echo "=========================================="
 }
 
