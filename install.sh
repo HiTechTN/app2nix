@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # app2nix-installer.sh - Install app2nix on GLF-OS (NixOS)
-# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/a6ac4a2/install.sh" | sudo bash
+# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh" | sudo bash
 #
 
 VERSION="1.0.0"
@@ -42,10 +42,7 @@ install_dependencies() {
         nixos|glfos)
             log_info "Installing dependencies via Nix..."
             if command -v nix-env >/dev/null 2>&1; then
-                # Install tools that will be available at runtime
                 nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
-                # Also install to user profile for this session
-                nix-env -iA nixpkgs.python3 2>/dev/null || true
                 log_success "Done"
             else
                 log_warn "Nix not found, skipping"
@@ -118,20 +115,25 @@ create_dirs() {
 create_wrapper_scripts() {
     log_info "Creating commands..."
     
-    # Create wrapper in /usr/local/bin - use env python
-    cat > "$BIN_DIR/app2nix" << 'ENDSCRIPT'
+    # Get Nix profile path
+    NIX_PROF="/run/current-system/sw"
+    USER_NIX="$HOME/.nix-profile"
+    
+    cat > "$BIN_DIR/app2nix" << ENDSCRIPT
 #!/usr/bin/env bash
 # app2nix CLI wrapper
-export PATH="/run/current-system/sw/bin:$PATH"
-exec /opt/app2nix/.venv/bin/python /opt/app2nix/main.py "$@"
+export PATH="$NIX_PROF/bin:$USER_NIX/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+export LD_LIBRARY_PATH="$NIX_PROF/lib:$USER_NIX/lib:\$LD_LIBRARY_PATH"
+exec /opt/app2nix/.venv/bin/python /opt/app2nix/main.py "\$@"
 ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix"
 
-    cat > "$BIN_DIR/app2nix-server" << 'ENDSCRIPT'
+    cat > "$BIN_DIR/app2nix-server" << ENDSCRIPT
 #!/usr/bin/env bash
-# app2nix server wrapper
-export PATH="/run/current-system/sw/bin:$PATH"
-exec /opt/app2nix/.venv/bin/python /opt/app2nix/server.py "$@"
+# app2nix server wrapper  
+export PATH="$NIX_PROF/bin:$USER_NIX/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+export LD_LIBRARY_PATH="$NIX_PROF/lib:$USER_NIX/lib:\$LD_LIBRARY_PATH"
+exec /opt/app2nix/.venv/bin/python /opt/app2nix/server.py "\$@"
 ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix-server"
     
@@ -147,7 +149,6 @@ configure_user_shell() {
     local shell_config="$user_home/.bashrc"
     [ -f "$user_home/.zshrc" ] && shell_config="$user_home/.zshrc"
     
-    # Add to PATH - include nix profile paths
     if [ -f "$shell_config" ]; then
         if ! grep -q "app2nix" "$shell_config" 2>/dev/null; then
             echo "" >> "$shell_config"
@@ -156,11 +157,9 @@ configure_user_shell() {
             echo "export PATH=\"\$HOME/.nix-profile/bin:\$PATH\"" >> "$shell_config"
             echo "alias app2nix='$BIN_DIR/app2nix'" >> "$shell_config"
             echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$shell_config"
-            chmod 644 "$shell_config" 2>/dev/null || true
         fi
     fi
     
-    # Also update .profile for login shells
     if [ -f "$user_home/.profile" ]; then
         if ! grep -q "app2nix" "$user_home/.profile" 2>/dev/null; then
             echo "" >> "$user_home/.profile"
@@ -178,7 +177,7 @@ create_desktop_entry() {
     
     cat > /usr/share/applications/app2nix.desktop << 'ENDDESKTOP'
 [Desktop Entry]
-Name=app2nix
+Name=app2nix Web UI
 Comment=Convert packages to NixOS
 Exec=/usr/local/bin/app2nix-server
 Icon=system-software-install
@@ -203,11 +202,7 @@ print_summary() {
     echo
     echo "To use in current terminal:"
     echo "  source ~/.bashrc"
-    echo "  app2nix <package.deb>"
-    echo
-    echo "Or run directly:"
-    echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/main.py <package.deb>"
-    echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/server.py"
+    echo "  app2nix --help"
     echo "=========================================="
 }
 

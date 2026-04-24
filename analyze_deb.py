@@ -5,6 +5,7 @@ Analyze .deb packages and extract binary dependencies using dpkg and patchelf.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -13,11 +14,30 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 
+def find_executable(name: str) -> str:
+    """Find executable in PATH - also check Nix profile locations."""
+    # Check PATH
+    path = shutil.which(name)
+    if path:
+        return path
+    # Check Nix system profile
+    nix_path = f"/run/current-system/sw/bin/{name}"
+    if os.path.exists(nix_path):
+        return nix_path
+    # Check Nix user profile
+    user_nix = os.path.expanduser("~/.nix-profile/bin/") + name
+    if os.path.exists(user_nix):
+        return user_nix
+    # Fall back to name (will fail with proper error)
+    return name
+
+
 def extract_deb(deb_path: str) -> str:
     """Extract .deb to temporary directory."""
     temp_dir = tempfile.mkdtemp(prefix="app2nix_")
+    dpkg_deb = find_executable("dpkg-deb")
     subprocess.run(
-        ["dpkg-deb", "-x", deb_path, temp_dir],
+        [dpkg_deb, "-x", deb_path, temp_dir],
         check=True,
         capture_output=True
     )
