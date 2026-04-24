@@ -8,14 +8,16 @@ packages = ["lib", "utils"]
 [project]
 name = "app2nix"
 version = "1.0.0"
-description = "Convert .deb packages to NixOS expressions"
+description = "Convert any Linux package (.deb, .rpm, AppImage, Flatpak, Snap) to NixOS native applications"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "app2nix", email = "contact@app2nix.dev"}
+    {name = "Azmi", email = "azmi.hitech@gmail.com"}
 ]
-keywords = ["nixos", "deb", "nix", "packaging", "conversion"]
+keywords = ["nixos", "nix", "packaging", "conversion", "deb", "rpm", "appimage", "flatpak"]
+homepage = "https://github.com/HiTechTN/app2nix"
+repository = "https://github.com/HiTechTN/app2nix"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
