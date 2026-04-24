@@ -4,11 +4,13 @@ Analyze .deb packages and extract binary dependencies using dpkg and patchelf.
 """
 
 import argparse
+import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Set, List, Dict, Any
+from typing import Any
 
 NIX_PATHS = [
     "/run/current-system/sw/bin",
@@ -61,7 +63,7 @@ def find_executables(directory: str) -> list[str]:
     executables = []
     for _root, _dirs, files in os.walk(directory):
         for f in files:
-            path = os.path.join(root, f)
+            path = os.path.join(_root, f)
             if os.path.isfile(path):
                 try:
                     result = subprocess.run(
@@ -160,7 +162,6 @@ def get_all_dependencies(deb_path: str) -> dict[str, Any]:
         return info
 
     finally:
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -175,8 +176,6 @@ def main():
         sys.exit(1)
 
     info = get_all_dependencies(args.deb_file)
-
-    import json
     output = json.dumps(info, indent=2)
 
     if args.output:

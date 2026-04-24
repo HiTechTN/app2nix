@@ -39,7 +39,6 @@ DEB_TO_NIX = {
     "crypto": "openssl",
 
     # Hardware/OpenGL
-    "vulkan": "vulkan-loader",
     "OpenGL": "mesa",
     "GL": "mesa",
     "GLU": "glu",
@@ -132,9 +131,7 @@ DEB_TO_NIX = {
     "cups": "cups",
 
     # GTK/GNOME
-    "gtk-3": "gtk3",
     "gtk2": "gtk2",
-    "gdk-3": "gtk3",
     "gdk-x11-3": "gtk3",
     "gtk-x11-2": "gtk2",
     "gtkgl": "gtkglext",
