@@ -166,12 +166,17 @@ create_wrapper_scripts() {
 create_aliases() {
     log_info "Creating aliases..."
     
+    # Try /etc/profile.d first
     if [ -w /etc/profile.d ]; then
         echo "alias app2nix='$BIN_DIR/app2nix'" > /etc/profile.d/app2nix.sh
         echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> /etc/profile.d/app2nix.sh
         chmod +x /etc/profile.d/app2nix.sh
-    else
-        log_warn "/etc/profile.d not writable, skipping aliases"
+    fi
+    
+    # Also add to ~/.bashrc for user
+    if [ -w ~/.bashrc ]; then
+        echo "alias app2nix='$BIN_DIR/app2nix'" >> ~/.bashrc
+        echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> ~/.bashrc
     fi
     
     log_success "Aliases created"
@@ -192,11 +197,12 @@ print_summary() {
     echo "=========================================="
     echo
     echo "Web UI: http://localhost:8000"
-    echo "CLI:  app2nix"
+    echo "CLI:  $BIN_DIR/app2nix"
+    echo "Or:    /opt/app2nix/.venv/bin/python /opt/app2nix/main.py"
     echo
     echo "Commands:"
-    echo "  app2nix <package.deb>"
-    echo "  app2nix-server"
+    echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/main.py <package.deb>"
+    echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/server.py"
     echo "=========================================="
 }
 
