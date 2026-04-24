@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # app2nix-installer.sh - Install app2nix on GLF-OS (NixOS)
-# Usage: curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | sudo bash
+# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/14c4556/install.sh" | sudo bash
 #
 
 VERSION="1.0.0"
@@ -42,6 +42,7 @@ install_dependencies() {
             log_info "Installing dependencies via Nix..."
             if command -v nix-env >/dev/null 2>&1; then
                 nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
+                nix-env -iA nixpkgs.python3 2>/dev/null || true
                 log_success "Done"
             else
                 log_warn "Nix not found, skipping"
@@ -50,7 +51,7 @@ install_dependencies() {
         debian|ubuntu|linuxmint|pop|popos)
             log_info "Installing dependencies via apt..."
             apt-get update -qq
-            apt-get install -y -qq dpkg patchelf file python3 git curl >/dev/null 2>&1
+            apt-get install -y -qq dpkg patchelf file python3 python3-venv git curl >/dev/null 2>&1
             log_success "Done"
             ;;
         *)
@@ -89,14 +90,31 @@ create_python_venv() {
     fi
     
     cd "$INSTALL_DIR"
-    python3 -m venv .venv
-    .venv/bin/pip install -q fastapi uvicorn pydantic python-multipart
+    
+    python3 -m venv .venv 2>/dev/null || {
+        log_warn "venv failed, using system python"
+        return 0
+    }
+    
+    .venv/bin/pip install -q --upgrade pip 2>/dev/null || true
+    
+    .venv/bin/pip install -q fastapi uvicorn pydantic python-multipart 2>/dev/null || {
+        log_warn "Some packages failed, trying without pydantic..."
+        .venv/bin/pip install -q fastapi uvicorn python-multipart 2>/dev/null || true
+    }
     
     log_success "Python ready"
 }
 
 create_system_service() {
     log_info "Creating systemd service..."
+    
+    if [ ! -w /etc/systemd/system ]; then
+        log_warn "/etc/systemd is read-only, skipping service"
+        return 0
+    fi
+    
+    mkdir -p /etc/systemd/system
     
     cat > /etc/systemd/system/app2nix.service << ENDSERVICE
 [Unit]
@@ -115,16 +133,24 @@ RestartSec=10
 WantedBy=multi-user.target
 ENDSERVICE
     
-    systemctl daemon-reload -q
-    systemctl enable app2nix.service -q
+    systemctl daemon-reload -q 2>/dev/null || true
+    systemctl enable app2nix.service -q 2>/dev/null || true
     
     log_success "Service created"
 }
 
-create_wrapper_scripts() {
-    log_info "Creating commands..."
+create_dirs() {
+    log_info "Creating directories..."
     
     mkdir -p "$BIN_DIR"
+    mkdir -p /etc/profile.d
+    mkdir -p /usr/share/applications
+    
+    log_success "Directories created"
+}
+
+create_wrapper_scripts() {
+    log_info "Creating commands..."
     
     echo "#!/bin/bash" > "$BIN_DIR/app2nix"
     echo "exec $INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py \"\$@\"" >> "$BIN_DIR/app2nix"
@@ -140,16 +166,22 @@ create_wrapper_scripts() {
 create_aliases() {
     log_info "Creating aliases..."
     
-    echo "alias app2nix='$BIN_DIR/app2nix'" > /etc/profile.d/app2nix.sh
-    echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> /etc/profile.d/app2nix.sh
-    chmod +x /etc/profile.d/app2nix.sh
+    if [ -w /etc/profile.d ]; then
+        echo "alias app2nix='$BIN_DIR/app2nix'" > /etc/profile.d/app2nix.sh
+        echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> /etc/profile.d/app2nix.sh
+        chmod +x /etc/profile.d/app2nix.sh
+    else
+        log_warn "/etc/profile.d not writable, skipping aliases"
+    fi
     
     log_success "Aliases created"
 }
 
 enable_autostart() {
     log_info "Starting service..."
-    systemctl start app2nix.service -q 2>/dev/null || true
+    if [ -w /etc/systemd/system ]; then
+        systemctl start app2nix.service -q 2>/dev/null || true
+    fi
     log_success "Started"
 }
 
@@ -177,6 +209,7 @@ main() {
     check_root
     install_dependencies
     download_app2nix
+    create_dirs
     create_python_venv
     create_system_service
     create_wrapper_scripts
