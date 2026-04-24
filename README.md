@@ -13,9 +13,10 @@
 
 ### Transform any Linux package into a NixOS native application with one click
 
-[![Tests](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
-[![Docker](https://github.com/HiTechTN/app2nix/actions/workflows/docker.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
+[![CI](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Tests](https://github.com/HiTechTN/app2nix/workflows/Tests/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Docker Build](https://github.com/HiTechTN/app2nix/workflows/Docker%20Build%20and%20Push/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
 
 [Documentation](docs/) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
