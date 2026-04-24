@@ -1,11 +1,12 @@
 # app2nix - Universal Package to NixOS Converter
 
 <p align="center">
-  <img src="https://img.shields.io/github/v/release/HiTechTN/app2nix?style=flat-square" alt="Release">
-  <img src="https://img.shields.io/github/license/HiTechTN/app2nix?style=flat-square" alt="License">
-  <img src="https://img.shields.io/github/stars/HiTechTN/app2nix?style=flat-square" alt="Stars">
-  <img src="https://img.shields.io/github/forks/HiTechTN/app2nix?style=flat-square" alt="Forks">
-  <img src="https://img.shields.io/github/downloads/HiTechTN/app2nix/total?style=flat-square" alt="Downloads">
+
+[![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/stargazers)
+[![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members)
+[![License](https://img.shields.io/github/license/HiTechTN/app2nix)](LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)](https://github.com/HiTechTN/app2nix/releases)
+
 </p>
 
 <div align="center">
@@ -14,6 +15,7 @@
 
 [![Tests](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
 [![Docker](https://github.com/HiTechTN/app2nix/actions/workflows/docker.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
 
 [Documentation](docs/) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
@@ -195,10 +197,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📊 Project Stats
 
-[![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/stargazers)
-[![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/network/members)
-[![Issues](https://img.shields.io/github/issues/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/issues)
-[![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total?style=flat-square)](https://github.com/HiTechTN/app2nix/releases)
+| Metric | Badge |
+|--------|-------|
+| ⭐ Stars | [![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/stargazers) |
+| 🍴 Forks | [![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members) |
+| 🐛 Issues | [![Issues](https://img.shields.io/github/issues/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/issues) |
+| ⬇️ Downloads | [![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)](https://github.com/HiTechTN/app2nix/releases) |
 
 ---
 
