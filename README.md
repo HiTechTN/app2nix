@@ -1,18 +1,21 @@
 # app2nix - Universal Package to NixOS Converter
 
 <p align="center">
-  <img src="https://img.shields.io/pypi/v/app2nix" alt="PyPI">
-  <img src="https://img.shields.io/github/license/HiTechTN/app2nix" alt="License">
-  <img src="https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests" alt="Tests">
-  <a href="https://github.com/HiTechTN/app2nix/releases"><img src="https://img.shields.io/github/v/release/HiTechTN/app2nix" alt="Releases"></a>
-  <img src="https://img.shields.io/github/stars/HiTechTN/app2nix?style=social" alt="Stars">
+  <img src="https://img.shields.io/github/v/release/HiTechTN/app2nix?style=flat-square" alt="Release">
+  <img src="https://img.shields.io/github/license/HiTechTN/app2nix?style=flat-square" alt="License">
+  <img src="https://img.shields.io/github/stars/HiTechTN/app2nix?style=flat-square" alt="Stars">
+  <img src="https://img.shields.io/github/forks/HiTechTN/app2nix?style=flat-square" alt="Forks">
+  <img src="https://img.shields.io/github/downloads/HiTechTN/app2nix/total?style=flat-square" alt="Downloads">
 </p>
 
 <div align="center">
 
 ### Transform any Linux package into a NixOS native application with one click
 
-[Web Demo](https://app2nix.dev) · [Documentation](docs/) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
+[![Tests](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Docker](https://github.com/HiTechTN/app2nix/actions/workflows/docker.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+
+[Documentation](docs/) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
 </div>
 
@@ -192,9 +195,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📊 Project Stats
 
-![GitHub Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)
-![GitHub Issues](https://img.shields.io/github/issues/HiTechTN/app2nix)
-![GitHub Pull Requests](https://img.shields.io/github/issues-pr/HiTechTN/app2nix)
+[![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/stargazers)
+[![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/network/members)
+[![Issues](https://img.shields.io/github/issues/HiTechTN/app2nix?style=flat-square)](https://github.com/HiTechTN/app2nix/issues)
+[![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total?style=flat-square)](https://github.com/HiTechTN/app2nix/releases)
 
 ---
 
