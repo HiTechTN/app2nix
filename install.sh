@@ -197,7 +197,7 @@ EOF
 # Wrapper for app2nix server
 exec "$INSTALL_DIR/.venv/bin/python" "$INSTALL_DIR/server.py" "\$@"
 EOF
-    chmod +x "$BIN_DIR/app2nix-server
+    chmod +x "$BIN_DIR/app2nix-server"
     
     log_success "Wrapper scripts created"
 }
