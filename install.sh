@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # app2nix-installer.sh - Install app2nix on GLF-OS (NixOS)
-# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/14c4556/install.sh" | sudo bash
+# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/a6ac4a2/install.sh" | sudo bash
 #
 
 VERSION="1.0.0"
 REPO="HiTechTN/app2nix"
 INSTALL_DIR="/opt/app2nix"
 BIN_DIR="/usr/local/bin"
+TARGET_USER="${SUDO_USER:-hitech}"
 
 log_info() { echo "[INFO] $1"; }
 log_success() { echo "[OK] $1"; }
@@ -41,8 +42,7 @@ install_dependencies() {
         nixos|glfos)
             log_info "Installing dependencies via Nix..."
             if command -v nix-env >/dev/null 2>&1; then
-                nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
-                nix-env -iA nixpkgs.python3 2>/dev/null || true
+                nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file nixpkgs.python3 2>/dev/null || true
                 log_success "Done"
             else
                 log_warn "Nix not found, skipping"
@@ -92,102 +92,107 @@ create_python_venv() {
     cd "$INSTALL_DIR"
     
     python3 -m venv .venv 2>/dev/null || {
-        log_warn "venv failed, using system python"
+        log_warn "venv failed"
         return 0
     }
     
     .venv/bin/pip install -q --upgrade pip 2>/dev/null || true
     
-    .venv/bin/pip install -q fastapi uvicorn pydantic python-multipart 2>/dev/null || {
-        log_warn "Some packages failed, trying without pydantic..."
-        .venv/bin/pip install -q fastapi uvicorn python-multipart 2>/dev/null || true
+    .venv/bin/pip install -q fastapi uvicorn python-multipart 2>/dev/null || {
+        log_warn "Some packages failed"
     }
     
     log_success "Python ready"
 }
 
-create_system_service() {
-    log_info "Creating systemd service..."
-    
-    if [ ! -w /etc/systemd/system ]; then
-        log_warn "/etc/systemd is read-only, skipping service"
-        return 0
-    fi
-    
-    mkdir -p /etc/systemd/system
-    
-    cat > /etc/systemd/system/app2nix.service << ENDSERVICE
-[Unit]
-Description=app2nix - Universal package converter
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/server.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-ENDSERVICE
-    
-    systemctl daemon-reload -q 2>/dev/null || true
-    systemctl enable app2nix.service -q 2>/dev/null || true
-    
-    log_success "Service created"
-}
-
 create_dirs() {
     log_info "Creating directories..."
-    
     mkdir -p "$BIN_DIR"
-    mkdir -p /etc/profile.d
     mkdir -p /usr/share/applications
-    
     log_success "Directories created"
 }
 
 create_wrapper_scripts() {
     log_info "Creating commands..."
     
-    echo "#!/bin/bash" > "$BIN_DIR/app2nix"
-    echo "exec $INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py \"\$@\"" >> "$BIN_DIR/app2nix"
+    # Create wrapper in /usr/local/bin
+    cat > "$BIN_DIR/app2nix" << 'ENDSCRIPT'
+#!/bin/bash
+/opt/app2nix/.venv/bin/python /opt/app2nix/main.py "$@"
+ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix"
-    
-    echo "#!/bin/bash" > "$BIN_DIR/app2nix-server"
-    echo "exec $INSTALL_DIR/.venv/bin/python $INSTALL_DIR/server.py \"\$@\"" >> "$BIN_DIR/app2nix-server"
+
+    cat > "$BIN_DIR/app2nix-server" << 'ENDSCRIPT'
+#!/bin/bash
+/opt/app2nix/.venv/bin/python /opt/app2nix/server.py "$@"
+ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix-server"
     
     log_success "Commands created"
 }
 
-create_aliases() {
-    log_info "Creating aliases..."
+configure_user_shell() {
+    log_info "Configuring user shell for $TARGET_USER..."
     
-    # Try /etc/profile.d first
-    if [ -w /etc/profile.d ]; then
-        echo "alias app2nix='$BIN_DIR/app2nix'" > /etc/profile.d/app2nix.sh
-        echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> /etc/profile.d/app2nix.sh
-        chmod +x /etc/profile.d/app2nix.sh
+    local user_home
+    user_home=$(eval echo ~$TARGET_USER)
+    
+    # Add to PATH in .bashrc
+    if [ -f "$user_home/.bashrc" ]; then
+        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.bashrc" 2>/dev/null; then
+            echo "" >> "$user_home/.bashrc"
+            echo "# app2nix" >> "$user_home/.bashrc"
+            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.bashrc"
+            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.bashrc"
+            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.bashrc"
+            chown "$TARGET_USER:$TARGET_USER" "$user_home/.bashrc"
+        fi
     fi
     
-    # Also add to ~/.bashrc for user
-    if [ -w ~/.bashrc ]; then
-        echo "alias app2nix='$BIN_DIR/app2nix'" >> ~/.bashrc
-        echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> ~/.bashrc
+    # Also add to .profile for login shells
+    if [ -f "$user_home/.profile" ]; then
+        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.profile" 2>/dev/null; then
+            echo "" >> "$user_home/.profile"
+            echo "# app2nix" >> "$user_home/.profile"
+            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.profile"
+            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.profile"
+            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.profile"
+            chown "$TARGET_USER:$TARGET_USER" "$user_home/.profile"
+        fi
     fi
     
-    log_success "Aliases created"
+    # For zsh users
+    if [ -f "$user_home/.zshrc" ]; then
+        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.zshrc" 2>/dev/null; then
+            echo "" >> "$user_home/.zshrc"
+            echo "# app2nix" >> "$user_home/.zshrc"
+            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.zshrc"
+            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.zshrc"
+            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.zshrc"
+            chown "$TARGET_USER:$TARGET_USER" "$user_home/.zshrc"
+        fi
+    fi
+    
+    log_success "Shell configured for $TARGET_USER"
 }
 
-enable_autostart() {
-    log_info "Starting service..."
-    if [ -w /etc/systemd/system ]; then
-        systemctl start app2nix.service -q 2>/dev/null || true
-    fi
-    log_success "Started"
+create_desktop_entry() {
+    log_info "Creating desktop entry..."
+    
+    cat > /usr/share/applications/app2nix.desktop << 'ENDDESKTOP'
+[Desktop Entry]
+Name=app2nix
+Comment=Convert packages to NixOS
+Exec=/usr/local/bin/app2nix-server
+Icon=system-software-install
+Type=Application
+Categories=Development;System;
+Terminal=false
+StartupNotify=true
+ENDDESKTOP
+    
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+    log_success "Desktop entry created"
 }
 
 print_summary() {
@@ -197,10 +202,13 @@ print_summary() {
     echo "=========================================="
     echo
     echo "Web UI: http://localhost:8000"
-    echo "CLI:  $BIN_DIR/app2nix"
-    echo "Or:    /opt/app2nix/.venv/bin/python /opt/app2nix/main.py"
+    echo "CLI:  app2nix or /usr/local/bin/app2nix"
     echo
-    echo "Commands:"
+    echo "To use in current terminal:"
+    echo "  source ~/.bashrc"
+    echo "  app2nix <package.deb>"
+    echo
+    echo "Or run directly:"
     echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/main.py <package.deb>"
     echo "  /opt/app2nix/.venv/bin/python /opt/app2nix/server.py"
     echo "=========================================="
@@ -217,10 +225,9 @@ main() {
     download_app2nix
     create_dirs
     create_python_venv
-    create_system_service
     create_wrapper_scripts
-    create_aliases
-    enable_autostart
+    configure_user_shell
+    create_desktop_entry
     
     print_summary
 }
