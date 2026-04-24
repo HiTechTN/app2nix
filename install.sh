@@ -41,12 +41,21 @@ install_dependencies() {
     case "$os" in
         nixos|glfos)
             log_info "Installing dependencies via Nix..."
-            if command -v nix-env >/dev/null 2>&1; then
-                nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
-                log_success "Done"
-            else
-                log_warn "Nix not found, skipping"
-            fi
+            # Install tools
+            nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
+            
+            # Fix permissions for Nix tools - needs pkexec
+            log_info "Fixing Nix tools permissions..."
+            for bin in dpkg-deb patchelf file; do
+                for p in /run/current-system/sw/bin "$HOME/.nix-profile/bin"; do
+                    if [ -f "$p/$bin" ]; then
+                        pkexec chown root:root "$p/$bin" 2>/dev/null || true
+                        pkexec chmod 755 "$p/$bin" 2>/dev/null || true
+                    fi
+                done
+            done
+            
+            log_success "Done"
             ;;
         debian|ubuntu|linuxmint|pop|popos)
             log_info "Installing dependencies via apt..."
@@ -91,15 +100,17 @@ create_python_venv() {
     
     cd "$INSTALL_DIR"
     
-    python3 -m venv .venv 2>/dev/null || {
-        log_warn "venv failed"
-        return 0
-    }
+    # Remove old venv if broken
+    rm -rf .venv
     
-    .venv/bin/pip install -q --upgrade pip 2>/dev/null || true
+    python3 -m venv .venv
     
-    .venv/bin/pip install -q fastapi uvicorn python-multipart 2>/dev/null || {
-        log_warn "Some packages failed"
+    .venv/bin/pip install --upgrade pip
+    
+    # Install packages - retry on failure
+    .venv/bin/pip install fastapi uvicorn python-multipart || {
+        log_warn "pip install failed, trying with system pip"
+        python3 -m pip install --user fastapi uvicorn python-multipart
     }
     
     log_success "Python ready"

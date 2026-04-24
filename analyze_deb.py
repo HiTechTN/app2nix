@@ -14,21 +14,27 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 
+NIX_PATHS = [
+    "/run/current-system/sw/bin",
+    os.path.expanduser("~/.nix-profile/bin"),
+    "/usr/bin",
+    "/usr/local/bin",
+]
+
+
 def find_executable(name: str) -> str:
-    """Find executable in PATH - also check Nix profile locations."""
-    # Check PATH
-    path = shutil.which(name)
-    if path:
-        return path
-    # Check Nix system profile
-    nix_path = f"/run/current-system/sw/bin/{name}"
-    if os.path.exists(nix_path):
-        return nix_path
-    # Check Nix user profile
-    user_nix = os.path.expanduser("~/.nix-profile/bin/") + name
-    if os.path.exists(user_nix):
-        return user_nix
-    # Fall back to name (will fail with proper error)
+    """Find executable in various paths."""
+    # Check each path
+    for p in NIX_PATHS:
+        candidate = os.path.join(p, name)
+        if os.path.exists(candidate):
+            # Fix permissions if needed
+            if not os.access(candidate, os.X_OK):
+                try:
+                    subprocess.run(["chmod", "755", candidate], check=False, capture_output=True)
+                except:
+                    pass
+            return candidate
     return name
 
 
@@ -36,11 +42,21 @@ def extract_deb(deb_path: str) -> str:
     """Extract .deb to temporary directory."""
     temp_dir = tempfile.mkdtemp(prefix="app2nix_")
     dpkg_deb = find_executable("dpkg-deb")
-    subprocess.run(
-        [dpkg_deb, "-x", deb_path, temp_dir],
-        check=True,
-        capture_output=True
-    )
+    
+    # Try with pkexec if permission denied
+    try:
+        subprocess.run(
+            [dpkg_deb, "-x", deb_path, temp_dir],
+            check=True,
+            capture_output=True
+        )
+    except PermissionError:
+        # Try with pkexec
+        subprocess.run(
+            ["pkexec", dpkg_deb, "-x", deb_path, temp_dir],
+            check=True,
+            capture_output=True
+        )
     return temp_dir
 
 
