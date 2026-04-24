@@ -41,16 +41,15 @@ install_dependencies() {
     case "$os" in
         nixos|glfos)
             log_info "Installing dependencies via Nix..."
-            # Install tools
-            nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
+            # Install tools and also install fastapi via nix for web UI
+            nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file nixpkgs.python3 nixpkgs.fastapi nixpkgs.uvicorn 2>/dev/null || true
             
-            # Fix permissions for Nix tools - needs pkexec
+            # Fix permissions for Nix tools
             log_info "Fixing Nix tools permissions..."
             for bin in dpkg-deb patchelf file; do
                 for p in /run/current-system/sw/bin "$HOME/.nix-profile/bin"; do
                     if [ -f "$p/$bin" ]; then
-                        pkexec chown root:root "$p/$bin" 2>/dev/null || true
-                        pkexec chmod 755 "$p/$bin" 2>/dev/null || true
+                        chmod 755 "$p/$bin" 2>/dev/null || true
                     fi
                 done
             done
@@ -107,10 +106,9 @@ create_python_venv() {
     
     .venv/bin/pip install --upgrade pip
     
-    # Install packages - retry on failure
-    .venv/bin/pip install fastapi uvicorn python-multipart || {
-        log_warn "pip install failed, trying with system pip"
-        python3 -m pip install --user fastapi uvicorn python-multipart
+    # Install minimal packages (without pydantic which needs rust)
+    .venv/bin/pip install starlette uvicorn python-multipart || {
+        log_warn "pip install failed"
     }
     
     log_success "Python ready"

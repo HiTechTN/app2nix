@@ -1,106 +1,79 @@
 #!/usr/bin/env python3
 """
-app2nix - FastAPI Server
+app2nix - Minimal Web Server using starlette
 """
 
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from starlette.applications import Starlette
+from starlette.routing import Route, Mount
+from starlette.responses import HTMLResponse, JSONResponse
+from starlette.staticfiles import StaticFiles
+from starlette.requests import Request
+from starlette.middleware import Middleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from analyze_deb import get_all_dependencies
 from lib.deb_to_nix import translate_all
 
 
-app = FastAPI(
-    title="app2nix API",
-    description="Convert .deb packages to NixOS expressions",
-    version="1.0.0"
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 WORK_DIR = Path(tempfile.mkdtemp(prefix="app2nix_"))
 
-static_path = Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+async def homepage(request):
+    """Serve the landing page."""
+    static_path = Path(__file__).parent / "static" / "index.html"
+    if static_path.exists():
+        return HTMLResponse(static_path.read_text())
+    return HTMLResponse("""<html><body><h1>app2nix</h1><p>Upload a .deb file</p></body></html""")
 
 
-class PackageInfo(BaseModel):
-    name: str
-    version: str
-    architecture: str
-    libraries: list[str]
-    nix_dependencies: list[str]
-
-
-class NixOutput(BaseModel):
-    name: str
-    version: str
-    content: str
-
-
-class DownloadRequest(BaseModel):
-    url: str
-
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    index_file = static_path / "index.html"
-    return index_file.read_text()
-
-
-@app.get("/api")
-async def api_root():
-    return {"message": "app2nix API", "version": "1.0.0"}
-
-
-@app.post("/analyze", response_model=PackageInfo)
-async def analyze_package(file: UploadFile = File(...)):
-    """Analyze a .deb file and return package info."""
+async def analyze(request):
+    """Analyze a .deb file."""
+    form = await request.form()
+    file = form.get("file")
+    
+    if not file:
+        return JSONResponse({"error": "No file provided"}, status_code=400)
+    
     if not file.filename.endswith(".deb"):
-        raise HTTPException(status_code=400, detail="File must be .deb")
+        return JSONResponse({"error": "File must be .deb"}, status_code=400)
     
     temp_path = WORK_DIR / file.filename
     with open(temp_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(file.read())
     
     try:
         info = get_all_dependencies(str(temp_path))
         nix_deps = translate_all(info.get("dependencies", []))
         
-        return PackageInfo(
-            name=info.get("name", "unknown"),
-            version=info.get("version", "1.0"),
-            architecture=info.get("architecture", "amd64"),
-            libraries=info.get("dependencies", []),
-            nix_dependencies=nix_deps
-        )
+        return JSONResponse({
+            "name": info.get("name", "unknown"),
+            "version": info.get("version", "1.0"),
+            "architecture": info.get("architecture", "amd64"),
+            "libraries": info.get("dependencies", []),
+            "nix_dependencies": nix_deps
+        })
     finally:
         temp_path.unlink(missing_ok=True)
 
 
-@app.post("/generate", response_model=NixOutput)
-async def generate_nix(file: UploadFile = File(...)):
-    """Generate default.nix from .deb file."""
+async def generate(request):
+    """Generate Nix expression."""
+    form = await request.form()
+    file = form.get("file")
+    
+    if not file:
+        return JSONResponse({"error": "No file provided"}, status_code=400)
+    
     if not file.filename.endswith(".deb"):
-        raise HTTPException(status_code=400, detail="File must be .deb")
+        return JSONResponse({"error": "File must be .deb"}, status_code=400)
     
     temp_path = WORK_DIR / file.filename
     with open(temp_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(file.read())
     
     try:
         info = get_all_dependencies(str(temp_path))
@@ -121,53 +94,36 @@ pkgs.stdenv.mkDerivation {{
     pkgs.autoPatchelfHook
 {deps_lines}  ];
 
-  installPhase = ''
-    runHook preInstall
-
-    mkdir -p $out/bin
-    mkdir -p $out/share
-
-    cp -r usr/share/* $out/share/ 2>/dev/null || true
-    cp -r opt/* $out/opt/ 2>/dev/null || true
-
-    runHook postInstall
-  '';
+  installPhase = '';
 }}
 '''
         
-        return NixOutput(
-            name=info.get("name", "app"),
-            version=info.get("version", "1.0"),
-            content=content
-        )
-    finally:
-        temp_path.unlink(missing_ok=True)
-
-
-@app.post("/download")
-async def download_from_url(req: DownloadRequest):
-    """Download and analyze .deb from URL."""
-    import urllib.request
-    
-    url = req.url
-    filename = url.split("/")[-1]
-    if not filename.endswith(".deb"):
-        raise HTTPException(status_code=400, detail="URL must point to .deb file")
-    
-    temp_path = WORK_DIR / filename
-    try:
-        urllib.request.urlretrieve(url, str(temp_path))
-        
-        info = get_all_dependencies(str(temp_path))
-        nix_deps = translate_all(info.get("dependencies", []))
-        
-        return {
-            "name": info.get("name", "unknown"),
+        return JSONResponse({
+            "name": info.get("name", "app"),
             "version": info.get("version", "1.0"),
-            "nix_dependencies": nix_deps
-        }
+            "content": content
+        })
     finally:
         temp_path.unlink(missing_ok=True)
+
+
+async def api_root(request):
+    """API info."""
+    return JSONResponse({"message": "app2nix API", "version": "1.0.0"})
+
+
+routes = [
+    Route("/", homepage),
+    Route("/api", api_root),
+    Route("/analyze", analyze, methods=["POST"]),
+    Route("/generate", generate, methods=["POST"]),
+]
+
+app = Starlette(
+    debug=True,
+    routes=routes,
+    middleware=[Middleware(SessionMiddleware, secret_key="app2nix-secret")]
+)
 
 
 if __name__ == "__main__":
