@@ -20,3 +20,10 @@ ENV/
 .DS_Store
 *.swp
 *~
+
+# Docker
+.dockerignore
+
+# IDE
+.idea/
+.vscode/

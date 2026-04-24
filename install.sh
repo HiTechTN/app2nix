@@ -1,249 +1,319 @@
 #!/usr/bin/env bash
 #
-# app2nix-installer.sh - Install app2nix on GLF-OS (NixOS)
-# Usage: curl -sL "https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh" | sudo bash
+# app2nix-install.sh - One-line installer for app2nix
+# Usage: curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash [-s OPTIONS]
 #
+# Options:
+#   --docker       Install and run with Docker
+#   --system       System-wide installation (requires root)
+#   --user         User installation (home directory)
+#   --upgrade      Upgrade existing installation
+#   --uninstall    Remove installation
+#   --help         Show this help
+#
+# Examples:
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --docker
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --upgrade
+#
+
+set -e
 
 VERSION="1.0.0"
 REPO="HiTechTN/app2nix"
-INSTALL_DIR="/opt/app2nix"
-BIN_DIR="/usr/local/bin"
-TARGET_USER="${SUDO_USER:-hitech}"
+RAW_URL="https://raw.githubusercontent.com/${REPO}/main"
+INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
+BIN_DIR="${APP2NIX_BIN:-$HOME/.local/bin}"
 
-log_info() { echo "[INFO] $1"; }
-log_success() { echo "[OK] $1"; }
-log_warn() { echo "[WARN] $1"; }
-log_error() { echo "[ERROR] $1"; }
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-check_root() {
-    if [ "$(id -u)" -ne 0 ]; then
-        log_error "This script must be run as root"
-        exit 1
-    fi
+log() { echo -e "${BLUE}[app2nix]${NC} $1"; }
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+ok() { echo -e "${GREEN}[OK]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+
+print_banner() {
+    cat << 'BANNER'
+     _      ____           _           _
+    | |    |  _ \         | |         | |
+    | |    | |_) | ___ _ _| |_ ___ _ __| | ___  ___
+    | |    | _ < / _ \ '__| __/ _ \ '__| |/ _ \/ __|
+    | |____| |_) |  __/ |  | ||  __/ |  | |  __/\__ \
+    |______|____/ \___|_|   \__\___|_|  |_|\___||___/
+
+    Universal Package to NixOS Converter vVERSION_PLACEHOLDER
+BANNER
 }
 
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        echo "$ID"
-    elif [ -f /run/current-system/sw/etc/os-release ]; then
-        echo "nixos"
+show_help() {
+    print_banner | sed "s/VERSION_PLACEHOLDER/$VERSION/g"
+    cat << 'HELP'
+
+USAGE:
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash [OPTIONS]
+
+OPTIONS:
+    --docker      Install and run using Docker (recommended)
+    --system      System-wide installation (requires root)
+    --user        User installation in ~/.local (default)
+    --upgrade     Upgrade existing installation
+    --uninstall   Remove app2nix installation
+    --start       Start the app2nix server
+    --stop        Stop the app2nix server
+    --restart     Restart the app2nix server
+    --logs        Show server logs
+    --help        Show this help message
+
+EXAMPLES:
+    # Quick start with Docker (recommended)
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --docker
+
+    # User installation
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash
+
+    # System installation
+    sudo curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --system
+
+    # Upgrade existing installation
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --upgrade
+
+DOCKER COMMANDS:
+    # Start server
+    app2nix --start
+
+    # View logs
+    app2nix --logs
+
+    # Stop server
+    app2nix --stop
+
+    # Open browser
+    xdg-open http://localhost:8000
+
+DOCUMENTATION:
+    Web UI:     http://localhost:8000
+    GitHub:     https://github.com/HiTechTN/app2nix
+    Issues:     https://github.com/HiTechTN/app2nix/issues
+
+HELP
+}
+
+check_docker() {
+    if command -v docker >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+install_docker() {
+    log "Installing app2nix with Docker..."
+
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+
+    curl -sL "${RAW_URL}/Dockerfile" -o Dockerfile
+    curl -sL "${RAW_URL}/docker-compose.yml" -o docker-compose.yml
+    curl -sL "${RAW_URL}/requirements.txt" -o requirements.txt
+
+    docker build -t hitechtn/app2nix:latest .
+
+    docker compose up -d
+
+    ok "Docker installation complete!"
+    echo
+    info "Server running at: http://localhost:8000"
+    info "Docker container: app2nix"
+    echo
+    echo "Commands:"
+    echo "  app2nix --start   # Start server"
+    echo "  app2nix --stop    # Stop server"
+    echo "  app2nix --logs    # View logs"
+}
+
+start_docker() {
+    cd "$INSTALL_DIR"
+    if [ -f docker-compose.yml ]; then
+        docker compose up -d
+        ok "Server started"
     else
-        echo "nixos"
+        error "Docker not installed. Run: curl -sL ... | bash -s --docker"
     fi
 }
 
-install_dependencies() {
+stop_docker() {
+    cd "$INSTALL_DIR" 2>/dev/null || true
+    if [ -f docker-compose.yml ]; then
+        docker compose down 2>/dev/null && ok "Server stopped" || warn "Server was not running"
+    fi
+}
+
+restart_docker() {
+    stop_docker
+    sleep 1
+    start_docker
+}
+
+logs_docker() {
+    cd "$INSTALL_DIR" 2>/dev/null || true
+    if [ -f docker-compose.yml ]; then
+        docker compose logs -f
+    fi
+}
+
+install_system() {
     local os
-    os=$(detect_os)
-    log_info "Detected OS: $os"
-    
-    case "$os" in
-        nixos|glfos)
-            log_info "Installing dependencies via Nix..."
-            # Install tools and also install fastapi via nix for web UI
-            nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file nixpkgs.python3 nixpkgs.fastapi nixpkgs.uvicorn 2>/dev/null || true
-            
-            # Fix permissions for Nix tools
-            log_info "Fixing Nix tools permissions..."
-            for bin in dpkg-deb patchelf file; do
-                for p in /run/current-system/sw/bin "$HOME/.nix-profile/bin"; do
-                    if [ -f "$p/$bin" ]; then
-                        chmod 755 "$p/$bin" 2>/dev/null || true
-                    fi
-                done
-            done
-            
-            log_success "Done"
+    os=$(uname -s)
+
+    log "System-wide installation (requires root)..."
+
+    if [ "$os" = "Linux" ]; then
+        apt-get update -qq
+        apt-get install -y -qq python3 python3-venv git curl dpkg patchelf file 2>/dev/null || \
+        pacman -S --noconfirm python python-pip git curl dpkg patchelf file 2>/dev/null || \
+        dnf install -y python3 python3-pip git curl dpkg patchelf file 2>/dev/null
+    fi
+
+    install_user
+    ok "System installation complete!"
+    echo
+    info "Commands installed to: /usr/local/bin/app2nix"
+}
+
+install_user() {
+    log "Installing app2nix to $INSTALL_DIR..."
+
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$BIN_DIR"
+
+    cd "$INSTALL_DIR"
+
+    if command -v git >/dev/null 2>&1; then
+        git clone --depth=1 https://github.com/${REPO}.git . 2>/dev/null || {
+            rm -rf .git
+            git init -q
+            git remote add origin https://github.com/${REPO}.git
+            git fetch origin -q
+            git checkout -b master origin/master -q
+        }
+    else
+        curl -sL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz
+        mv app2nix-*/* .
+        rm -rf app2nix-*
+    fi
+
+    python3 -m venv .venv 2>/dev/null || python3 -m venv --system-site-packages .venv
+    .venv/bin/pip install --upgrade pip -q
+    .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
+
+    create_alias
+
+    ok "User installation complete!"
+    echo
+    info "Server: app2nix-server"
+    info "CLI:    app2nix"
+}
+
+create_alias() {
+    cat > "$BIN_DIR/app2nix" << 'ALIAS'
+#!/usr/bin/env bash
+# app2nix - Universal Package to NixOS Converter
+export PATH="$HOME/.local/app2nix/.venv/bin:$PATH"
+exec python3 "$HOME/.local/app2nix/main.py" "$@"
+ALIAS
+    chmod +x "$BIN_DIR/app2nix"
+
+    cat > "$BIN_DIR/app2nix-server" << 'SERVER'
+#!/usr/bin/env bash
+# app2nix-server - Web UI for app2nix
+export PATH="$HOME/.local/app2nix/.venv/bin:$PATH"
+exec python3 "$HOME/.local/app2nix/server.py" "$@"
+SERVER
+    chmod +x "$BIN_DIR/app2nix-server"
+}
+
+uninstall() {
+    warn "Uninstalling app2nix..."
+
+    rm -rf "$INSTALL_DIR"
+    rm -f "$BIN_DIR/app2nix"
+    rm -f "$BIN_DIR/app2nix-server"
+
+    docker stop app2nix 2>/dev/null || true
+    docker rm app2nix 2>/dev/null || true
+
+    ok "Uninstalled!"
+}
+
+upgrade() {
+    if check_docker; then
+        cd "$INSTALL_DIR" 2>/dev/null && docker compose pull && docker compose up -d --force-recreate
+    else
+        cd "$INSTALL_DIR"
+        git pull origin master 2>/dev/null || {
+            rm -rf .git
+            git init -q
+            git remote add origin https://github.com/${REPO}.git
+            git pull origin master
+        }
+        .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
+    fi
+    ok "Upgraded to latest version!"
+}
+
+main() {
+    local arg="${1:-}"
+
+    case "$arg" in
+        --docker|-d)
+            check_docker && install_docker || { error "Docker not found. Install Docker first."; exit 1; }
             ;;
-        debian|ubuntu|linuxmint|pop|popos)
-            log_info "Installing dependencies via apt..."
-            apt-get update -qq
-            apt-get install -y -qq dpkg patchelf file python3 python3-venv git curl >/dev/null 2>&1
-            log_success "Done"
+        --system|-s)
+            [ "$(id -u)" = "0" ] && install_system || { error "System installation requires root"; exit 1; }
+            ;;
+        --user|-u)
+            install_user
+            ;;
+        --upgrade|--update)
+            upgrade
+            ;;
+        --uninstall|--remove)
+            uninstall
+            ;;
+        --start)
+            check_docker && start_docker || { cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python server.py &>/dev/null &; ok "Server started at http://localhost:8000"; }
+            ;;
+        --stop)
+            check_docker && stop_docker || { pkill -f "python.*server.py" 2>/dev/null; ok "Server stopped"; }
+            ;;
+        --restart)
+            check_docker && restart_docker || { stop; sleep 1; start; }
+            ;;
+        --logs|-l)
+            check_docker && logs_docker || { journalctl -u app2nix 2>/dev/null || docker logs app2nix 2>/dev/null; }
+            ;;
+        --help|-h)
+            show_help
+            ;;
+        "")
+            print_banner | sed "s/VERSION_PLACEHOLDER/$VERSION/g"
+            echo
+            if check_docker; then
+                install_docker
+            else
+                install_user
+            fi
             ;;
         *)
-            log_warn "Unknown OS: $os"
+            error "Unknown option: $arg"
+            echo "Use --help for usage information"
+            exit 1
             ;;
     esac
 }
 
-download_app2nix() {
-    log_info "Downloading app2nix..."
-    
-    rm -rf "$INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
-    
-    if command -v git >/dev/null 2>&1; then
-        git init -q
-        git remote add origin "https://github.com/${REPO}.git"
-        git fetch origin -q
-        git checkout -b master origin/master -q
-    else
-        curl -sL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz
-        mv app2nix-master/* .
-        rm -rf app2nix-master
-    fi
-    
-    log_success "Downloaded"
-}
-
-create_python_venv() {
-    log_info "Setting up Python..."
-    
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "Python3 not found"
-        return 1
-    fi
-    
-    cd "$INSTALL_DIR"
-    
-    # Remove old venv if broken
-    rm -rf .venv
-    
-    python3 -m venv .venv
-    
-    .venv/bin/pip install --upgrade pip
-    
-    # Install minimal packages (without pydantic which needs rust)
-    .venv/bin/pip install starlette uvicorn python-multipart || {
-        log_warn "pip install failed"
-    }
-    
-    log_success "Python ready"
-}
-
-create_dirs() {
-    log_info "Creating directories..."
-    mkdir -p "$BIN_DIR"
-    mkdir -p /usr/share/applications
-    log_success "Directories created"
-}
-
-create_wrapper_scripts() {
-    log_info "Creating commands..."
-    
-    NIX_PROF="/run/current-system/sw"
-    USER_NIX="$HOME/.nix-profile"
-    
-    # Fix permissions for Nix tools - needs sudo
-    log_info "Fixing Nix tools permissions..."
-    chmod 755 "$NIX_PROF/bin/dpkg-deb" 2>/dev/null || true
-    chmod 755 "$NIX_PROF/bin/patchelf" 2>/dev/null || true
-    chmod 755 "$NIX_PROF/bin/file" 2>/dev/null || true
-    chmod 755 "$USER_NIX/bin/dpkg-deb" 2>/dev/null || true
-    chmod 755 "$USER_NIX/bin/patchelf" 2>/dev/null || true
-    
-    cat > "$BIN_DIR/app2nix" << ENDSCRIPT
-#!/usr/bin/env bash
-# app2nix CLI wrapper
-export PATH="$NIX_PROF/bin:$USER_NIX/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
-export LD_LIBRARY_PATH="$NIX_PROF/lib:$USER_NIX/lib:\$LD_LIBRARY_PATH"
-chmod 755 "$NIX_PROF/bin/dpkg-deb" 2>/dev/null || true
-chmod 755 "$NIX_PROF/bin/file" 2>/dev/null || true
-exec /opt/app2nix/.venv/bin/python /opt/app2nix/main.py "\$@"
-ENDSCRIPT
-    chmod +x "$BIN_DIR/app2nix"
-
-    cat > "$BIN_DIR/app2nix-server" << ENDSCRIPT
-#!/usr/bin/env bash
-# app2nix server wrapper  
-export PATH="$NIX_PROF/bin:$USER_NIX/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
-export LD_LIBRARY_PATH="$NIX_PROF/lib:$USER_NIX/lib:\$LD_LIBRARY_PATH"
-exec /opt/app2nix/.venv/bin/python /opt/app2nix/server.py "\$@"
-ENDSCRIPT
-    chmod +x "$BIN_DIR/app2nix-server"
-    
-    log_success "Commands created"
-}
-
-configure_user_shell() {
-    log_info "Configuring user shell for $TARGET_USER..."
-    
-    local user_home
-    user_home=$(eval echo ~$TARGET_USER 2>/dev/null) || user_home="/home/$TARGET_USER"
-    
-    local shell_config="$user_home/.bashrc"
-    [ -f "$user_home/.zshrc" ] && shell_config="$user_home/.zshrc"
-    
-    if [ -f "$shell_config" ]; then
-        if ! grep -q "app2nix" "$shell_config" 2>/dev/null; then
-            echo "" >> "$shell_config"
-            echo "# app2nix - package to NixOS converter" >> "$shell_config"
-            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$shell_config"
-            echo "export PATH=\"\$HOME/.nix-profile/bin:\$PATH\"" >> "$shell_config"
-            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$shell_config"
-            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$shell_config"
-        fi
-    fi
-    
-    if [ -f "$user_home/.profile" ]; then
-        if ! grep -q "app2nix" "$user_home/.profile" 2>/dev/null; then
-            echo "" >> "$user_home/.profile"
-            echo "# app2nix" >> "$user_home/.profile"
-            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.profile"
-            echo "export PATH=\"\$HOME/.nix-profile/bin:\$PATH\"" >> "$user_home/.profile"
-        fi
-    fi
-    
-    log_success "Shell configured for $TARGET_USER"
-}
-
-create_desktop_entry() {
-    log_info "Creating desktop entry..."
-    
-    cat > /usr/share/applications/app2nix.desktop << 'ENDDESKTOP'
-[Desktop Entry]
-Name=app2nix Web UI
-Comment=Convert packages to NixOS
-Exec=/usr/local/bin/app2nix-server
-Icon=system-software-install
-Type=Application
-Categories=Development;System;
-Terminal=false
-StartupNotify=true
-ENDDESKTOP
-    
-    update-desktop-database /usr/share/applications 2>/dev/null || true
-    log_success "Desktop entry created"
-}
-
-print_summary() {
-    echo
-    echo "=========================================="
-    echo "  app2nix v$VERSION installed!"
-    echo "=========================================="
-    echo
-    echo "Web UI: http://localhost:8000"
-    echo "CLI:  app2nix or /usr/local/bin/app2nix"
-    echo
-    echo "To use in current terminal:"
-    echo "  source ~/.bashrc"
-    echo "  app2nix --help"
-    echo
-    echo "To start web UI:"
-    echo "  app2nix-server"
-    echo "  # Then open http://localhost:8000"
-    echo "=========================================="
-}
-
-main() {
-    echo "=========================================="
-    echo "  app2nix Installer v$VERSION"
-    echo "  For GLF-OS (NixOS)"
-    echo "=========================================="
-    
-    check_root
-    install_dependencies
-    download_app2nix
-    create_dirs
-    create_python_venv
-    create_wrapper_scripts
-    configure_user_shell
-    create_desktop_entry
-    
-    print_summary
-}
-
-main
+main "$@"

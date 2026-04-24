@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  app2nix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app2nix
+    image: hitechtn/app2nix:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    volumes:
+      - app2nix_data:/data
+
+volumes:
+  app2nix_data:
+
+networks:
+  default:
+    name: app2nix_network
