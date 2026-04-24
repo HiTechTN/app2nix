@@ -42,7 +42,10 @@ install_dependencies() {
         nixos|glfos)
             log_info "Installing dependencies via Nix..."
             if command -v nix-env >/dev/null 2>&1; then
-                nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file nixpkgs.python3 2>/dev/null || true
+                # Install tools that will be available at runtime
+                nix-env -iA nixpkgs.dpkg nixpkgs.patchelf nixpkgs.file 2>/dev/null || true
+                # Also install to user profile for this session
+                nix-env -iA nixpkgs.python3 2>/dev/null || true
                 log_success "Done"
             else
                 log_warn "Nix not found, skipping"
@@ -115,16 +118,20 @@ create_dirs() {
 create_wrapper_scripts() {
     log_info "Creating commands..."
     
-    # Create wrapper in /usr/local/bin
+    # Create wrapper in /usr/local/bin - use env python
     cat > "$BIN_DIR/app2nix" << 'ENDSCRIPT'
-#!/bin/bash
-/opt/app2nix/.venv/bin/python /opt/app2nix/main.py "$@"
+#!/usr/bin/env bash
+# app2nix CLI wrapper
+export PATH="/run/current-system/sw/bin:$PATH"
+exec /opt/app2nix/.venv/bin/python /opt/app2nix/main.py "$@"
 ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix"
 
     cat > "$BIN_DIR/app2nix-server" << 'ENDSCRIPT'
-#!/bin/bash
-/opt/app2nix/.venv/bin/python /opt/app2nix/server.py "$@"
+#!/usr/bin/env bash
+# app2nix server wrapper
+export PATH="/run/current-system/sw/bin:$PATH"
+exec /opt/app2nix/.venv/bin/python /opt/app2nix/server.py "$@"
 ENDSCRIPT
     chmod +x "$BIN_DIR/app2nix-server"
     
@@ -135,41 +142,31 @@ configure_user_shell() {
     log_info "Configuring user shell for $TARGET_USER..."
     
     local user_home
-    user_home=$(eval echo ~$TARGET_USER)
+    user_home=$(eval echo ~$TARGET_USER 2>/dev/null) || user_home="/home/$TARGET_USER"
     
-    # Add to PATH in .bashrc
-    if [ -f "$user_home/.bashrc" ]; then
-        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.bashrc" 2>/dev/null; then
-            echo "" >> "$user_home/.bashrc"
-            echo "# app2nix" >> "$user_home/.bashrc"
-            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.bashrc"
-            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.bashrc"
-            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.bashrc"
-            chown "$TARGET_USER:$TARGET_USER" "$user_home/.bashrc"
+    local shell_config="$user_home/.bashrc"
+    [ -f "$user_home/.zshrc" ] && shell_config="$user_home/.zshrc"
+    
+    # Add to PATH - include nix profile paths
+    if [ -f "$shell_config" ]; then
+        if ! grep -q "app2nix" "$shell_config" 2>/dev/null; then
+            echo "" >> "$shell_config"
+            echo "# app2nix - package to NixOS converter" >> "$shell_config"
+            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$shell_config"
+            echo "export PATH=\"\$HOME/.nix-profile/bin:\$PATH\"" >> "$shell_config"
+            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$shell_config"
+            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$shell_config"
+            chmod 644 "$shell_config" 2>/dev/null || true
         fi
     fi
     
-    # Also add to .profile for login shells
+    # Also update .profile for login shells
     if [ -f "$user_home/.profile" ]; then
-        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.profile" 2>/dev/null; then
+        if ! grep -q "app2nix" "$user_home/.profile" 2>/dev/null; then
             echo "" >> "$user_home/.profile"
             echo "# app2nix" >> "$user_home/.profile"
             echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.profile"
-            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.profile"
-            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.profile"
-            chown "$TARGET_USER:$TARGET_USER" "$user_home/.profile"
-        fi
-    fi
-    
-    # For zsh users
-    if [ -f "$user_home/.zshrc" ]; then
-        if ! grep -q "$BIN_DIR/app2nix" "$user_home/.zshrc" 2>/dev/null; then
-            echo "" >> "$user_home/.zshrc"
-            echo "# app2nix" >> "$user_home/.zshrc"
-            echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$user_home/.zshrc"
-            echo "alias app2nix='$BIN_DIR/app2nix'" >> "$user_home/.zshrc"
-            echo "alias app2nix-server='$BIN_DIR/app2nix-server'" >> "$user_home/.zshrc"
-            chown "$TARGET_USER:$TARGET_USER" "$user_home/.zshrc"
+            echo "export PATH=\"\$HOME/.nix-profile/bin:\$PATH\"" >> "$user_home/.profile"
         fi
     fi
     
