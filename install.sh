@@ -25,7 +25,11 @@ VERSION="1.0.0"
 REPO="HiTechTN/app2nix"
 RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
-BIN_DIR="${APP2NIX_BIN:-$HOME/.local/bin}"
+if [ "$(id -u)" = "0" ]; then
+    BIN_DIR="/usr/local/bin"
+else
+    BIN_DIR="${APP2NIX_BIN:-$HOME/.local/bin}"
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -225,6 +229,8 @@ install_user() {
 }
 
 create_alias() {
+    mkdir -p "$BIN_DIR"
+    
     cat > "$BIN_DIR/app2nix" << 'ALIAS'
 #!/usr/bin/env bash
 # app2nix - Universal Package to NixOS Converter
