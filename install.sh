@@ -287,16 +287,32 @@ main() {
             uninstall
             ;;
         start)
-            check_docker && start_docker || { cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python server.py &>/dev/null &; ok "Server started at http://localhost:8000"; }
+            if check_docker; then
+                start_docker
+            else
+                cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python server.py &>/dev/null &
+                ok "Server started at http://localhost:8000"
+            fi
             ;;
         stop)
-            check_docker && stop_docker || { pkill -f "python.*server.py" 2>/dev/null; ok "Server stopped"; }
+            if check_docker; then
+                stop_docker
+            else
+                pkill -f "python.*server.py" 2>/dev/null
+                ok "Server stopped"
+            fi
             ;;
         restart)
-            check_docker && restart_docker || { stop; sleep 1; start; }
+            stop
+            sleep 1
+            start
             ;;
         logs|l)
-            check_docker && logs_docker || { journalctl -u app2nix 2>/dev/null || docker logs app2nix 2>/dev/null; }
+            if check_docker; then
+                logs_docker
+            else
+                journalctl -u app2nix 2>/dev/null || docker logs app2nix 2>/dev/null
+            fi
             ;;
         help|-h|--help)
             show_help
