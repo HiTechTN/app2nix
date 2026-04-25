@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
 # app2nix-install.sh - One-line installer for app2nix
-# Usage: curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash [-s OPTIONS]
+#
+# Usage:
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash
 #
 # Options:
 #   --docker       Install and run with Docker
@@ -13,8 +15,8 @@
 #
 # Examples:
 #   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash
-#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --docker
-#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --upgrade
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s -- --docker
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s -- --upgrade
 #
 
 set -e
@@ -269,34 +271,34 @@ main() {
     local arg="${1:-}"
 
     case "$arg" in
-        --docker|-d)
+        docker)
             check_docker && install_docker || { error "Docker not found. Install Docker first."; exit 1; }
             ;;
-        --system|-s)
+        system)
             [ "$(id -u)" = "0" ] && install_system || { error "System installation requires root"; exit 1; }
             ;;
-        --user|-u)
+        user|u)
             install_user
             ;;
-        --upgrade|--update)
+        upgrade|update)
             upgrade
             ;;
-        --uninstall|--remove)
+        uninstall|remove)
             uninstall
             ;;
-        --start)
+        start)
             check_docker && start_docker || { cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python server.py &>/dev/null &; ok "Server started at http://localhost:8000"; }
             ;;
-        --stop)
+        stop)
             check_docker && stop_docker || { pkill -f "python.*server.py" 2>/dev/null; ok "Server stopped"; }
             ;;
-        --restart)
+        restart)
             check_docker && restart_docker || { stop; sleep 1; start; }
             ;;
-        --logs|-l)
+        logs|l)
             check_docker && logs_docker || { journalctl -u app2nix 2>/dev/null || docker logs app2nix 2>/dev/null; }
             ;;
-        --help|-h)
+        help|-h|--help)
             show_help
             ;;
         "")
@@ -310,7 +312,7 @@ main() {
             ;;
         *)
             error "Unknown option: $arg"
-            echo "Use --help for usage information"
+            echo "Use: curl ... | bash docker|system|user|upgrade|uninstall|start|stop|restart|logs|help"
             exit 1
             ;;
     esac
