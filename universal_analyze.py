@@ -245,18 +245,18 @@ class PackageAnalyzer:
                         if "ELF" in result.stdout and ("executable" in result.stdout or
                             "shared object" in result.stdout):
                             binaries.append(str(path.relative_to(directory)))
-                    except:
+                    except Exception:
                         pass
         return binaries
 
     def _find_libraries(self, directory: Path) -> list[str]:
         """Find shared libraries."""
         libraries = set()
-        for root, _, files in os.walk(directory):
+        for _root, _dirs, files in os.walk(directory):
             for f in files:
                 if f.endswith(".so"):
                     libraries.add(f)
-        return sorted(list(libraries))
+        return sorted(libraries)
 
 
 def main():

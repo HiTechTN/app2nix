@@ -5,8 +5,6 @@ Utility functions for app2nix.
 
 import os
 import subprocess
-from pathlib import Path
-from typing import List, Optional
 
 
 def verify_deb_file(path: str) -> bool:
@@ -87,7 +85,7 @@ def find_binaries(path: str) -> list[str]:
     """Find executable binaries in extracted .deb."""
     binaries = []
 
-    for root, dirs, files in os.walk(path):
+    for root, _dirs, files in os.walk(path):
         for f in files:
             fp = os.path.join(root, f)
             if os.path.isfile(fp) and os.access(fp, os.X_OK):

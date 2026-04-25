@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """Take screenshots of app2nix web UI."""
 
-import os
 import sys
-import time
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from PIL import Image
 import uvicorn
+from PIL import Image
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.ui import WebDriverWait
+
 from server import app
 
 SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
@@ -50,7 +50,7 @@ def take_screenshot(driver, url, filename, wait_for=None):
     if wait_for:
         try:
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, wait_for))
+                expected_conditions.presence_of_element_located((By.CSS_SELECTOR, wait_for))
             )
         except Exception:
             pass
