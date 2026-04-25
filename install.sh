@@ -126,15 +126,19 @@ install_docker() {
 
     docker compose up -d
 
+    create_alias
+
     ok "Docker installation complete!"
     echo
     info "Server running at: http://localhost:8000"
     info "Docker container: app2nix"
     echo
     echo "Commands:"
-    echo "  app2nix --start   # Start server"
-    echo "  app2nix --stop    # Stop server"
-    echo "  app2nix --logs    # View logs"
+    echo "  app2nix          # CLI tool (analyze packages)"
+    echo "  app2nix start    # Start server"
+    echo "  app2nix stop     # Stop server"
+    echo "  app2nix restart  # Restart server"
+    echo "  app2nix logs     # View logs"
 }
 
 start_docker() {
@@ -224,16 +228,42 @@ create_alias() {
     cat > "$BIN_DIR/app2nix" << 'ALIAS'
 #!/usr/bin/env bash
 # app2nix - Universal Package to NixOS Converter
-export PATH="$HOME/.local/app2nix/.venv/bin:$PATH"
-exec python3 "$HOME/.local/app2nix/main.py" "$@"
+INSTALL_DIR="$HOME/.local/app2nix"
+case "${1:-}" in
+    start)
+        cd "$INSTALL_DIR" && docker compose up -d
+        ;;
+    stop)
+        cd "$INSTALL_DIR" && docker compose down
+        ;;
+    logs)
+        cd "$INSTALL_DIR" && docker compose logs -f
+        ;;
+    restart)
+        cd "$INSTALL_DIR" && docker compose restart
+        ;;
+    *)
+        cd "$INSTALL_DIR"
+        if [ -f .venv/bin/python ]; then
+            exec .venv/bin/python "$INSTALL_DIR/main.py" "$@"
+        else
+            exec python3 "$INSTALL_DIR/main.py" "$@"
+        fi
+        ;;
+esac
 ALIAS
     chmod +x "$BIN_DIR/app2nix"
 
     cat > "$BIN_DIR/app2nix-server" << 'SERVER'
 #!/usr/bin/env bash
 # app2nix-server - Web UI for app2nix
-export PATH="$HOME/.local/app2nix/.venv/bin:$PATH"
-exec python3 "$HOME/.local/app2nix/server.py" "$@"
+INSTALL_DIR="$HOME/.local/app2nix"
+cd "$INSTALL_DIR"
+if [ -f .venv/bin/python ]; then
+    exec .venv/bin/python "$INSTALL_DIR/server.py" "$@"
+else
+    exec python3 "$INSTALL_DIR/server.py" "$@"
+fi
 SERVER
     chmod +x "$BIN_DIR/app2nix-server"
 }
