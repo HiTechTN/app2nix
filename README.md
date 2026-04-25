@@ -144,7 +144,7 @@ docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
 # Open http://localhost:8000
 ```
 
-Or test online at **[app2nix.dev](https://app2nix.dev)** (coming soon)
+Or test online at **[app2nix.dev](https://hitechtn.github.io/app2nix)**
 
 ---
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # app2nix-install.sh - One-line installer for app2nix
-# Usage: curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash [-s OPTIONS]
+# Usage: curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash [-s OPTIONS]
 #
 # Options:
 #   --docker       Install and run with Docker
@@ -12,16 +12,16 @@
 #   --help         Show this help
 #
 # Examples:
-#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash
-#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --docker
-#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --upgrade
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --docker
+#   curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --upgrade
 #
 
 set -e
 
 VERSION="1.0.0"
 REPO="HiTechTN/app2nix"
-RAW_URL="https://raw.githubusercontent.com/${REPO}/main"
+RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
 BIN_DIR="${APP2NIX_BIN:-$HOME/.local/bin}"
 
