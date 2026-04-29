@@ -27,24 +27,30 @@ async def homepage(request):
 
 
 async def analyze(request):
-    """Analyze a .deb file."""
+    """Analyze a .deb file or URL."""
     form = await request.form()
     file = form.get("file")
-
-    if not file:
-        return JSONResponse({"error": "No file provided"}, status_code=400)
-
-    if not file.filename.endswith(".deb"):
-        return JSONResponse({"error": "File must be .deb"}, status_code=400)
-
-    temp_path = WORK_DIR / file.filename
-    with open(temp_path, "wb") as f:
-        f.write(file.read())
-
+    url = form.get("url")
+    
+    temp_path = None
     try:
+        if url:
+            import urllib.request
+            print(f"Downloading {url}...")
+            temp_path = WORK_DIR / "downloaded_package"
+            urllib.request.urlretrieve(url, str(temp_path))
+        elif file:
+            if not file.filename.endswith(".deb"):
+                return JSONResponse({"error": "File must be .deb"}, status_code=400)
+            temp_path = WORK_DIR / file.filename
+            with open(temp_path, "wb") as f:
+                f.write(file.read())
+        else:
+            return JSONResponse({"error": "No file or URL provided"}, status_code=400)
+        
         info = get_all_dependencies(str(temp_path))
         nix_deps = translate_all(info.get("dependencies", []))
-
+        
         return JSONResponse({
             "name": info.get("name", "unknown"),
             "version": info.get("version", "1.0"),
@@ -53,32 +59,39 @@ async def analyze(request):
             "nix_dependencies": nix_deps
         })
     finally:
-        temp_path.unlink(missing_ok=True)
+        if temp_path:
+            temp_path.unlink(missing_ok=True)
 
 
 async def generate(request):
     """Generate Nix expression."""
     form = await request.form()
     file = form.get("file")
-
-    if not file:
-        return JSONResponse({"error": "No file provided"}, status_code=400)
-
-    if not file.filename.endswith(".deb"):
-        return JSONResponse({"error": "File must be .deb"}, status_code=400)
-
-    temp_path = WORK_DIR / file.filename
-    with open(temp_path, "wb") as f:
-        f.write(file.read())
-
+    url = form.get("url")
+    
+    temp_path = None
     try:
+        if url:
+            import urllib.request
+            print(f"Downloading {url}...")
+            temp_path = WORK_DIR / "downloaded_package"
+            urllib.request.urlretrieve(url, str(temp_path))
+        elif file:
+            if not file.filename.endswith(".deb"):
+                return JSONResponse({"error": "File must be .deb"}, status_code=400)
+            temp_path = WORK_DIR / file.filename
+            with open(temp_path, "wb") as f:
+                f.write(file.read())
+        else:
+            return JSONResponse({"error": "No file or URL provided"}, status_code=400)
+        
         info = get_all_dependencies(str(temp_path))
         nix_deps = translate_all(info.get("dependencies", []))
-
+        
         deps_lines = ""
         for dep in nix_deps:
             deps_lines += f"    pkgs.{dep}\n"
-
+        
         content = f'''{{ pkgs ? import <nixpkgs> {{}} }}:
 
 pkgs.stdenv.mkDerivation {{
@@ -93,14 +106,15 @@ pkgs.stdenv.mkDerivation {{
   installPhase = '';
 }}
 '''
-
+        
         return JSONResponse({
             "name": info.get("name", "app"),
             "version": info.get("version", "1.0"),
             "content": content
         })
     finally:
-        temp_path.unlink(missing_ok=True)
+        if temp_path:
+            temp_path.unlink(missing_ok=True)
 
 
 async def api_root(request):

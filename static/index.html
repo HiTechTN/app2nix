@@ -325,13 +325,16 @@
                                 <p class="text-muted small">.deb, .rpm, .AppImage, .flatpak, .tar.gz</p>
                                 <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.flatpak,.tar.gz" hidden>
                             </div>
-                            <div class="mt-4">
-                                <div class="input-group">
-                                    <input type="text" class="form-control bg-dark text-light" id="urlInput" placeholder="Or enter URL to package">
-                                    <button class="btn btn-gradient" type="button" id="urlBtn"><i class="bi bi-download"></i> Fetch</button>
-                                </div>
-                            </div>
-                            <div class="mt-3 text-center">
+        <div class="mt-4">
+            <h5 class="mb-3"><i class="bi bi-link-45deg"></i> Or enter package URL</h5>
+            <div class="input-group">
+                <input type="text" class="form-control bg-dark text-light" id="urlInput" placeholder="https://example.com/package.deb">
+                <button class="btn btn-gradient" type="button" id="urlBtn">
+                    <i class="bi bi-cloud-download"></i> Download & Analyze
+                </button>
+            </div>
+        </div>
+        <div class="mt-3 text-center">
                                 <span class="loading spinner-border spinner-border-sm text-primary"></span>
                                 <span class="text-muted ms-2" id="statusText"></span>
                             </div>
