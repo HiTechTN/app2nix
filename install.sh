@@ -43,6 +43,16 @@ ok() { echo -e "${GREEN}[OK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 
+find_python() {
+    for cmd in python3 python python3.11 python3.10 python3.9; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            echo "$cmd"
+            return 0
+        fi
+    done
+    return 1
+}
+
 print_banner() {
     cat << 'BANNER'
      _      ____           _           _
@@ -216,7 +226,14 @@ install_user() {
         rm -rf app2nix-*
     fi
 
-    python3 -m venv .venv 2>/dev/null || python3 -m venv --system-site-packages .venv
+    local PYTHON
+    PYTHON=$(find_python) || {
+        error "Python not found. Install Python 3 first."
+        exit 1
+    }
+    log "Using Python: $PYTHON"
+    
+    $PYTHON -m venv .venv 2>/dev/null || $PYTHON -m venv --system-site-packages .venv
     .venv/bin/pip install --upgrade pip -q
     .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
 
@@ -230,7 +247,7 @@ install_user() {
 
 create_alias() {
     mkdir -p "$BIN_DIR"
-    
+
     cat > "$BIN_DIR/app2nix" << 'ALIAS'
 #!/usr/bin/env bash
 # app2nix - Universal Package to NixOS Converter
@@ -253,7 +270,11 @@ case "${1:-}" in
         if [ -f .venv/bin/python ]; then
             exec .venv/bin/python "$INSTALL_DIR/main.py" "$@"
         else
-            exec python3 "$INSTALL_DIR/main.py" "$@"
+            command -v python3 >/dev/null 2>&1 && exec python3 "$INSTALL_DIR/main.py" "$@"
+            command -v python >/dev/null 2>&1 && exec python "$INSTALL_DIR/main.py" "$@"
+            command -v python3.11 >/dev/null 2>&1 && exec python3.11 "$INSTALL_DIR/main.py" "$@"
+            echo "Error: Python not found" >&2
+            exit 1
         fi
         ;;
 esac
@@ -268,7 +289,11 @@ cd "$INSTALL_DIR"
 if [ -f .venv/bin/python ]; then
     exec .venv/bin/python "$INSTALL_DIR/server.py" "$@"
 else
-    exec python3 "$INSTALL_DIR/server.py" "$@"
+    command -v python3 >/dev/null 2>&1 && exec python3 "$INSTALL_DIR/server.py" "$@"
+    command -v python >/dev/null 2>&1 && exec python "$INSTALL_DIR/server.py" "$@"
+    command -v python3.11 >/dev/null 2>&1 && exec python3.11 "$INSTALL_DIR/server.py" "$@"
+    echo "Error: Python not found" >&2
+    exit 1
 fi
 SERVER
     chmod +x "$BIN_DIR/app2nix-server"
