@@ -31,7 +31,7 @@ async def analyze(request):
     form = await request.form()
     file = form.get("file")
     url = form.get("url")
-    
+
     temp_path = None
     try:
         if url:
@@ -47,10 +47,10 @@ async def analyze(request):
                 f.write(file.read())
         else:
             return JSONResponse({"error": "No file or URL provided"}, status_code=400)
-        
+
         info = get_all_dependencies(str(temp_path))
         nix_deps = translate_all(info.get("dependencies", []))
-        
+
         return JSONResponse({
             "name": info.get("name", "unknown"),
             "version": info.get("version", "1.0"),
@@ -68,7 +68,7 @@ async def generate(request):
     form = await request.form()
     file = form.get("file")
     url = form.get("url")
-    
+
     temp_path = None
     try:
         if url:
@@ -84,14 +84,14 @@ async def generate(request):
                 f.write(file.read())
         else:
             return JSONResponse({"error": "No file or URL provided"}, status_code=400)
-        
+
         info = get_all_dependencies(str(temp_path))
         nix_deps = translate_all(info.get("dependencies", []))
-        
+
         deps_lines = ""
         for dep in nix_deps:
             deps_lines += f"    pkgs.{dep}\n"
-        
+
         content = f'''{{ pkgs ? import <nixpkgs> {{}} }}:
 
 pkgs.stdenv.mkDerivation {{
@@ -106,7 +106,7 @@ pkgs.stdenv.mkDerivation {{
   installPhase = '';
 }}
 '''
-        
+
         return JSONResponse({
             "name": info.get("name", "app"),
             "version": info.get("version", "1.0"),
