@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>app2nix - Animation du Processus</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .process-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        
+        .step {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(59,130,246,0.3);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 20px 0;
+            position: relative;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
+        }
+        
+        .step.active {
+            opacity: 1;
+            transform: translateY(0);
+            border-color: #3b82f6;
+            box-shadow: 0 0 30px rgba(59,130,246,0.3);
+        }
+        
+        .step-number {
+            position: absolute;
+            top: -20px;
+            left: 30px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .step-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .arrow {
+            text-align: center;
+            font-size: 30px;
+            color: #3b82f6;
+            opacity: 0;
+            transition: all 0.5s ease;
+            animation: bounce 2s infinite;
+        }
+        
+        .arrow.active {
+            opacity: 1;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin: 30px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            width: 0%;
+            transition: width 0.8s ease;
+        }
+        
+        .code-preview {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .btn-control {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        
+        .btn-control:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59,130,246,0.4);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status-waiting { background: #374151; color: #9ca3af; }
+        .status-processing { background: #fbbf24; color: #78350f; animation: pulse 1.5s infinite; }
+        .status-complete { background: #10b981; color: white; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .file-icon {
+            display: inline-block;
+            animation: fileDrop 0.5s ease;
+        }
+        
+        @keyframes fileDrop {
+            0% { transform: translateY(-50px) scale(0.5); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container process-container">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                app2nix
+            </h1>
+            <h3 class="text-muted">Animation du Processus de Conversion</h3>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="mt-3">
+                <button class="btn-control" onclick="startAnimation()">
+                    <i class="bi bi-play-fill"></i> Démarrer l'animation
+                </button>
+                <button class="btn-control" onclick="resetAnimation()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 1: Upload -->
+        <div class="step" id="step1">
+            <div class="step-number">1</div>
+            <div class="text-center">
+                <div class="step-icon" id="uploadIcon">📦</div>
+                <h4>Upload du Package</h4>
+                <p class="text-muted">Téléchargement ou glisser-déposer du fichier .deb</p>
+                <div id="fileDisplay"></div>
+                <span class="status-badge status-waiting" id="status1">En attente</span>
+            </div>
+        </div>
+        
+        <div class="arrow" id="arrow1">↓</div>
+        
+        <!-- Step 2: Analysis -->
+        <div class="step" id="step2">
+            <div class="step-number">2</div>
+            <div class="text-center">
+                <div class="step-icon">🔍</div>
+                <h4>Analyse des Dépendances</h4>
+                <p class="text-muted">Extraction et analyse des dépendances du package</p>
+                <div class="code-preview" id="analysisOutput">
+                    <span class="text-muted">En attente de l'analyse...</span>
+                </div>
+                <span class="status-badge status-waiting" id="status2">En attente</span>
+            </div>
+        </div>
+        
+        <div class="arrow" id="arrow2">↓</div>
+        
+        <!-- Step 3: Translation -->
+        <div class="step" id="step3">
+            <div class="step-number">3</div>
+            <div class="text-center">
+                <div class="step-icon">🔄</div>
+                <h4>Conversion Nix</h4>
+                <p class="text-muted">Traduction des dépendances vers les équivalents Nix</p>
+                <div class="code-preview" id="translationOutput">
+                    <span class="text-muted">En attente de la conversion...</span>
+                </div>
+                <span class="status-badge status-waiting" id="status3">En attente</span>
+            </div>
+        </div>
+        
+        <div class="arrow" id="arrow3">↓</div>
+        
+        <!-- Step 4: Generation -->
+        <div class="step" id="step4">
+            <div class="step-number">4</div>
+            <div class="text-center">
+                <div class="step-icon">📝</div>
+                <h4>Génération de l'Expression Nix</h4>
+                <p class="text-muted">Création du fichier default.nix</p>
+                <div class="code-preview" id="generationOutput">
+                    <span class="text-muted">En attente de la génération...</span>
+                </div>
+                <span class="status-badge status-waiting" id="status4">En attente</span>
+            </div>
+        </div>
+        
+        <div class="arrow" id="arrow4">↓</div>
+        
+        <!-- Step 5: Installation Guide -->
+        <div class="step" id="step5">
+            <div class="step-number">5</div>
+            <div class="text-center">
+                <div class="step-icon">✅</div>
+                <h4>Guide d'Installation Complet</h4>
+                <p class="text-muted">Génération du guide étape par étape pour NixOS</p>
+                <div class="code-preview" id="guideOutput">
+                    <span class="text-muted">En attente de la génération du guide...</span>
+                </div>
+                <span class="status-badge status-waiting" id="status5">En attente</span>
+            </div>
+        </div>
+        
+        <div class="text-center mt-5 mb-5">
+            <h4 id="finalMessage" style="opacity: 0; transition: opacity 1s;">🎉 Conversion Terminée avec Succès!</h4>
+            <p id="finalSubMessage" class="text-muted" style="opacity: 0; transition: opacity 1s;">Votre package est maintenant prêt pour NixOS</p>
+        </div>
+    </div>
+    
+    <script>
+        let currentStep = 0;
+        const totalSteps = 5;
+        
+        function startAnimation() {
+            resetAnimation();
+            currentStep = 0;
+            progressFill.style.width = '0%';
+            processStep();
+        }
+        
+        function processStep() {
+            if (currentStep >= totalSteps) {
+                showFinalMessage();
+                return;
+            }
+            
+            currentStep++;
+            const step = document.getElementById('step' + currentStep);
+            const status = document.getElementById('status' + currentStep);
+            const arrow = document.getElementById('arrow' + (currentStep - 1));
+            
+            // Show arrow
+            if (arrow) {
+                setTimeout(() => arrow.classList.add('active'), 100);
+            }
+            
+            // Activate step
+            setTimeout(() => {
+                step.classList.add('active');
+                status.className = 'status-badge status-processing';
+                status.textContent = 'En cours...';
+            }, 300);
+            
+            // Process step
+            setTimeout(() => {
+                status.className = 'status-badge status-complete';
+                status.textContent = 'Terminé';
+                updateStepContent(currentStep);
+                updateProgress();
+                
+                // Move to next step
+                setTimeout(() => processStep(), 800);
+            }, 1500);
+        }
+        
+        function updateStepContent(stepNum) {
+            switch(stepNum) {
+                case 1:
+                    document.getElementById('fileDisplay').innerHTML = 
+                        '<div class="file-icon mt-3"><span class="badge bg-primary p-3" style="font-size: 20px;">📄 hello_2.10.deb</span></div>';
+                    break;
+                case 2:
+                    document.getElementById('analysisOutput').innerHTML = 
+                        '<span style="color: #60a5fa;">Analyse en cours...</span><br>' +
+                        '✓ lib6 (requis)<br>' +
+                        '✓ gcc (compilateur)<br>' +
+                        '✓ zlib1g (compression)<br>' +
+                        '<span style="color: #10b981;">→ 3 dépendances détectées</span>';
+                    break;
+                case 3:
+                    document.getElementById('translationOutput').innerHTML =
+                        '<span style="color: #60a5fa;">Conversion en cours...</span><br>' +
+                        '• lib6 → <span style="color: #3b82f6;">glibc</span><br>' +
+                        '• gcc → <span style="color: #3b82f6;">gcc</span><br>' +
+                        '• zlib1g → <span style="color: #3b82f6;">zlib</span><br>' +
+                        '<span style="color: #10b981;">→ 3 équivalents Nix trouvés</span>';
+                    break;
+                case 4:
+                    document.getElementById('generationOutput').innerHTML =
+                        '<span style="color: #60a5fa;">Génération Nix...</span><br>' +
+                        '<span style="color: #e2e8f0;">{ pkgs ? import &lt;nixpkgs&gt; {} }:</span><br>' +
+                        '<span style="color: #e2e8f0;">pkgs.stdenv.mkDerivation {</span><br>' +
+                        '<span style="color: #94a3b8;">  pname = "hello";</span>';
+                    break;
+                case 5:
+                    document.getElementById('guideOutput').innerHTML =
+                        '<span style="color: #60a5fa;">Guide généré!</span><br>' +
+                        '✓ Étapes d\'installation<br>' +
+                        '✓ Script automatique<br>' +
+                        '✓ Commandes pour débutants<br>' +
+                        '<span style="color: #10b981;">→ Prêt à installer sur NixOS!</span>';
+                    break;
+            }
+        }
+        
+        function updateProgress() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+        
+        function showFinalMessage() {
+            setTimeout(() => {
+                document.getElementById('finalMessage').style.opacity = '1';
+                document.getElementById('finalSubMessage').style.opacity = '1';
+            }, 500);
+        }
+        
+        function resetAnimation() {
+            for (let i = 1; i <= totalSteps; i++) {
+                document.getElementById('step' + i).classList.remove('active');
+                document.getElementById('status' + i).className = 'status-badge status-waiting';
+                document.getElementById('status' + i).textContent = 'En attente';
+                const arrow = document.getElementById('arrow' + i);
+                if (arrow) arrow.classList.remove('active');
+            }
+            document.getElementById('finalMessage').style.opacity = '0';
+            document.getElementById('finalSubMessage').style.opacity = '0';
+            document.getElementById('progressFill').style.width = '0%';
+            currentStep = 0;
+        }
+    </script>
+</body>
+</html>
