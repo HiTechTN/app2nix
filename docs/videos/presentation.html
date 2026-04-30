@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>app2nix - Support Vidéo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .slide { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .slide-light { background: #ffffff; color: #0f172a; }
+        .slide-blue { background: #0f172a; color: #e2e8f0; }
+        .code-block { background: #1e293b; padding: 20px; border-radius: 8px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title -->
+    <div class="slide slide-blue">
+        <div class="text-center">
+            <h1 class="display-3 mb-3" style="color: #3b82f6;">app2nix</h1>
+            <h3 class="mb-4" style="color: #94a3b8;">Convertisseur Universel vers NixOS</h3>
+            <p class="lead" style="color: #64748b;">Vidéo de Support - Installation et Utilisation</p>
+        </div>
+    </div>
+
+    <!-- Slide 2: What is app2nix -->
+    <div class="slide slide-light">
+        <div class="container">
+            <h2 class="mb-4">Qu'est-ce qu'app2nix ?</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <ul class="lead">
+                        <li class="mb-3">✓ Analyser les packages Linux</li>
+                        <li class="mb-3">✓ Détecter les dépendances</li>
+                        <li class="mb-3">✓ Générer les expressions Nix</li>
+                        <li>✓ Installer sur NixOS</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-4 rounded" style="background: #f1f5f9; border: 2px solid #3b82f6;">
+                        <h5>Formats Supportés</h5>
+                        <ul>
+                            <li>.deb (Debian/Ubuntu)</li>
+                            <li>.rpm (RedHat/Fedora)</li>
+                            <li>.AppImage</li>
+                            <li>Flatpak</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: Installation -->
+    <div class="slide slide-light">
+        <div class="container">
+            <h2 class="mb-4 text-center">Installation en 3 étapes</h2>
+            <table class="table table-bordered">
+                <thead>
+                    <tr style="background: #3b82f6; color: white;">
+                        <th>Étape</th>
+                        <th>Commande</th>
+                        <th>Temps</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1. Installation</strong></td>
+                        <td><code>curl -sL ... | bash</code></td>
+                        <td>2 min</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Avec Docker</strong></td>
+                        <td><code>curl ... | bash -s -- --docker</code></td>
+                        <td>3 min</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Vérification</strong></td>
+                        <td><code>app2nix --version</code></td>
+                        <td>10 sec</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Slide 4: Web Interface -->
+    <div class="slide slide-light">
+        <div class="container">
+            <h2 class="mb-4">Utilisation - Interface Web</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 style="color: #3b82f6;">🎯 Glisser-déposer</h5>
+                    <p>Déposez votre fichier .deb directement</p>
+                    
+                    <h5 style="color: #3b82f6;">🌐 URL Input</h5>
+                    <p>Téléchargez et analysez des packages distants</p>
+                    
+                    <h5 style="color: #3b82f6;">📊 Résultats</h5>
+                    <p>Dépendances, équivalents Nix, code généré</p>
+                </div>
+                <div class="col-md-6">
+                    <div class="code-block text-light">
+                        { pkgs ? import <nixpkgs> {} }:<br>
+                        <br>
+                        pkgs.stdenv.mkDerivation {<br>
+                        &nbsp;&nbsp;pname = "package";<br>
+                        &nbsp;&nbsp;version = "1.0";<br>
+                        &nbsp;&nbsp;...<br>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: Installation Guide -->
+    <div class="slide slide-blue">
+        <div class="container text-center">
+            <h2 class="mb-4" style="color: #fbbf24;">🆕 NOUVEAU !</h2>
+            <h3 class="mb-4">Guide d'installation NixOS Complet</h3>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <ul class="list-unstyled lead text-start">
+                        <li class="mb-3">✨ Étapes détaillées étape par étape</li>
+                        <li class="mb-3">✨ Commandes d'installation automatique</li>
+                        <li>✨ Script bash prêt à l'emploi</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: Resources -->
+    <div class="slide slide-light">
+        <div class="container">
+            <h2 class="mb-4 text-center">Ressources et Liens</h2>
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td><strong>GitHub</strong></td>
+                        <td>https://github.com/HiTechTN/app2nix</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Demo en ligne</strong></td>
+                        <td>http://hitechtn.github.io/app2nix/</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Docker</strong></td>
+                        <td>ghcr.io/hitechtn/app2nix:master</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Documentation</strong></td>
+                        <td>https://nixos.org/manual/nixos/stable/</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Slide 7: CTA -->
+    <div class="slide" style="background: #3b82f6; color: white;">
+        <div class="text-center">
+            <h2 class="display-4 mb-4">Prêt à convertir vos packages ?</h2>
+            <p class="lead mb-4">⭐ Star le projet sur GitHub | 📹 Regardez les vidéos | 🚀 Essayez maintenant!</p>
+            <a href="http://hitechtn.github.io/app2nix/" class="btn btn-light btn-lg">Essayer la Démo</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
