@@ -92,11 +92,15 @@ async def generate(request):
         for dep in nix_deps:
             deps_lines += f"    pkgs.{dep}\n"
 
+        pkg_name = info.get("name", "app")
+        pkg_version = info.get("version", "1.0")
+        pkg_arch = info.get("architecture", "x86_64-linux")
+
         content = f'''{{ pkgs ? import <nixpkgs> {{}} }}:
 
 pkgs.stdenv.mkDerivation {{
-  pname = "{info.get("name", "app")}";
-  version = "{info.get("version", "1.0")}";
+  pname = "{pkg_name}";
+  version = "{pkg_version}";
   src = ./.;
 
   nativeBuildInputs = [
@@ -107,10 +111,120 @@ pkgs.stdenv.mkDerivation {{
 }}
 '''
 
+        install_guide = f'''
+# Guide d'installation complet pour NixOS
+# Package: {pkg_name} v{pkg_version}
+
+## 📋 Étape 1: Préparer le fichier .deb
+mkdir -p ~/nix-packages/{pkg_name}
+cd ~/nix-packages/{pkg_name}
+# Téléchargez votre fichier .deb ici ou copiez-le
+# wget URL_VERS_VOTRE_DEB
+
+## 📝 Étape 2: Créer le fichier default.nix
+cat > default.nix << 'EOF'
+{content}
+EOF
+
+## 🔧 Étape 3: Méthode A - Installation système (recommandé pour NixOS)
+# 1. Copier le fichier .deb dans le dossier actuel
+# 2. Ajouter au fichier de configuration NixOS:
+
+# Éditer /etc/nixos/configuration.nix
+sudo nano /etc/nixos/configuration.nix
+
+# Ajouter dans la section environment.systemPackages:
+'''
+environment.systemPackages = with pkgs; [
+  (callPackage ~/nix-packages/{pkg_name} {{}})
+  # ... autres packages ...
+];
+'''
+
+# Puis rebuild:
+sudo nixos-rebuild switch
+
+## 🚀 Étape 3: Méthode B - Installation utilisateur (plus simple)
+nix-env -i -f default.nix
+
+## ⚡ Installation automatique (une seule commande)
+# Pour installation système (nécessite sudo):
+curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install-package.sh | bash -s -- {pkg_name} {pkg_version}
+
+## 🛠️ Commande d'installation complète automatique
+# Cette commande fait tout automatiquement:
+cat > install-automatic.sh << 'AUTO'
+#!/usr/bin/env bash
+set -e
+PACKAGE="{pkg_name}"
+VERSION="{pkg_version}"
+DEB_URL="VOTRE_URL_DEB_ICI"  # ← CHANGEZ CETTE URL
+
+echo "[1/5] Création du dossier..."
+mkdir -p ~/nix-packages/$PACKAGE
+cd ~/nix-packages/$PACKAGE
+
+echo "[2/5] Téléchargement du package..."
+if [ -n "$DEB_URL" ] && [ "$DEB_URL" != "VOTRE_URL_DEB_ICI" ]; then
+    wget -O $PACKAGE.deb "$DEB_URL"
+else
+    echo "Erreur: Veuillez modifier DEB_URL dans le script"
+    exit 1
+fi
+
+echo "[3/5] Création du fichier Nix..."
+cat > default.nix << 'EOF'
+{content}
+EOF
+
+echo "[4/5] Installation..."
+nix-env -i -f default.nix
+
+echo "[5/5] Vérification..."
+which $PACKAGE || echo "Installation terminée: $PACKAGE"
+echo "✅ $PACKAGE v$VERSION installé avec succès!"
+AUTO
+
+chmod +x install-automatic.sh
+echo "Exécutez: ./install-automatic.sh"
+
+## 📚 Ressources pour débutants
+# Documentation NixOS: https://nixos.org/manual/nixos/stable/
+# Recherche de packages: https://search.nixos.org/packages
+# Forum NixOS: https://discourse.nixos.org/
+
+## 🔍 Vérifier l'installation
+which {pkg_name} 2>/dev/null && echo "✅ {pkg_name} est installé" || echo "❌ {pkg_name} n'est pas installé"
+nix-env --query | grep {pkg_name} 2>/dev/null && echo "✅ Présent dans nix-env" || echo "ℹ️  Package dans système NixOS"
+'''
+
         return JSONResponse({
-            "name": info.get("name", "app"),
-            "version": info.get("version", "1.0"),
-            "content": content
+            "name": pkg_name,
+            "version": pkg_version,
+            "architecture": pkg_arch,
+            "content": content,
+            "install_guide": install_guide,
+            "auto_install_script": f'''#!/usr/bin/env bash
+set -e
+PACKAGE="{pkg_name}"
+VERSION="{pkg_version}"
+
+echo "🚀 Installation automatique de $PACKAGE v$VERSION"
+echo "Ce script va installer le package avec toutes ses dépendances Nix."
+
+mkdir -p ~/nix-packages/$PACKAGE
+cd ~/nix-packages/$PACKAGE
+
+cat > default.nix << 'EOF'
+{content}
+EOF
+
+echo "📦 Installation en cours..."
+nix-env -i -f default.nix
+
+echo "✅ Installation terminée!"
+which $PACKAGE 2>/dev/null && $PACKAGE --version 2>/dev/null || echo "Package installé: $PACKAGE"
+'''
         })
     finally:
         if temp_path:
