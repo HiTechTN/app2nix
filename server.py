@@ -109,7 +109,7 @@ pkgs.stdenv.mkDerivation {{
 
   installPhase = '';
 }}
-""".format(pkg_name=pkg_name, pkg_version=pkg_version, deps_lines=deps_lines)
+""".format(pkg_name=pkg_name, pkg_version=pkg_version, deps_lines=deps_lines)  # noqa: UP032
 
         install_guide = """# Guide d'installation complet pour NixOS
 # Package: {pkg_name} v{pkg_version}
@@ -123,14 +123,14 @@ cd ~/nix-packages/{pkg_name}
 ## Etape 2: Creer le fichier default.nix
 cat > default.nix << 'EOF'
 {content}
-EOF
+EOF;
 
 ## Etape 3: Methode A - Installation systeme (recommande pour NixOS)
 # 1. Copier le fichier .deb dans le dossier actuel
 # 2. Ajouter au fichier de configuration NixOS:
 
 # Editer /etc/nixos/configuration.nix
-sudo nano /etc/nixos/configuration.nix
+sudo nano /etc/nixos/configuration.nix;
 
 # Ajouter dans la section environment.systemPackages:
 environment.systemPackages = with pkgs; [
@@ -139,14 +139,14 @@ environment.systemPackages = with pkgs; [
 ];
 
 # Puis rebuild:
-sudo nixos-rebuild switch
+sudo nixos-rebuild switch;
 
 ## Etape 3: Methode B - Installation utilisateur (plus simple)
-nix-env -i -f default.nix
+nix-env -i -f default.nix;
 
 ## Installation automatique (une seule commande)
 # Pour installation systeme (necessite sudo):
-curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install-package.sh | bash -s -- {pkg_name} {pkg_version}
+curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install-package.sh | bash -s -- {pkg_name} {pkg_version};
 
 ## Commande d'installation complete automatique
 # Cette commande fait tout automatiquement:
@@ -159,7 +159,7 @@ DEB_URL="VOTRE_URL_DEB_ICI"  # CHANGEZ CETTE URL
 
 echo "[1/5] Creation du dossier..."
 mkdir -p ~/nix-packages/$PACKAGE
-cd ~/nix-packages/$PACKAGE
+cd ~/nix-packages/$PACKAGE;
 
 echo "[2/5] Telechargement du package..."
 if [ -n "$DEB_URL" ] && [ "$DEB_URL" != "VOTRE_URL_DEB_ICI" ]; then
@@ -167,20 +167,20 @@ if [ -n "$DEB_URL" ] && [ "$DEB_URL" != "VOTRE_URL_DEB_ICI" ]; then
 else
     echo "Erreur: Veuillez modifier DEB_URL dans le script"
     exit 1
-fi
+fi;
 
 echo "[3/5] Creation du fichier Nix..."
 cat > default.nix << 'EOF'
 {content}
-EOF
+EOF;
 
 echo "[4/5] Installation..."
-nix-env -i -f default.nix
+nix-env -i -f default.nix;
 
 echo "[5/5] Verification..."
 which $PACKAGE || echo "Installation terminee: $PACKAGE"
 echo "OK $PACKAGE v$VERSION installe avec succes!"
-AUTO
+AUTO;
 
 chmod +x install-automatic.sh
 echo "Executez: ./install-automatic.sh"
@@ -193,7 +193,7 @@ echo "Executez: ./install-automatic.sh"
 ## Verifier l'installation
 which {pkg_name} 2>/dev/null && echo "OK {pkg_name} est installe" || echo "ERREUR {pkg_name} n'est pas installe"
 nix-env --query | grep {pkg_name} 2>/dev/null && echo "OK Present dans nix-env" || echo "Package dans systeme NixOS"
-""".format(pkg_name=pkg_name, pkg_version=pkg_version, content=content)
+""".format(pkg_name=pkg_name, pkg_version=pkg_version, content=content)  # noqa: UP032
 
         auto_script = """#!/usr/bin/env bash
 set -e
@@ -204,18 +204,18 @@ echo "Installation automatique de $PACKAGE v$VERSION"
 echo "Ce script va installer le package avec toutes ses dependances Nix."
 
 mkdir -p ~/nix-packages/$PACKAGE
-cd ~/nix-packages/$PACKAGE
+cd ~/nix-packages/$PACKAGE;
 
 cat > default.nix << 'EOF'
 {content}
-EOF
+EOF;
 
 echo "Installation en cours..."
-nix-env -i -f default.nix
+nix-env -i -f default.nix;
 
 echo "Installation terminee!"
 which $PACKAGE 2>/dev/null && $PACKAGE --version 2>/dev/null || echo "Package installe: $PACKAGE"
-""".format(pkg_name=pkg_name, pkg_version=pkg_version, content=content)
+""".format(pkg_name=pkg_name, pkg_version=pkg_version, content=content)  # noqa: UP032
 
         return JSONResponse({
             "name": pkg_name,
