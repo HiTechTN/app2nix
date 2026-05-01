@@ -71,7 +71,7 @@ show_help() {
     cat << 'HELP'
 
 USAGE:
-    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash [OPTIONS]
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash [OPTIONS]
 
 OPTIONS:
     --docker      Install and run using Docker (recommended)
@@ -87,16 +87,16 @@ OPTIONS:
 
 EXAMPLES:
     # Quick start with Docker (recommended)
-    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --docker
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --docker
 
     # User installation
-    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash
 
     # System installation
-    sudo curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --system
+    sudo curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --system
 
     # Upgrade existing installation
-    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash -s --upgrade
+    curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/master/install.sh | bash -s --upgrade
 
 DOCKER COMMANDS:
     # Start server
