@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>app2nix - Universal Package to NixOS Converter</title>
-    <meta name="description" content="Transform any Linux package into a NixOS native application with one click">
-    <meta name="theme-color" content="#5272be">
+    <title>app2nix - Convert Any Package to NixOS</title>
+    <meta name="description" content="Convert .deb, .rpm, .AppImage, Flatpak and more to NixOS native applications">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -28,6 +27,7 @@
             background: var(--darker);
             color: var(--light);
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
         .hero {
@@ -47,7 +47,7 @@
         }
         
         .logo {
-            font-size: 2rem;
+            font-size: 2.5rem;
             font-weight: 700;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
@@ -139,31 +139,6 @@
             border-top: 1px solid rgba(255,255,255,0.1);
         }
         
-        .code-block {
-            background: #161b22;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            overflow-x: auto;
-        }
-        
-        .demo-server {
-            background: linear-gradient(135deg, rgba(52,211,153,0.1), rgba(82,114,190,0.1));
-            border: 1px solid var(--accent);
-            border-radius: 12px;
-            padding: 24px;
-        }
-        
-        .pulse-animation {
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
@@ -177,13 +152,17 @@
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
             <a class="navbar-brand logo" href="#"><i class="bi bi-box-seam-fill"></i> app2nix</a>
-            <div class="d-flex gap-2">
-                <a href="https://github.com/HiTechTN/app2nix" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-github"></i> GitHub
-                </a>
-                <a href="https://github.com/HiTechTN/app2nix/releases" class="btn btn-gradient btn-sm">
-                    Download v1.0.0
-                </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="nav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#formats">Formats</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#converter">Converter</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#docs">Docs</a></li>
+                    <li class="nav-item"><a class="btn btn-sm btn-gradient ms-2" href="#converter">Try Now</a></li>
+                </ul>
             </div>
         </div>
     </nav>
@@ -194,89 +173,27 @@
             <div class="row align-items-center">
                 <div class="col-lg-6">
                     <div class="badge bg-primary mb-3">v1.0.0 - Now Universal</div>
-                    <h1 class="display-4 fw-bold mb-4">
-                        Convert <span class="text-gradient" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Any Package</span><br>to NixOS
+                    <h1 class="display-3 fw-bold mb-4">
+                        Convert <span class="text-gradient">Any Package</span><br>to NixOS
                     </h1>
                     <p class="lead text-secondary mb-4">
                         Transform .deb, .rpm, AppImage, Flatpak, Snap and tarballs 
                         into native NixOS applications with a single click.
                     </p>
                     <div class="d-flex gap-3">
-                        <a href="#demo" class="btn btn-gradient btn-lg">
-                            <i class="bi bi-rocket-takeoff"></i> Try Demo
-                        </a>
-                        <a href="https://github.com/HiTechTN/app2nix" class="btn btn-outline-light btn-lg">
-                            <i class="bi bi-book"></i> Docs
-                        </a>
+                        <a href="#converter" class="btn btn-gradient btn-lg"><i class="bi bi-rocket-takeoff"></i> Convert Now</a>
+                        <a href="#docs" class="btn btn-outline-light btn-lg"><i class="bi bi-book"></i> Documentation</a>
+                    </div>
+                    <div class="mt-4 d-flex gap-3">
+                        <span class="format-badge"><i class="bi bi-file-earmark"></i> .deb</span>
+                        <span class="format-badge"><i class="bi bi-file-earmark"></i> .rpm</span>
+                        <span class="format-badge"><i class="bi bi-file-earmark"></i> .AppImage</span>
+                        <span class="format-badge"><i class="bi bi-box"></i> Flatpak</span>
                     </div>
                 </div>
                 <div class="col-lg-6 text-center">
                     <div class="floating">
-                        <i class="bi bi-box-seam" style="font-size: 10rem; color: var(--primary);"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Live Demo -->
-    <section id="demo" class="py-5">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold mb-3">Live Demo</h2>
-                <p class="text-secondary">Try app2nix in your browser - no installation needed</p>
-            </div>
-            
-            <div class="row">
-                <div class="col-lg-8 mx-auto">
-                    <div class="demo-server mb-4">
-                        <div class="d-flex align-items-center mb-3">
-                            <span class="badge bg-success me-2 pulse-animation">LIVE</span>
-                            <span class="fw-bold">app2nix Server</span>
-                            <span class="text-secondary ms-auto">Port 8000</span>
-                        </div>
-                        
-                        <div class="drop-zone" id="dropZone">
-                            <i class="bi bi-cloud-arrow-up display-2 text-secondary"></i>
-                            <p class="mt-3 mb-1">Drag & drop a .deb package here</p>
-                            <p class="text-muted small">Supports .deb, .rpm, .AppImage, .flatpak, .tar.gz</p>
-                            <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.flatpak,.tar.gz" hidden>
-                            <button class="btn btn-gradient mt-3" onclick="document.getElementById('fileInput').click()">
-                                <i class="bi bi-folder2-open"></i> Browse Files
-                            </button>
-                        </div>
-                        
-                        <div class="mt-3 text-center">
-                            <span class="spinner-border spinner-border-sm text-primary" id="loading" style="display: none;"></span>
-                            <span class="text-muted ms-2" id="statusText"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="result-card card bg-dark border-secondary mt-4" style="display: none;" id="resultCard">
-                        <div class="card-body p-4">
-                            <h5 class="mb-3"><i class="bi bi-info-circle"></i> Package Info</h5>
-                            <table class="table table-dark table-sm">
-                                <tr><td class="fw-bold">Name</td><td id="pkgName">-</td></tr>
-                                <tr><td class="fw-bold">Version</td><td id="pkgVersion">-</td></tr>
-                                <tr><td class="fw-bold">Architecture</td><td id="pkgArch">-</td></tr>
-                                <tr><td class="fw-bold">Libraries</td><td id="pkgLibs">-</td></tr>
-                            </table>
-                            
-                            <h5 class="mt-4">Nix Dependencies</h5>
-                            <div class="mb-3" id="depsList"></div>
-                            
-                            <h5 class="mt-4">Generated default.nix</h5>
-                            <div class="nix-code" id="nixCode"></div>
-                            
-                            <div class="mt-3 d-flex gap-2">
-                                <button class="btn btn-gradient" id="copyBtn">
-                                    <i class="bi bi-clipboard"></i> Copy Nix Code
-                                </button>
-                                <button class="btn btn-outline-light" id="downloadBtn">
-                                    <i class="bi bi-download"></i> Download
-                                </button>
-                            </div>
-                        </div>
+                        <i class="bi bi-box-seam" style="font-size: 12rem; color: var(--primary);"></i>
                     </div>
                 </div>
             </div>
@@ -284,16 +201,16 @@
     </section>
 
     <!-- Features -->
-    <section class="py-5">
+    <section id="features" class="py-5">
         <div class="container py-5">
             <div class="text-center mb-5">
-                <h2 class="fw-bold mb-3">Features</h2>
-                <p class="text-secondary">Everything you need for package conversion</p>
+                <h2 class="fw-bold mb-3">Why app2nix?</h2>
+                <p class="text-secondary">Convert any Linux package to NixOS-native applications</p>
             </div>
             <div class="row g-4">
                 <div class="col-md-4">
                     <div class="card-feature h-100">
-                        <div class="icon-box mb-3"><i class="bi bi-lightning-charge"></i></div>
+                        <div class="icon-box mb-3"><i class="bi biLightning-charge"></i></div>
                         <h5>One-Click Conversion</h5>
                         <p class="text-secondary mb-0">Upload any package and get a working NixOS expression instantly.</p>
                     </div>
@@ -302,22 +219,43 @@
                     <div class="card-feature h-100">
                         <div class="icon-box mb-3"><i class="bi bi-filetype-sh"></i></div>
                         <h5>Auto-Dependencies</h5>
-                        <p class="text-secondary mb-0">Automatically detects and maps 150+ libraries to Nixpkgs.</p>
+                        <p class="text-secondary mb-0">Automatically detects and maps libraries to Nixpkgs packages.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card-feature h-100">
                         <div class="icon-box mb-3"><i class="bi bi-cloud-download"></i></div>
                         <h5>Universal Support</h5>
-                        <p class="text-secondary mb-0">Works with .deb, .rpm, AppImage, Flatpak, Snap, tarballs.</p>
+                        <p class="text-secondary mb-0">Works with .deb, .rpm, AppImage, Flatpak, Snap, and tarballs.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-display"></i></div>
+                        <h5>Web Dashboard</h5>
+                        <p class="text-secondary mb-0">Beautiful UI for batch conversion and package management.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-terminal"></i></div>
+                        <h5>CLI + API</h5>
+                        <p class="text-secondary mb-0">Use as command-line tool or integrate into your CI/CD.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-gear"></i></div>
+                        <h5>Auto-PatchELF</h5>
+                        <p class="text-secondary mb-0">Automatic rpath fixing and library path resolution.</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Supported Formats -->
-    <section class="py-5 bg-dark">
+    <!-- Formats -->
+    <section id="formats" class="py-5 bg-dark">
         <div class="container py-5">
             <div class="text-center mb-5">
                 <h2 class="fw-bold mb-3">Supported Formats</h2>
@@ -352,62 +290,160 @@
                         <p class="text-secondary small">Sandboxed</p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Installation -->
-    <section class="py-5">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold mb-3">Quick Start</h2>
-                <p class="text-secondary">Get started in seconds</p>
-            </div>
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="card bg-dark border-secondary h-100">
-                        <div class="card-body">
-                            <h5><i class="bi bi-docker text-info"></i> Docker</h5>
-                            <div class="code-block">
-docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
-                            </div>
-                            <p class="text-secondary small mt-2 mb-0">Then open http://localhost:8000</p>
-                        </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-center p-4">
+                        <i class="bi bi-app-indicator" style="font-size: 3rem; color: #20c997;"></i>
+                        <h5 class="mt-3">.snap</h5>
+                        <p class="text-secondary small">Ubuntu</p>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card bg-dark border-secondary h-100">
-                        <div class="card-body">
-                            <h5><i class="bi bi-terminal text-success"></i> CLI</h5>
-                            <div class="code-block">
-pip install app2nix
-python -m app2nix package.deb
-                            </div>
-                            <p class="text-secondary small mt-2 mb-0">Or clone from GitHub</p>
-                        </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-center p-4">
+                        <i class="bi bi-file-earmark-archive" style="font-size: 3rem; color: #845ef7;"></i>
+                        <h5 class="mt-3">.tar.gz</h5>
+                        <p class="text-secondary small">Source</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- API Example -->
-    <section class="py-5 bg-dark">
+    <!-- Converter -->
+    <section id="converter" class="py-5">
         <div class="container py-5">
             <div class="text-center mb-5">
-                <h2 class="fw-bold mb-3">REST API</h2>
-                <p class="text-secondary">Integrate into your CI/CD pipeline</p>
+                <h2 class="fw-bold mb-3">Convert Package</h2>
+                <p class="text-secondary">Upload any package to convert to NixOS</p>
             </div>
             <div class="row">
                 <div class="col-lg-8 mx-auto">
-                    <div class="code-block">
-<span class="text-secondary"># Analyze package</span>
-curl -X POST -F "file=@package.deb" http://localhost:8000/analyze
-
-<span class="text-secondary"># Generate Nix expression</span>
-curl -X POST -F "file=@package.deb" http://localhost:8000/generate
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-body p-4">
+                            <div class="drop-zone" id="dropZone">
+                                <i class="bi bi-cloud-arrow-up display-2 text-secondary"></i>
+                                <p class="mt-3 mb-1">Drag & drop package here</p>
+                                <p class="text-muted small">.deb, .rpm, .AppImage, .flatpak, .tar.gz</p>
+                                <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.flatpak,.tar.gz" hidden>
+                            </div>
+        <div class="mt-4">
+            <h5 class="mb-3"><i class="bi bi-link-45deg"></i> Or enter package URL</h5>
+            <div class="input-group">
+                <input type="text" class="form-control bg-dark text-light" id="urlInput" placeholder="https://example.com/package.deb">
+                <button class="btn btn-gradient" type="button" id="urlBtn">
+                    <i class="bi bi-cloud-download"></i> Download & Analyze
+                </button>
+            </div>
+        </div>
+        <div class="mt-3 text-center">
+                                <span class="loading spinner-border spinner-border-sm text-primary"></span>
+                                <span class="text-muted ms-2" id="statusText"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-dark border-secondary mt-4 result-card" style="display: none;">
+                        <div class="card-header bg-dark border-secondary">
+                            <h5 class="mb-0"><i class="bi bi-file-code"></i> Nix Expression</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre id="nixCode" class="bg-darker p-3 rounded" style="overflow-x: auto;"></pre>
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-light" id="copyBtn"><i class="bi bi-clipboard"></i> Copy</button>
+                                <button class="btn btn-sm btn-outline-light ms-2" id="downloadBtn"><i class="bi bi-download"></i> Download</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="installGuideCard" class="card bg-dark border-secondary mt-4" style="display: none;">
+                        <div class="card-header bg-dark border-secondary">
+                            <h5 class="mb-0"><i class="bi bi-book"></i> Guide d'installation complet</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="installGuide" class="text-light"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="autoInstallCard" class="card bg-dark border-success mt-4" style="display: none;">
+                        <div class="card-header bg-dark border-success">
+                            <h5 class="mb-0"><i class="bi bi-rocket"></i> Installation Automatique</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Copiez et exécutez ce script pour installation complète:</p>
+                            <pre id="autoScript" class="bg-darker p-3 rounded" style="overflow-x: auto;"></pre>
+                            <button class="btn btn-success mt-3" onclick="copyAutoScript()">
+                                <i class="bi bi-clipboard"></i> Copier le script
+                            </button>
+                        </div>
+                    </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- API / Documentation -->
+    <section id="docs" class="py-5 bg-dark">
+        <div class="container py-5">
+            <div class="row">
+                <div class="col-lg-6">
+                    <h2 class="fw-bold mb-4">REST API</h2>
+                    <p class="text-secondary mb-4">Integrate into your CI/CD pipeline.</p>
+                    
+                    <div class="card bg-darker border-secondary mb-3">
+                        <div class="card-body">
+                            <h6>Analyze Package</h6>
+                            <code class="d-block text-muted small">POST /analyze</code>
+                            <pre class="mb-0 text-warning">curl -X POST -F "file=@package.deb" http://localhost:8000/analyze</pre>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-darker border-secondary mb-3">
+                        <div class="card-body">
+                            <h6>Generate Nix Expression</h6>
+                            <code class="d-block text-muted small">POST /generate</code>
+                            <pre class="mb-0 text-warning">curl -X POST -F "file=@package.deb" http://localhost:8000/generate</pre>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-darker border-secondary">
+                        <div class="card-body">
+                            <h6>Download from URL</h6>
+                            <code class="d-block text-muted small">POST /download</code>
+                            <pre class="mb-0 text-warning">curl -X POST -H "Content-Type: application/json" -d '{"url":"https://..."}' http://localhost:8000/download</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h2 class="fw-bold mb-4">CLI Usage</h2>
+                    <div class="nix-code">
+# Analyze package
+python main.py package.deb
+
+# Generate default.nix
+python main.py package.deb --output-dir ./mypackage
+
+# Universal analyzer
+python universal_analyze.py package.AppImage
+
+# Start web server
+python server.py
+
+# With URL
+python main.py --url https://example.com/package.deb
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Install -->
+    <section class="py-5">
+        <div class="container py-5 text-center">
+            <h2 class="fw-bold mb-3">Install on GLF-OS</h2>
+            <p class="text-secondary mb-4">One-line installation for GLF-OS</p>
+            <div class="d-flex justify-content-center gap-3">
+                <code class="p-3 bg-dark rounded">curl -sL https://raw.githubusercontent.com/HiTechTN/app2nix/main/install.sh | bash</code>
             </div>
         </div>
     </section>
@@ -419,40 +455,51 @@ curl -X POST -F "file=@package.deb" http://localhost:8000/generate
                 <div class="col-md-4">
                     <h5 class="logo mb-3"><i class="bi bi-box-seam-fill"></i> app2nix</h5>
                     <p class="text-secondary">Convert any Linux package to NixOS native applications.</p>
-                    <a href="https://github.com/HiTechTN/app2nix" class="btn btn-outline-light btn-sm">
-                        <i class="bi bi-github"></i> Star on GitHub
-                    </a>
                 </div>
-                <div class="col-md-4">
-                    <h6>Resources</h6>
+                <div class="col-md-2">
+                    <h6>Product</h6>
                     <ul class="list-unstyled">
-                        <li><a href="https://github.com/HiTechTN/app2nix" class="text-secondary text-decoration-none">GitHub</a></li>
-                        <li><a href="https://github.com/HiTechTN/app2nix/releases" class="text-secondary text-decoration-none">Releases</a></li>
-                        <li><a href="https://github.com/HiTechTN/app2nix/issues" class="text-secondary text-decoration-none">Issues</a></li>
+                        <li><a href="#features" class="text-secondary text-decoration-none">Features</a></li>
+                        <li><a href="#converter" class="text-secondary text-decoration-none">Converter</a></li>
+                        <li><a href="#docs" class="text-secondary text-decoration-none">API</a></li>
                     </ul>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <h6>Resources</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-secondary text-decoration-none">Documentation</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">Wiki</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">Examples</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2">
+                    <h6>Community</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="https://github.com/HiTechTN/app2nix" class="text-secondary text-decoration-none">GitHub</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">Discord</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">Issues</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2">
                     <h6>Legal</h6>
                     <ul class="list-unstyled">
-                        <li><a href="LICENSE" class="text-secondary text-decoration-none">MIT License</a></li>
-                        <li><a href="https://github.com/HiTechTN/app2nix" class="text-secondary text-decoration-none">Privacy</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">License</a></li>
+                        <li><a href="#" class="text-secondary text-decoration-none">Privacy</a></li>
                     </ul>
                 </div>
             </div>
             <hr class="my-4">
-            <p class="text-center text-muted mb-0">© 2026 app2nix. MIT License.</p>
+            <p class="text-center text-muted mb-0">&copy; 2026 app2nix. MIT License.</p>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:8000' 
-            : '/api';
-        
+        const API_URL = window.location.origin;
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
-        let currentNix = '';
+        const urlInput = document.getElementById('urlInput');
+        const urlBtn = document.getElementById('urlBtn');
         
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -465,73 +512,70 @@ curl -X POST -F "file=@package.deb" http://localhost:8000/generate
         });
         fileInput.addEventListener('change', e => { if (e.target.files[0]) uploadFile(e.target.files[0]); });
         
+        urlBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            if (!url) return;
+            setStatus('Fetching...');
+            try {
+                const res = await fetch(API_URL + '/download', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+                const data = await res.json();
+                showResult({name: data.name, version: data.version, format: 'url', arch: 'amd64'}, '', data.nix_dependencies || [], null, null);
+            } catch (err) { setStatus('Error: ' + err.message); }
+        });
+        
         async function uploadFile(file) {
             setStatus('Analyzing ' + file.name + '...');
-            document.getElementById('loading').style.display = 'inline-block';
-            
             const formData = new FormData();
             formData.append('file', file);
-            
             try {
-                const res = await fetch(API_URL + '/analyze', {method: 'POST', body: formData});
-                const data = await res.json();
-                showResult(data);
-            } catch (err) { 
-                setStatus('Demo mode: Upload to see how it works');
-                showDemoResult(file.name);
-            }
+                const [infoRes, nixRes] = await Promise.all([
+                    fetch(API_URL + '/analyze', {method: 'POST', body: formData}),
+                    fetch(API_URL + '/generate', {method: 'POST', body: formData})
+                ]);
+                const info = await infoRes.json();
+                const nix = await nixRes.json();
+                showResult(info, nix.content, null, nix.install_guide, nix.auto_install_script);
+            } catch (err) { setStatus('Error: ' + err.message); }
         }
         
-        function showDemoResult(name) {
-            const demoData = {
-                name: name.replace(/\.[^.]+$/, ''),
-                version: '1.0.0',
-                architecture: 'x86_64',
-                nix_dependencies: ['pkgs.stdenv', 'pkgs.autoPatchelfHook', 'pkgs.alsaLib', 'pkgs.gtk3', 'pkgs.cairo']
-            };
-            showResult(demoData);
-        }
-        
-        function showResult(info) {
-            document.getElementById('loading').style.display = 'none';
+        function showResult(info, nixContent, deps, installGuide, autoScript) {
             document.getElementById('pkgName').textContent = info.name || '-';
             document.getElementById('pkgVersion').textContent = info.version || '-';
+            document.getElementById('pkgFormat').textContent = info.format || 'unknown';
             document.getElementById('pkgArch').textContent = info.architecture || '-';
+            document.getElementById('depsList').innerHTML = (deps || info.nix_dependencies || []).map(d => 
+                '<span class="badge bg-secondary me-1">pkgs.' + d + '</span>').join('');
+            document.getElementById('nixCode').textContent = nixContent || '';
             
-            const deps = info.nix_dependencies || info.libraries || [];
-            document.getElementById('pkgLibs').textContent = deps.length + ' libraries';
-            document.getElementById('depsList').innerHTML = deps.slice(0, 10).map(d => 
-                '<span class="badge bg-secondary me-1 mb-1">' + d + '</span>').join('') + 
-                (deps.length > 10 ? '<span class="badge bg-secondary">+' + (deps.length - 10) + ' more</span>' : '');
+            // Afficher le guide d'installation
+            if (installGuide) {
+                document.getElementById('installGuide').innerHTML = '<pre class="text-light" style="white-space: pre-wrap;">' + installGuide + '</pre>';
+                document.getElementById('installGuideCard').style.display = 'block';
+            }
             
-            const nixCode = `{ pkgs ? import <nixpkgs> {} }:
-
-pkgs.stdenv.mkDerivation {
-  name = "${info.name || 'app'}";
-  version = "${info.version || '1.0.0'}";
-  
-  nativeBuildInputs = [
-    pkgs.autoPatchelfHook
-${deps.filter(d => !d.includes('stdenv')).map(d => '    ' + d).join('\n')}
-  ];
-}`;
+            // Script d'installation automatique
+            if (autoScript) {
+                document.getElementById('autoScript').textContent = autoScript;
+                document.getElementById('autoInstallCard').style.display = 'block';
+                currentAutoScript = autoScript;
+            }
             
-            currentNix = nixCode;
-            document.getElementById('nixCode').textContent = nixCode;
-            document.getElementById('resultCard').style.display = 'block';
+            document.querySelector('.result-card').style.display = 'block';
             setStatus('');
+            currentNix = nixContent;
         }
         
-        function setStatus(msg) {
-            document.getElementById('statusText').textContent = msg;
-        }
-        
+        let currentNix = '';
+        let currentAutoScript = '';
         document.getElementById('copyBtn').addEventListener('click', () => {
             navigator.clipboard.writeText(currentNix);
             document.getElementById('copyBtn').innerHTML = '<i class="bi bi-check"></i> Copied!';
-            setTimeout(() => document.getElementById('copyBtn').innerHTML = '<i class="bi bi-clipboard"></i> Copy Nix Code', 2000);
+            setTimeout(() => document.getElementById('copyBtn').innerHTML = '<i class="bi bi-clipboard"></i> Copy', 2000);
         });
-        
         document.getElementById('downloadBtn').addEventListener('click', () => {
             const blob = new Blob([currentNix], {type: 'text/plain'});
             const a = document.createElement('a');
@@ -539,6 +583,17 @@ ${deps.filter(d => !d.includes('stdenv')).map(d => '    ' + d).join('\n')}
             a.download = 'default.nix';
             a.click();
         });
+        
+        function copyAutoScript() {
+            const script = document.getElementById('autoScript').textContent;
+            navigator.clipboard.writeText(script).then(() => {
+                alert('✅ Script copié dans le presse-papiers!');
+            });
+        }
+        
+        function setStatus(msg) {
+            document.getElementById('statusText').textContent = msg;
+        }
     </script>
 </body>
 </html>
