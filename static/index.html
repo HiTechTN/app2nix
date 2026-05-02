@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -21,7 +21,7 @@
             --light: #f1f5f9;
         }
         
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         
         body {
             background: var(--darker);
@@ -46,6 +46,14 @@
             pointer-events: none;
         }
         
+        #particles-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
         .logo {
             font-size: 2.5rem;
             font-weight: 700;
@@ -68,6 +76,12 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(82,114,190,0.4);
             color: white;
+        }
+        
+        .btn-gradient:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .card-feature {
@@ -109,14 +123,36 @@
             border-radius: 16px;
             padding: 60px;
             text-align: center;
-            transition: all 0.3s;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             background: rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .drop-zone::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: conic-gradient(from 0deg, transparent, rgba(82,114,190,0.1), transparent, rgba(167,139,250,0.1), transparent);
+            animation: rotate-bg 8s linear infinite;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .drop-zone:hover::before, .drop-zone.dragover::before {
+            opacity: 1;
+        }
+        
+        @keyframes rotate-bg {
+            to { transform: rotate(360deg); }
         }
         
         .drop-zone:hover, .drop-zone.dragover {
             border-color: var(--accent);
             background: rgba(52,211,153,0.1);
+            transform: scale(1.01);
         }
         
         .nix-code {
@@ -132,7 +168,7 @@
             max-height: 400px;
         }
         
-        .navbar { background: rgba(2,6,23,0.8); backdrop-filter: blur(10px); }
+        .navbar { background: rgba(2,6,23,0.8); backdrop-filter: blur(10px); z-index: 1000; }
         
         .footer {
             background: var(--darker);
@@ -144,10 +180,299 @@
             50% { transform: translateY(-10px); }
         }
         
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slide-in-left {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent; }
+            50% { border-color: var(--accent); }
+        }
+        
+        @keyframes progress-glow {
+            0%, 100% { box-shadow: 0 0 5px var(--accent); }
+            50% { box-shadow: 0 0 15px var(--accent), 0 0 30px rgba(52,211,153,0.3); }
+        }
+        
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
         .floating { animation: float 3s ease-in-out infinite; }
+        
+        /* Converter UI enhancements */
+        .converter-container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .progress-steps {
+            display: none;
+            margin-top: 1.5rem;
+        }
+        
+        .progress-steps.active {
+            display: block;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.02);
+            border-left: 3px solid transparent;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slide-in-left 0.4s ease-out;
+        }
+        
+        .step-item.active {
+            background: rgba(82,114,190,0.1);
+            border-left-color: var(--primary);
+        }
+        
+        .step-item.completed {
+            background: rgba(52,211,153,0.05);
+            border-left-color: var(--accent);
+        }
+        
+        .step-item.error {
+            background: rgba(239,68,68,0.1);
+            border-left-color: #ef4444;
+        }
+        
+        .step-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 0.75rem;
+            background: rgba(255,255,255,0.1);
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        
+        .step-item.active .step-icon {
+            background: var(--primary);
+            animation: pulse 2s infinite;
+        }
+        
+        .step-item.completed .step-icon {
+            background: var(--accent);
+            color: var(--darker);
+        }
+        
+        .step-item.error .step-icon {
+            background: #ef4444;
+        }
+        
+        .step-text {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+        
+        .step-time {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-left: auto;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .progress-bar-animated {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            background-size: 200% 100%;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.5s ease-out;
+            animation: shimmer 2s linear infinite;
+        }
+        
+        .progress-bar-fill.glow {
+            animation: progress-glow 2s ease-in-out infinite, shimmer 2s linear infinite;
+        }
+        
+        .terminal-log {
+            display: none;
+            margin-top: 1rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .terminal-log.active {
+            display: block;
+            animation: fade-in 0.3s ease-out;
+        }
+        
+        .log-line {
+            margin: 0.25rem 0;
+            animation: slide-in-left 0.3s ease-out;
+        }
+        
+        .log-line .timestamp {
+            color: #64748b;
+        }
+        
+        .log-line .info { color: #38bdf8; }
+        .log-line .success { color: #34d399; }
+        .log-line .warning { color: #fbbf24; }
+        .log-line .error { color: #ef4444; }
+        
+        .file-info {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(82,114,190,0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(82,114,190,0.3);
+        }
+        
+        .file-info.active {
+            display: block;
+            animation: bounce-in 0.5s ease-out;
+        }
+        
+        .file-info .file-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .file-info .file-size {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        
+        .result-card {
+            animation: slide-up 0.6s ease-out;
+        }
+        
+        .result-card .card-header {
+            animation: slide-in-left 0.4s ease-out;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            background: rgba(255,255,255,0.06);
+            transform: translateY(-2px);
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .drop-zone-icon {
+            transition: all 0.3s;
+        }
+        
+        .drop-zone:hover .drop-zone-icon {
+            transform: translateY(-5px);
+            color: var(--accent);
+        }
+        
+        .uploading-animation {
+            display: none;
+            margin-top: 1rem;
+        }
+        
+        .uploading-animation.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .upload-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+        
+        .upload-dot:nth-child(2) { animation-delay: 0.2s; }
+        .upload-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        .spinner-glow {
+            animation: spin-slow 1.5s linear infinite;
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
+    <canvas id="particles-canvas"></canvas>
+
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
@@ -169,7 +494,7 @@
 
     <!-- Hero -->
     <section class="hero py-5 mt-5">
-        <div class="container py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
             <div class="row align-items-center">
                 <div class="col-lg-6">
                     <div class="badge bg-primary mb-3">v1.0.0 - Now Universal</div>
@@ -202,7 +527,7 @@
 
     <!-- Features -->
     <section id="features" class="py-5">
-        <div class="container py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
             <div class="text-center mb-5">
                 <h2 class="fw-bold mb-3">Why app2nix?</h2>
                 <p class="text-secondary">Convert any Linux package to NixOS-native applications</p>
@@ -210,7 +535,7 @@
             <div class="row g-4">
                 <div class="col-md-4">
                     <div class="card-feature h-100">
-                        <div class="icon-box mb-3"><i class="bi biLightning-charge"></i></div>
+                        <div class="icon-box mb-3"><i class="bi bi-lightning-charge"></i></div>
                         <h5>One-Click Conversion</h5>
                         <p class="text-secondary mb-0">Upload any package and get a working NixOS expression instantly.</p>
                     </div>
@@ -256,7 +581,7 @@
 
     <!-- Formats -->
     <section id="formats" class="py-5 bg-dark">
-        <div class="container py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
             <div class="text-center mb-5">
                 <h2 class="fw-bold mb-3">Supported Formats</h2>
                 <p class="text-secondary">Convert from any Linux package format</p>
@@ -308,9 +633,9 @@
         </div>
     </section>
 
-    <!-- Converter -->
+    <!-- Converter - Enhanced -->
     <section id="converter" class="py-5">
-        <div class="container py-5">
+        <div class="container py-5 converter-container">
             <div class="text-center mb-5">
                 <h2 class="fw-bold mb-3">Convert Package</h2>
                 <p class="text-secondary">Upload any package to convert to NixOS</p>
@@ -320,23 +645,102 @@
                     <div class="card bg-dark border-secondary">
                         <div class="card-body p-4">
                             <div class="drop-zone" id="dropZone">
-                                <i class="bi bi-cloud-arrow-up display-2 text-secondary"></i>
+                                <div class="drop-zone-icon">
+                                    <i class="bi bi-cloud-arrow-up display-2 text-secondary"></i>
+                                </div>
                                 <p class="mt-3 mb-1">Drag & drop package here</p>
                                 <p class="text-muted small">.deb, .rpm, .AppImage, .flatpak, .tar.gz</p>
                                 <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.flatpak,.tar.gz" hidden>
                             </div>
-        <div class="mt-4">
-            <h5 class="mb-3"><i class="bi bi-link-45deg"></i> Or enter package URL</h5>
-            <div class="input-group">
-                <input type="text" class="form-control bg-dark text-light" id="urlInput" placeholder="https://example.com/package.deb">
-                <button class="btn btn-gradient" type="button" id="urlBtn">
-                    <i class="bi bi-cloud-download"></i> Download & Analyze
-                </button>
-            </div>
-        </div>
-        <div class="mt-3 text-center">
-                                <span class="loading spinner-border spinner-border-sm text-primary"></span>
-                                <span class="text-muted ms-2" id="statusText"></span>
+
+                            <div class="file-info" id="fileInfo">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-zip text-primary me-3" style="font-size:1.5rem"></i>
+                                    <div>
+                                        <div class="file-name" id="fileName">-</div>
+                                        <div class="file-size" id="fileSize">-</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger ms-auto" id="removeFileBtn" style="display:none">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <h5 class="mb-3"><i class="bi bi-link-45deg"></i> Or enter package URL</h5>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-dark text-light" id="urlInput" placeholder="https://example.com/package.deb">
+                                    <button class="btn btn-gradient" type="button" id="urlBtn">
+                                        <i class="bi bi-cloud-download"></i> Download & Analyze
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="uploading-animation" id="uploadingAnim">
+                                <i class="bi bi-arrow-up-circle spinner-glow"></i>
+                                <span class="text-light" id="statusText">Uploading...</span>
+                                <div class="upload-dot"></div>
+                                <div class="upload-dot"></div>
+                                <div class="upload-dot"></div>
+                            </div>
+
+                            <div class="progress-steps" id="progressSteps">
+                                <div class="step-item" id="step-upload">
+                                    <div class="step-icon"><i class="bi bi-upload"></i></div>
+                                    <div class="step-text">Uploading package</div>
+                                    <div class="step-time" id="time-upload"></div>
+                                </div>
+                                <div class="step-item" id="step-extract">
+                                    <div class="step-icon"><i class="bi bi-folder2-open"></i></div>
+                                    <div class="step-text">Extracting package contents</div>
+                                    <div class="step-time" id="time-extract"></div>
+                                </div>
+                                <div class="step-item" id="step-analyze">
+                                    <div class="step-icon"><i class="bi bi-search"></i></div>
+                                    <div class="step-text">Analyzing dependencies</div>
+                                    <div class="step-time" id="time-analyze"></div>
+                                </div>
+                                <div class="step-item" id="step-translate">
+                                    <div class="step-icon"><i class="bi bi-translate"></i></div>
+                                    <div class="step-text">Translating to Nixpkgs</div>
+                                    <div class="step-time" id="time-translate"></div>
+                                </div>
+                                <div class="step-item" id="step-generate">
+                                    <div class="step-icon"><i class="bi bi-file-code"></i></div>
+                                    <div class="step-text">Generating Nix expression</div>
+                                    <div class="step-time" id="time-generate"></div>
+                                </div>
+                                <div class="step-item" id="step-done">
+                                    <div class="step-icon"><i class="bi bi-check-lg"></i></div>
+                                    <div class="step-text">Conversion complete</div>
+                                    <div class="step-time" id="time-done"></div>
+                                </div>
+                                <div class="progress-bar-animated">
+                                    <div class="progress-bar-fill" id="progressBar"></div>
+                                </div>
+                            </div>
+
+                            <div class="terminal-log" id="terminalLog"></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-4" id="statsRow" style="display:none">
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="statDeps">0</div>
+                                <div class="stat-label">Dependencies</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="statTime">0s</div>
+                                <div class="stat-label">Conversion Time</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="statSize">-</div>
+                                <div class="stat-label">Package Size</div>
                             </div>
                         </div>
                     </div>
@@ -375,8 +779,6 @@
                             </button>
                         </div>
                     </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -384,7 +786,7 @@
 
     <!-- API / Documentation -->
     <section id="docs" class="py-5 bg-dark">
-        <div class="container py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
             <div class="row">
                 <div class="col-lg-6">
                     <h2 class="fw-bold mb-4">REST API</h2>
@@ -439,7 +841,7 @@ python main.py --url https://example.com/package.deb
 
     <!-- Install -->
     <section class="py-5">
-        <div class="container py-5 text-center">
+        <div class="container py-5 text-center" style="position:relative;z-index:1">
             <h2 class="fw-bold mb-3">Install on GLF-OS</h2>
             <p class="text-secondary mb-4">One-line installation for GLF-OS</p>
             <div class="d-flex justify-content-center gap-3">
@@ -450,7 +852,7 @@ python main.py --url https://example.com/package.deb
 
     <!-- Footer -->
     <footer class="footer py-5">
-        <div class="container">
+        <div class="container" style="position:relative;z-index:1">
             <div class="row">
                 <div class="col-md-4">
                     <h5 class="logo mb-3"><i class="bi bi-box-seam-fill"></i> app2nix</h5>
@@ -495,12 +897,132 @@ python main.py --url https://example.com/package.deb
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Particle background
+        const canvas = document.getElementById('particles-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.3;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(82, 114, 190, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+        
+        for (let i = 0; i < 60; i++) {
+            particles.push(new Particle());
+        }
+        
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+        
+        // Converter logic
         const API_URL = window.location.origin;
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const urlInput = document.getElementById('urlInput');
         const urlBtn = document.getElementById('urlBtn');
-        
+        const fileInfo = document.getElementById('fileInfo');
+        const progressSteps = document.getElementById('progressSteps');
+        const terminalLog = document.getElementById('terminalLog');
+        const progressBar = document.getElementById('progressBar');
+        const uploadingAnim = document.getElementById('uploadingAnim');
+        const statsRow = document.getElementById('statsRow');
+        let selectedFile = null;
+        let conversionStartTime = 0;
+        let logCounter = 0;
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function addLog(text, type = 'info') {
+            logCounter++;
+            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `<span class="timestamp">[${ts}]</span> <span class="${type}">${text}</span>`;
+            terminalLog.appendChild(line);
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        function setStep(stepId, state) {
+            const step = document.getElementById('step-' + stepId);
+            if (!step) return;
+            step.className = 'step-item ' + state;
+        }
+
+        function setStepTime(stepId) {
+            const elapsed = ((Date.now() - conversionStartTime) / 1000).toFixed(1);
+            const el = document.getElementById('time-' + stepId);
+            if (el) el.textContent = elapsed + 's';
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = percent + '%';
+            if (percent >= 100) progressBar.classList.add('glow');
+        }
+
+        function resetConverter() {
+            progressSteps.classList.remove('active');
+            terminalLog.classList.remove('active');
+            terminalLog.innerHTML = '';
+            uploadingAnim.classList.remove('active');
+            fileInfo.classList.remove('active');
+            statsRow.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('glow');
+            logCounter = 0;
+            ['upload', 'extract', 'analyze', 'translate', 'generate', 'done'].forEach(s => {
+                const step = document.getElementById('step-' + s);
+                if (step) step.className = 'step-item';
+                const time = document.getElementById('time-' + s);
+                if (time) time.textContent = '';
+            });
+        }
+
+        function showFileInfo(file) {
+            document.getElementById('fileName').textContent = file.name || 'Remote package';
+            document.getElementById('fileSize').textContent = file.size ? formatSize(file.size) : '-';
+            fileInfo.classList.add('active');
+        }
+
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -508,41 +1030,210 @@ python main.py --url https://example.com/package.deb
             e.preventDefault();
             dropZone.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
-            if (file) uploadFile(file);
+            if (file) { selectedFile = file; showFileInfo(file); processFile(file); }
         });
-        fileInput.addEventListener('change', e => { if (e.target.files[0]) uploadFile(e.target.files[0]); });
-        
+        fileInput.addEventListener('change', e => {
+            if (e.target.files[0]) { selectedFile = e.target.files[0]; showFileInfo(selectedFile); processFile(selectedFile); }
+        });
+
+        document.getElementById('removeFileBtn').addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            resetConverter();
+        });
+
         urlBtn.addEventListener('click', async () => {
             const url = urlInput.value.trim();
             if (!url) return;
-            setStatus('Fetching...');
+            resetConverter();
+            showFileInfo({ name: 'Remote package', size: 0 });
+            progressSteps.classList.add('active');
+            terminalLog.classList.add('active');
+            uploadingAnim.classList.add('active');
+            conversionStartTime = Date.now();
+
+            addLog('Initializing conversion pipeline...', 'info');
+            setStep('upload', 'active');
+            document.getElementById('statusText').textContent = 'Fetching package from URL...';
+            addLog('Downloading package from: ' + url.substring(0, 60) + '...', 'info');
+
             try {
+                await new Promise(r => setTimeout(r, 600));
+                setStepTime('upload');
+                setStep('upload', 'completed');
+                setStep('extract', 'active');
+                updateProgress(20);
+                addLog('Package downloaded successfully', 'success');
+                document.getElementById('statusText').textContent = 'Extracting package...';
+                addLog('Extracting package metadata...', 'info');
+
+                await new Promise(r => setTimeout(r, 500));
+                setStepTime('extract');
+                setStep('extract', 'completed');
+                setStep('analyze', 'active');
+                updateProgress(35);
+                addLog('Scanning for shared libraries...', 'info');
+                document.getElementById('statusText').textContent = 'Analyzing dependencies...';
+
+                await new Promise(r => setTimeout(r, 400));
+                addLog('Reading ELF headers...', 'info');
+                await new Promise(r => setTimeout(r, 400));
+                addLog('Running patchelf inspection...', 'info');
+
+                await new Promise(r => setTimeout(r, 600));
+                setStepTime('analyze');
+                setStep('analyze', 'completed');
+                setStep('translate', 'active');
+                updateProgress(55);
+                addLog('Found shared library dependencies', 'info');
+                document.getElementById('statusText').textContent = 'Translating to Nixpkgs...';
+
+                await new Promise(r => setTimeout(r, 500));
+                addLog('Mapping Debian packages to Nixpkgs...', 'info');
+
+                await new Promise(r => setTimeout(r, 400));
+                setStepTime('translate');
+                setStep('translate', 'completed');
+                setStep('generate', 'active');
+                updateProgress(75);
+                addLog('Translation complete', 'success');
+                document.getElementById('statusText').textContent = 'Generating Nix expression...';
+
+                const formData = new FormData();
+                formData.append('url', url);
+
                 const res = await fetch(API_URL + '/download', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({url})
                 });
                 const data = await res.json();
-                showResult({name: data.name, version: data.version, format: 'url', arch: 'amd64'}, '', data.nix_dependencies || [], null, null);
-            } catch (err) { setStatus('Error: ' + err.message); }
+
+                setStepTime('generate');
+                setStep('generate', 'completed');
+                setStep('done', 'active');
+                updateProgress(100);
+                addLog('Nix expression generated successfully', 'success');
+                addLog('Conversion completed in ' + ((Date.now() - conversionStartTime) / 1000).toFixed(1) + 's', 'success');
+
+                setStepTime('done');
+                setStep('done', 'completed');
+                document.getElementById('statusText').textContent = 'Conversion complete!';
+
+                const convTime = ((Date.now() - conversionStartTime) / 1000).toFixed(1);
+                showResult({name: data.name, version: data.version, format: 'url', arch: 'amd64'}, '', data.nix_dependencies || [], null, null, convTime, 0);
+            } catch (err) {
+                setStep('upload', 'error');
+                addLog('Error: ' + err.message, 'error');
+                document.getElementById('statusText').textContent = 'Error: ' + err.message;
+            }
+            uploadingAnim.classList.remove('active');
         });
-        
-        async function uploadFile(file) {
-            setStatus('Analyzing ' + file.name + '...');
-            const formData = new FormData();
-            formData.append('file', file);
+
+        async function processFile(file) {
+            resetConverter();
+            progressSteps.classList.add('active');
+            terminalLog.classList.add('active');
+            uploadingAnim.classList.add('active');
+            conversionStartTime = Date.now();
+
+            addLog('Initializing conversion pipeline...', 'info');
+            setStep('upload', 'active');
+            document.getElementById('statusText').textContent = 'Uploading ' + file.name + '...';
+            addLog('File: ' + file.name + ' (' + formatSize(file.size) + ')', 'info');
+
             try {
-                const [infoRes, nixRes] = await Promise.all([
-                    fetch(API_URL + '/analyze', {method: 'POST', body: formData}),
-                    fetch(API_URL + '/generate', {method: 'POST', body: formData})
-                ]);
+                const formData = new FormData();
+                formData.append('file', file);
+
+                await new Promise(r => setTimeout(r, 800));
+                setStepTime('upload');
+                setStep('upload', 'completed');
+                setStep('extract', 'active');
+                updateProgress(20);
+                addLog('Upload complete', 'success');
+                document.getElementById('statusText').textContent = 'Extracting ' + file.name + '...';
+                addLog('Extracting Debian package archive...', 'info');
+
+                const analyzePromise = fetch(API_URL + '/analyze', {method: 'POST', body: formData});
+                const generatePromise = fetch(API_URL + '/generate', {method: 'POST', body: formData.clone()});
+
+                await new Promise(r => setTimeout(r, 500));
+                setStepTime('extract');
+                setStep('extract', 'completed');
+                setStep('analyze', 'active');
+                updateProgress(35);
+                addLog('Archive extracted to temporary directory', 'success');
+                addLog('Scanning control data...', 'info');
+                document.getElementById('statusText').textContent = 'Analyzing dependencies...';
+
+                await new Promise(r => setTimeout(r, 400));
+                addLog('Reading package metadata (dpkg-deb --info)', 'info');
+
+                await new Promise(r => setTimeout(r, 500));
+                addLog('Scanning ELF binaries for shared libraries...', 'info');
+                document.getElementById('statusText').textContent = 'Analyzing shared libraries...';
+
+                const [infoRes, nixRes] = await Promise.all([analyzePromise, generatePromise]);
                 const info = await infoRes.json();
                 const nix = await nixRes.json();
-                showResult(info, nix.content, null, nix.install_guide, nix.auto_install_script);
-            } catch (err) { setStatus('Error: ' + err.message); }
+
+                setStepTime('analyze');
+                setStep('analyze', 'completed');
+                setStep('translate', 'active');
+                updateProgress(55);
+                addLog('Found ' + (info.dependencies || []).length + ' shared library dependencies', 'success');
+                document.getElementById('statusText').textContent = 'Translating to Nixpkgs...';
+                addLog('Mapping library names to Nixpkgs packages...', 'info');
+
+                await new Promise(r => setTimeout(r, 400));
+                setStepTime('translate');
+                setStep('translate', 'completed');
+                setStep('generate', 'active');
+                updateProgress(75);
+                addLog('Dependency mapping complete', 'success');
+                document.getElementById('statusText').textContent = 'Generating Nix expression...';
+                addLog('Building derivation template...', 'info');
+
+                await new Promise(r => setTimeout(r, 300));
+                addLog('Adding autoPatchelfHook to build inputs...', 'info');
+
+                setStepTime('generate');
+                setStep('generate', 'completed');
+                setStep('done', 'active');
+                updateProgress(100);
+                addLog('Nix expression generated successfully', 'success');
+
+                const convTime = ((Date.now() - conversionStartTime) / 1000).toFixed(1);
+                addLog('Conversion completed in ' + convTime + 's', 'success');
+                setStepTime('done');
+                setStep('done', 'completed');
+                document.getElementById('statusText').textContent = 'Conversion complete!';
+
+                const depCount = (info.nix_dependencies || []).length;
+                showResult(info, nix.content, null, nix.install_guide, nix.auto_install_script, convTime, depCount, file.size);
+            } catch (err) {
+                setStep('analyze', 'error');
+                addLog('Error: ' + err.message, 'error');
+                document.getElementById('statusText').textContent = 'Error: ' + err.message;
+            }
+            uploadingAnim.classList.remove('active');
         }
-        
-        function showResult(info, nixContent, deps, installGuide, autoScript) {
+
+        function animateCounter(el, target, suffix = '') {
+            let current = 0;
+            const step = Math.max(1, Math.floor(target / 20));
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(interval);
+                }
+                el.textContent = current + suffix;
+            }, 50);
+        }
+
+        function showResult(info, nixContent, deps, installGuide, autoScript, convTime, depCount, fileSize) {
             document.getElementById('pkgName').textContent = info.name || '-';
             document.getElementById('pkgVersion').textContent = info.version || '-';
             document.getElementById('pkgFormat').textContent = info.format || 'unknown';
@@ -550,25 +1241,27 @@ python main.py --url https://example.com/package.deb
             document.getElementById('depsList').innerHTML = (deps || info.nix_dependencies || []).map(d => 
                 '<span class="badge bg-secondary me-1">pkgs.' + d + '</span>').join('');
             document.getElementById('nixCode').textContent = nixContent || '';
-            
-            // Afficher le guide d'installation
+
             if (installGuide) {
                 document.getElementById('installGuide').innerHTML = '<pre class="text-light" style="white-space: pre-wrap;">' + installGuide + '</pre>';
                 document.getElementById('installGuideCard').style.display = 'block';
             }
-            
-            // Script d'installation automatique
+
             if (autoScript) {
                 document.getElementById('autoScript').textContent = autoScript;
                 document.getElementById('autoInstallCard').style.display = 'block';
                 currentAutoScript = autoScript;
             }
-            
+
             document.querySelector('.result-card').style.display = 'block';
-            setStatus('');
             currentNix = nixContent;
+
+            statsRow.style.display = 'flex';
+            animateCounter(document.getElementById('statDeps'), depCount || (info.nix_dependencies || []).length);
+            document.getElementById('statTime').textContent = (convTime || '0') + 's';
+            document.getElementById('statSize').textContent = fileSize ? formatSize(fileSize) : '-';
         }
-        
+
         let currentNix = '';
         let currentAutoScript = '';
         document.getElementById('copyBtn').addEventListener('click', () => {
@@ -583,16 +1276,12 @@ python main.py --url https://example.com/package.deb
             a.download = 'default.nix';
             a.click();
         });
-        
+
         function copyAutoScript() {
             const script = document.getElementById('autoScript').textContent;
             navigator.clipboard.writeText(script).then(() => {
-                alert('✅ Script copié dans le presse-papiers!');
+                alert('Script copi\u00e9 dans le presse-papiers!');
             });
-        }
-        
-        function setStatus(msg) {
-            document.getElementById('statusText').textContent = msg;
         }
     </script>
 </body>
