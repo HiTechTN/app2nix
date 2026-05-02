@@ -644,6 +644,15 @@
                 <div class="col-lg-8 mx-auto">
                     <div class="card bg-dark border-secondary">
                         <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="mb-0"><i class="bi bi-server"></i> API Server</h6>
+                                <span class="badge bg-secondary" id="apiUrlStatus"><i class="bi bi-circle"></i> Not Connected</span>
+                            </div>
+                            <div class="input-group input-group-sm mb-4">
+                                <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-link-45deg"></i></span>
+                                <input type="text" class="form-control bg-dark text-light border-secondary" id="apiUrlInput" placeholder="http://localhost:8000 or your Render URL">
+                                <button class="btn btn-sm btn-gradient" type="button" id="apiUrlSaveBtn">Connect</button>
+                            </div>
                             <div class="drop-zone" id="dropZone">
                                 <div class="drop-zone-icon">
                                     <i class="bi bi-cloud-arrow-up display-2 text-secondary"></i>
@@ -951,7 +960,16 @@ python main.py --url https://example.com/package.deb
         animateParticles();
         
         // Converter logic
-        const API_URL = window.location.origin;
+        const API_URL = localStorage.getItem('app2nix_api_url') || window.location.origin;
+        
+        // API URL configuration
+        function getApiUrl() {
+            return localStorage.getItem('app2nix_api_url') || window.location.origin;
+        }
+        function setApiUrl(url) {
+            localStorage.setItem('app2nix_api_url', url.replace(/\/$/, ''));
+            document.getElementById('apiUrlStatus').innerHTML = '<i class="bi bi-check-circle text-success"></i> Connected';
+        }
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const urlInput = document.getElementById('urlInput');
@@ -962,6 +980,44 @@ python main.py --url https://example.com/package.deb
         const progressBar = document.getElementById('progressBar');
         const uploadingAnim = document.getElementById('uploadingAnim');
         const statsRow = document.getElementById('statsRow');
+        const apiUrlInput = document.getElementById('apiUrlInput');
+        const apiUrlSaveBtn = document.getElementById('apiUrlSaveBtn');
+        const apiUrlStatus = document.getElementById('apiUrlStatus');
+
+        // Initialize API URL input
+        if (apiUrlInput) {
+            const saved = localStorage.getItem('app2nix_api_url');
+            if (saved) {
+                apiUrlInput.value = saved;
+                apiUrlStatus.innerHTML = '<i class="bi bi-check-circle text-success"></i> Connected';
+            } else {
+                apiUrlInput.value = window.location.origin;
+            }
+        }
+
+        apiUrlSaveBtn.addEventListener('click', async () => {
+            const url = apiUrlInput.value.trim().replace(/\/$/, '');
+            if (!url) return;
+            localStorage.setItem('app2nix_api_url', url);
+            apiUrlSaveBtn.disabled = true;
+            apiUrlSaveBtn.textContent = '...';
+            try {
+                const res = await fetch(url + '/api');
+                if (res.ok) {
+                    apiUrlStatus.innerHTML = '<i class="bi bi-check-circle text-success"></i> Connected';
+                    apiUrlStatus.className = 'badge bg-success';
+                } else {
+                    throw new Error('Server returned ' + res.status);
+                }
+            } catch (e) {
+                apiUrlStatus.innerHTML = '<i class="bi bi-x-circle text-danger"></i> ' + e.message;
+                apiUrlStatus.className = 'badge bg-danger';
+            }
+            apiUrlSaveBtn.disabled = false;
+            apiUrlSaveBtn.textContent = 'Connect';
+        });
+
+        apiUrlInput.addEventListener('keypress', e => { if (e.key === 'Enter') apiUrlSaveBtn.click(); });
         let selectedFile = null;
         let conversionStartTime = 0;
         let logCounter = 0;
@@ -1102,7 +1158,7 @@ python main.py --url https://example.com/package.deb
                 const formData = new FormData();
                 formData.append('url', url);
 
-                const res = await fetch(API_URL + '/download', {
+                const res = await fetch(getApiUrl() + '/download', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({url})
@@ -1148,8 +1204,8 @@ python main.py --url https://example.com/package.deb
                 const formData2 = new FormData();
                 formData2.append('file', file);
 
-                const analyzePromise = fetch(API_URL + '/analyze', {method: 'POST', body: formData1});
-                const generatePromise = fetch(API_URL + '/generate', {method: 'POST', body: formData2});
+                const analyzePromise = fetch(getApiUrl() + '/analyze', {method: 'POST', body: formData1});
+                const generatePromise = fetch(getApiUrl() + '/generate', {method: 'POST', body: formData2});
 
                 await new Promise(r => setTimeout(r, 500));
                 setStepTime('extract');

@@ -242,10 +242,12 @@ routes = [
     Route("/generate", generate, methods=["POST"]),
 ]
 
+import os
+
 app = Starlette(
-    debug=True,
+    debug=os.environ.get("DEBUG", "false").lower() == "true",
     routes=routes,
-    middleware=[Middleware(SessionMiddleware, secret_key="app2nix-secret")]
+    middleware=[Middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "app2nix-secret"))]
 )
 
 
