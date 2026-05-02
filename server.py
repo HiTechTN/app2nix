@@ -29,12 +29,12 @@ async def homepage(request):
 
 async def analyze(request):
     """Analyze a .deb file or URL."""
-    form = await request.form()
-    file = form.get("file")
-    url = form.get("url")
-
     temp_path = None
     try:
+        form = await request.form()
+        file = form.get("file")
+        url = form.get("url")
+
         if url:
             import urllib.request
             print(f"Downloading {url}...")
@@ -44,8 +44,9 @@ async def analyze(request):
             if not file.filename.endswith(".deb"):
                 return JSONResponse({"error": "File must be .deb"}, status_code=400)
             temp_path = WORK_DIR / file.filename
+            content = await file.read()
             with open(temp_path, "wb") as f:
-                f.write(file.read())
+                f.write(content)
         else:
             return JSONResponse({"error": "No file or URL provided"}, status_code=400)
 
@@ -59,6 +60,11 @@ async def analyze(request):
             "libraries": info.get("dependencies", []),
             "nix_dependencies": nix_deps
         })
+    except Exception as e:
+        print(f"Error in analyze: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": f"Analysis failed: {str(e)}"}, status_code=500)
     finally:
         if temp_path:
             temp_path.unlink(missing_ok=True)
@@ -66,12 +72,12 @@ async def analyze(request):
 
 async def generate(request):
     """Generate Nix expression."""
-    form = await request.form()
-    file = form.get("file")
-    url = form.get("url")
-
     temp_path = None
     try:
+        form = await request.form()
+        file = form.get("file")
+        url = form.get("url")
+
         if url:
             import urllib.request
             print(f"Downloading {url}...")
@@ -81,8 +87,9 @@ async def generate(request):
             if not file.filename.endswith(".deb"):
                 return JSONResponse({"error": "File must be .deb"}, status_code=400)
             temp_path = WORK_DIR / file.filename
+            content = await file.read()
             with open(temp_path, "wb") as f:
-                f.write(file.read())
+                f.write(content)
         else:
             return JSONResponse({"error": "No file or URL provided"}, status_code=400)
 
@@ -226,6 +233,11 @@ which $PACKAGE 2>/dev/null && $PACKAGE --version 2>/dev/null || echo "Package in
             "install_guide": install_guide,
             "auto_install_script": auto_script
         })
+    except Exception as e:
+        print(f"Error in generate: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": f"Generation failed: {str(e)}"}, status_code=500)
     finally:
         if temp_path:
             temp_path.unlink(missing_ok=True)

@@ -1163,7 +1163,12 @@ python main.py --url https://example.com/package.deb
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({url})
                 });
+                if (!res.ok) {
+                    const errorBody = await res.text().catch(() => '');
+                    throw new Error('Server error ' + res.status + ': ' + errorBody.substring(0, 200));
+                }
                 const data = await res.json();
+                if (data.error) throw new Error(data.error);
 
                 setStepTime('generate');
                 setStep('generate', 'completed');
@@ -1224,8 +1229,17 @@ python main.py --url https://example.com/package.deb
                 document.getElementById('statusText').textContent = 'Analyzing shared libraries...';
 
                 const [infoRes, nixRes] = await Promise.all([analyzePromise, generatePromise]);
+
+                if (!infoRes.ok || !nixRes.ok) {
+                    const errorBody = await infoRes.text().catch(() => '');
+                    throw new Error('Server error ' + infoRes.status + ': ' + errorBody.substring(0, 200));
+                }
+
                 const info = await infoRes.json();
                 const nix = await nixRes.json();
+
+                if (info.error) throw new Error(info.error);
+                if (nix.error) throw new Error(nix.error);
 
                 setStepTime('analyze');
                 setStep('analyze', 'completed');
