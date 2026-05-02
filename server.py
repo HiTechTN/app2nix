@@ -3,6 +3,7 @@
 app2nix - Minimal Web Server using starlette
 """
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -242,7 +243,6 @@ routes = [
     Route("/generate", generate, methods=["POST"]),
 ]
 
-import os
 
 app = Starlette(
     debug=os.environ.get("DEBUG", "false").lower() == "true",
