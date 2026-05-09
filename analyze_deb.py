@@ -79,9 +79,23 @@ def find_executables(directory: str) -> list[str]:
     return executables
 
 
+def extract_lib_name(lib_path: str) -> str | None:
+    """Extract canonical library name from a .so path or name."""
+    lib = os.path.basename(lib_path)
+    if not lib.startswith("lib") or ".so" not in lib:
+        return None
+    name = lib[3:].split(".so")[0]
+    if not name:
+        return None
+    libver = lib[3:].split(".so.", 1)
+    if len(libver) > 1:
+        name = libver[0]
+    return name
+
+
 def get_library_dependencies(binary_path: str) -> set[str]:
     """Get shared library dependencies using ldd."""
-    libraries = set()
+    libraries: set[str] = set()
     try:
         result = subprocess.run(
             ["ldd", binary_path],
@@ -91,12 +105,12 @@ def get_library_dependencies(binary_path: str) -> set[str]:
         )
         for line in result.stdout.splitlines():
             parts = line.split()
+            # "libfoo.so => /usr/lib/libfoo.so (0x...)" or "libfoo.so (0x...)"
             if len(parts) >= 2:
                 lib = parts[0]
-                if lib.endswith(".so"):
-                    lib_name = lib.split(".so")[0]
-                    if lib_name.startswith("lib"):
-                        libraries.add(lib_name[3:])
+                name = extract_lib_name(lib)
+                if name:
+                    libraries.add(name)
     except (subprocess.TimeoutExpired, Exception):
         pass
     return libraries
@@ -104,7 +118,7 @@ def get_library_dependencies(binary_path: str) -> set[str]:
 
 def get_patchelf_dependencies(binary_path: str) -> set[str]:
     """Get dependencies using patchelf --print-needed."""
-    libraries = set()
+    libraries: set[str] = set()
     try:
         result = subprocess.run(
             ["patchelf", "--print-needed", binary_path],
@@ -114,11 +128,29 @@ def get_patchelf_dependencies(binary_path: str) -> set[str]:
         )
         for line in result.stdout.splitlines():
             lib = line.strip()
-            if lib.startswith("lib") and lib.endswith(".so"):
-                libraries.add(lib[3:].split(".so")[0])
+            name = extract_lib_name(lib)
+            if name:
+                libraries.add(name)
     except (subprocess.TimeoutExpired, Exception):
         pass
     return libraries
+
+
+def parse_control_file(control_path: str) -> dict:
+    """Parse a Debian control file and return metadata."""
+    info = {}
+    if not os.path.exists(control_path):
+        return info
+    try:
+        with open(control_path) as f:
+            for line in f:
+                line = line.strip()
+                if ":" in line:
+                    key, val = line.split(":", 1)
+                    info[key.lower()] = val.strip()
+    except Exception:
+        pass
+    return info
 
 
 def get_all_dependencies(deb_path: str) -> dict[str, Any]:
@@ -127,7 +159,7 @@ def get_all_dependencies(deb_path: str) -> dict[str, Any]:
 
     try:
         executables = find_executables(temp_dir)
-        all_libs = set()
+        all_libs: set[str] = set()
 
         for exe in executables:
             libs = get_library_dependencies(exe)
@@ -135,14 +167,7 @@ def get_all_dependencies(deb_path: str) -> dict[str, Any]:
             patchelf_libs = get_patchelf_dependencies(exe)
             all_libs.update(patchelf_libs)
 
-        result = subprocess.run(
-            ["dpkg-deb", "-I", deb_path],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-
-        info = {
+        info: dict[str, Any] = {
             "name": "unknown",
             "version": "unknown",
             "architecture": "unknown",
@@ -151,13 +176,38 @@ def get_all_dependencies(deb_path: str) -> dict[str, Any]:
             "temp_dir": temp_dir
         }
 
-        for line in result.stdout.splitlines():
-            if line.startswith("Package:"):
-                info["name"] = line.split(":", 1)[1].strip()
-            elif line.startswith("Version:"):
-                info["version"] = line.split(":", 1)[1].strip()
-            elif line.startswith("Architecture:"):
-                info["architecture"] = line.split(":", 1)[1].strip()
+        # Try reading control file from extracted directory first
+        control_paths = [
+            os.path.join(temp_dir, "DEBIAN", "control"),
+        ]
+        for cp in control_paths:
+            control_data = parse_control_file(cp)
+            if control_data.get("package"):
+                info["name"] = control_data["package"]
+            if control_data.get("version"):
+                info["version"] = control_data["version"]
+            if control_data.get("architecture"):
+                info["architecture"] = control_data["architecture"]
+            if control_data.get("package"):
+                break
+
+        # Fallback: try dpkg-deb -I
+        if info["name"] == "unknown":
+            try:
+                result = subprocess.run(
+                    ["dpkg-deb", "-I", deb_path],
+                    capture_output=True, text=True, timeout=5
+                )
+                for line in result.stdout.splitlines():
+                    ls = line.strip()
+                    if ls.startswith("Package:"):
+                        info["name"] = ls.split(":", 1)[1].strip()
+                    elif ls.startswith("Version:"):
+                        info["version"] = ls.split(":", 1)[1].strip()
+                    elif ls.startswith("Architecture:"):
+                        info["architecture"] = ls.split(":", 1)[1].strip()
+            except Exception:
+                pass
 
         return info
 
