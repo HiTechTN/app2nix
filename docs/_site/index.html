@@ -859,6 +859,206 @@ python main.py --url https://example.com/package.deb
         </div>
     </section>
 
+    <!-- Documentation -->
+    <section id="documentation" class="py-5 bg-dark">
+        <div class="container py-5" style="position:relative;z-index:1">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold mb-3">Documentation</h2>
+                <p class="text-secondary">Everything you need to get started with app2nix</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-download"></i></div>
+                        <h5>Installation Guide</h5>
+                        <p class="text-secondary mb-3">Multiple install methods: pip, source, Docker, NixOS.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/INSTALL.md" class="btn btn-outline-light btn-sm">Read Guide</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-book"></i></div>
+                        <h5>Usage Guide</h5>
+                        <p class="text-secondary mb-3">CLI options, web interface, API usage, troubleshooting.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/USAGE.md" class="btn btn-outline-light btn-sm">Read Guide</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-question-circle"></i></div>
+                        <h5>FAQ</h5>
+                        <p class="text-secondary mb-3">Frequently asked questions and troubleshooting tips.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/FAQ.md" class="btn btn-outline-light btn-sm">Read FAQ</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-code-slash"></i></div>
+                        <h5>API Reference</h5>
+                        <p class="text-secondary mb-3">Complete REST API documentation with examples.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/API.md" class="btn btn-outline-light btn-sm">View API</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-gear"></i></div>
+                        <h5>How It Works</h5>
+                        <p class="text-secondary mb-3">Architecture deep-dive of the conversion pipeline.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/FONCTIONNEMENT.md" class="btn btn-outline-light btn-sm">Learn More</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card-feature h-100">
+                        <div class="icon-box mb-3"><i class="bi bi-wiki"></i></div>
+                        <h5>Wiki</h5>
+                        <p class="text-secondary mb-3">Community-contributed guides and advanced topics.</p>
+                        <a href="https://github.com/HiTechTN/app2nix/wiki" class="btn btn-outline-light btn-sm">Browse Wiki</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples -->
+    <section id="examples" class="py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold mb-3">Examples</h2>
+                <p class="text-secondary">Real-world package conversions</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-globe text-primary" style="font-size:2rem"></i>
+                                <h5 class="ms-3 mb-0">Firefox</h5>
+                            </div>
+                            <p class="text-secondary small">Convert the official Firefox .deb package to NixOS.</p>
+                            <pre class="bg-darker p-2 rounded small text-warning">python main.py firefox.deb --output-dir ./firefox-nix</pre>
+                            <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/EXAMPLES.md#firefox" class="btn btn-sm btn-outline-light mt-2">View Example</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-layers text-success" style="font-size:2rem"></i>
+                                <h5 class="ms-3 mb-0">VS Code</h5>
+                            </div>
+                            <p class="text-secondary small">Convert VS Code .deb to a NixOS desktop application.</p>
+                            <pre class="bg-darker p-2 rounded small text-warning">python main.py code.deb --output-dir ./vscode-nix</pre>
+                            <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/EXAMPLES.md#vs-code" class="btn btn-sm btn-outline-light mt-2">View Example</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-chat-dots text-warning" style="font-size:2rem"></i>
+                                <h5 class="ms-3 mb-0">Discord</h5>
+                            </div>
+                            <p class="text-secondary small">Convert the Discord .deb package for NixOS.</p>
+                            <pre class="bg-darker p-2 rounded small text-warning">python main.py discord.deb --output-dir ./discord-nix</pre>
+                            <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/EXAMPLES.md#discord" class="btn btn-sm btn-outline-light mt-2">View Example</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="bi bi-play-circle text-info" style="font-size:2rem"></i>
+                                <h5 class="ms-3 mb-0">Tor Browser</h5>
+                            </div>
+                            <p class="text-secondary small">Convert Tor Browser AppImage to NixOS.</p>
+                            <pre class="bg-darker p-2 rounded small text-warning">python universal_analyze.py tor-browser.AppImage</pre>
+                            <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/EXAMPLES.md#tor-browser" class="btn btn-sm btn-outline-light mt-2">View Example</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/EXAMPLES.md" class="btn btn-gradient">View All Examples</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- License -->
+    <section id="license" class="py-5 bg-dark">
+        <div class="container py-5" style="position:relative;z-index:1">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h2 class="fw-bold mb-4">License</h2>
+                    <div class="card bg-darker border-secondary p-4">
+                        <h5>MIT License</h5>
+                        <p class="text-secondary">Copyright &copy; 2026 HiTechTN</p>
+                        <p class="text-secondary small">
+                            Permission is hereby granted, free of charge, to any person obtaining a copy
+                            of this software and associated documentation files (the "Software"), to deal
+                            in the Software without restriction, including without limitation the rights
+                            to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                            copies of the Software, and to permit persons to whom the Software is
+                            furnished to do so, subject to the following conditions:
+                        </p>
+                        <p class="text-secondary small">
+                            The above copyright notice and this permission notice shall be included in all
+                            copies or substantial portions of the Software.
+                        </p>
+                        <p class="text-secondary small">
+                            THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                            IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                            FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                            AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                            LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                            OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                            SOFTWARE.
+                        </p>
+                        <a href="https://github.com/HiTechTN/app2nix/blob/master/LICENSE" class="btn btn-outline-light btn-sm mt-2">View Full License</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy -->
+    <section id="privacy" class="py-5">
+        <div class="container py-5" style="position:relative;z-index:1">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h2 class="fw-bold mb-4">Privacy Policy</h2>
+                    <div class="card bg-darker border-secondary p-4">
+                        <h5>Data Collection</h5>
+                        <p class="text-secondary small">
+                            app2nix does not collect, store, or transmit any personal data. All package
+                            conversion happens locally on your machine. When using the web interface,
+                            uploaded packages are processed temporarily in memory and discarded immediately
+                            after conversion.
+                        </p>
+                        <h5 class="mt-4">Third-Party Services</h5>
+                        <p class="text-secondary small">
+                            The web version hosted on Render or other platforms may collect standard
+                            server logs (IP address, request timestamps) for operational purposes.
+                            These logs are retained for a maximum of 30 days and are not shared
+                            with third parties.
+                        </p>
+                        <h5 class="mt-4">Cookies</h5>
+                        <p class="text-secondary small">
+                            This site does not use cookies or tracking mechanisms.
+                        </p>
+                        <h5 class="mt-4">Contact</h5>
+                        <p class="text-secondary small">
+                            For privacy-related inquiries, please open an issue on
+                            <a href="https://github.com/HiTechTN/app2nix/issues" class="text-primary">GitHub</a>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer py-5">
         <div class="container" style="position:relative;z-index:1">
@@ -878,24 +1078,24 @@ python main.py --url https://example.com/package.deb
                 <div class="col-md-2">
                     <h6>Resources</h6>
                     <ul class="list-unstyled">
-                        <li><a href="#" class="text-secondary text-decoration-none">Documentation</a></li>
-                        <li><a href="#" class="text-secondary text-decoration-none">Wiki</a></li>
-                        <li><a href="#" class="text-secondary text-decoration-none">Examples</a></li>
+                        <li><a href="#documentation" class="text-secondary text-decoration-none">Documentation</a></li>
+                        <li><a href="https://github.com/HiTechTN/app2nix/wiki" class="text-secondary text-decoration-none">Wiki</a></li>
+                        <li><a href="#examples" class="text-secondary text-decoration-none">Examples</a></li>
                     </ul>
                 </div>
                 <div class="col-md-2">
                     <h6>Community</h6>
                     <ul class="list-unstyled">
                         <li><a href="https://github.com/HiTechTN/app2nix" class="text-secondary text-decoration-none">GitHub</a></li>
-                        <li><a href="#" class="text-secondary text-decoration-none">Discord</a></li>
-                        <li><a href="#" class="text-secondary text-decoration-none">Issues</a></li>
+                        <li><a href="https://github.com/HiTechTN/app2nix/discussions" class="text-secondary text-decoration-none">Discussions</a></li>
+                        <li><a href="https://github.com/HiTechTN/app2nix/issues" class="text-secondary text-decoration-none">Issues</a></li>
                     </ul>
                 </div>
                 <div class="col-md-2">
                     <h6>Legal</h6>
                     <ul class="list-unstyled">
-                        <li><a href="#" class="text-secondary text-decoration-none">License</a></li>
-                        <li><a href="#" class="text-secondary text-decoration-none">Privacy</a></li>
+                        <li><a href="#license" class="text-secondary text-decoration-none">License</a></li>
+                        <li><a href="#privacy" class="text-secondary text-decoration-none">Privacy</a></li>
                     </ul>
                 </div>
             </div>
