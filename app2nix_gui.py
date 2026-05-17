@@ -1,25 +1,36 @@
 #!/usr/bin/env python3
 import os
-import sys
 import shutil
 import subprocess
+import sys
 import urllib.request
 from pathlib import Path
 
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QLineEdit, QTabWidget, QTextEdit, QFileDialog,
-    QMessageBox, QProgressBar, QStatusBar
-)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QAction, QActionGroup
+from PyQt6.QtGui import QAction, QActionGroup, QFont
+from PyQt6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QStatusBar,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, str(Path(__file__).parent))
 from analyze_deb import get_all_dependencies
-from lib.deb_to_nix import translate_all
-from universal_analyze import PackageAnalyzer
 from lib import i18n
 from lib import theme as thm
+from lib.deb_to_nix import translate_all
+from universal_analyze import PackageAnalyzer
 
 SUPPORTED_FORMATS = [".deb", ".rpm", ".AppImage", ".appimage", ".tar.gz", ".tgz", ".tar", ".flatpak", ".snap"]
 ARCH_MAP = {

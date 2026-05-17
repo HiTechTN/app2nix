@@ -151,7 +151,7 @@ class PackageAnalyzer:
         """Extract AppImage using --appimage-extract."""
         if not os.access(path, os.X_OK):
             os.chmod(path, 0o755)
-        result = subprocess.run(
+        subprocess.run(
             [str(path), "--appimage-extract"],
             cwd=temp_dir, capture_output=True, text=True, timeout=30
         )
@@ -165,7 +165,7 @@ class PackageAnalyzer:
         cmd = ["unsquashfs", "-d", str(dest), str(path)]
         if offset > 0:
             cmd.extend(["-o", str(offset)])
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if dest.exists():
             return dest
         if offset == 0:
