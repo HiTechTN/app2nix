@@ -4,6 +4,14 @@ Translation dictionary: Debian library names -> Nixpkgs package names.
 """
 
 DEB_TO_NIX = {
+    # WebKit/Electron
+    "webkit2gtk-4.1": "webkitgtk",
+    "webkit2gtk-4.0": "webkitgtk",
+    "javascriptcoregtk-4.1": "webkitgtk",
+    "soup-3.0": "libsoup_3",
+    "soup-2.4": "libsoup_2_4",
+    "secret-1": "libsecret",
+
     # Graphics
     "drm": "libdrm",
     "gbm": "mesa",
@@ -27,7 +35,7 @@ DEB_TO_NIX = {
     "z": "zlib",
     "zstd": "zstd",
     "bz2": "bzip2",
-    "lzma": "lzma",
+    "lzma": "xz",
     "xz": "xz",
 
     # Crypto

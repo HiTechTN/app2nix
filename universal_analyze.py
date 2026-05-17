@@ -128,28 +128,74 @@ class PackageAnalyzer:
 
         return info
 
+    def _appimage_offset(self, path: Path) -> int:
+        """Detect AppImage SquashFS offset."""
+        with open(path, "rb") as f:
+            f.seek(-8, 2)
+            data = f.read(8).decode("ascii", errors="ignore").strip()
+            if data.isdigit():
+                offset = int(data)
+                if offset > 0:
+                    return offset
+
+        import mmap
+        with open(path, "rb") as f:
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            idx = mm.find(b"hsqs")
+            mm.close()
+            if idx != -1 and idx > 0:
+                return idx
+        return 0
+
+    def _extract_appimage_fuse(self, path: Path, temp_dir: Path) -> Path | None:
+        """Extract AppImage using --appimage-extract."""
+        if not os.access(path, os.X_OK):
+            os.chmod(path, 0o755)
+        result = subprocess.run(
+            [str(path), "--appimage-extract"],
+            cwd=temp_dir, capture_output=True, text=True, timeout=30
+        )
+        squashfs = temp_dir / "squashfs-root"
+        return squashfs if squashfs.exists() else None
+
+    def _extract_appimage_unsquashfs(self, path: Path, temp_dir: Path) -> Path | None:
+        """Extract AppImage using unsquashfs (for Type 1/2 AppImages)."""
+        offset = self._appimage_offset(path)
+        dest = temp_dir / "squashfs-root"
+        cmd = ["unsquashfs", "-d", str(dest), str(path)]
+        if offset > 0:
+            cmd.extend(["-o", str(offset)])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if dest.exists():
+            return dest
+        if offset == 0:
+            return None
+        cmd2 = ["unsquashfs", "-d", str(dest), str(path)]
+        subprocess.run(cmd2, capture_output=True, text=True, timeout=60)
+        return dest if dest.exists() else None
+
     def _analyze_appimage(self, path: Path) -> dict:
         """Analyze AppImage."""
         temp_dir = self.work_dir / "appimage_extracted"
         temp_dir.mkdir(exist_ok=True)
         self.temp_dirs.append(temp_dir)
 
-        subprocess.run([str(path), "--appimage-extract"], cwd=temp_dir, capture_output=True)
+        squashfs = self._extract_appimage_fuse(path, temp_dir)
+        if not squashfs:
+            squashfs = self._extract_appimage_unsquashfs(path, temp_dir)
+        if not squashfs:
+            raise ValueError("Failed to extract AppImage (tried --appimage-extract and unsquashfs)")
 
-        squashfs = temp_dir / "squashfs-root"
-        if squashfs.exists():
-            info = {
-                "format": "AppImage",
-                "name": path.stem.replace(".AppImage", ""),
-                "version": "1.0",
-                "architecture": "x86_64",
-                "dependencies": [],
-                "binaries": self._find_binaries(squashfs),
-                "temp_dir": str(squashfs)
-            }
-            info["libraries"] = self._find_libraries(squashfs)
-        else:
-            raise ValueError("Failed to extract AppImage")
+        info = {
+            "format": "AppImage",
+            "name": path.stem.replace(".AppImage", "").replace(".appimage", ""),
+            "version": "1.0",
+            "architecture": "x86_64",
+            "dependencies": [],
+            "binaries": self._find_binaries(squashfs),
+            "temp_dir": str(squashfs)
+        }
+        info["libraries"] = self._find_libraries(squashfs)
 
         return info
 

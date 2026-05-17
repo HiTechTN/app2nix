@@ -172,6 +172,9 @@ def build_nix_expression(pkg_name: str, pkg_version: str, pkg_arch: str, fmt: st
 
     native_inputs = "\n".join(f"    pkgs.{p}" for p in native)
 
+    deps_extra = "    pkgs.stdenv.cc.cc.lib\n" if "stdenv.cc.cc.lib" not in deps_lines else ""
+    all_deps = deps_extra + deps_lines
+
     lines = [
         "{ pkgs ? import <nixpkgs> {} }:",
         "",
@@ -188,9 +191,9 @@ def build_nix_expression(pkg_name: str, pkg_version: str, pkg_arch: str, fmt: st
         "  ];",
         "",
     ]
-    if deps_lines:
+    if all_deps.strip():
         lines.append("  buildInputs = with pkgs; [")
-        lines.append(deps_lines)
+        lines.append(all_deps)
         lines.append("  ];")
         lines.append("")
 
@@ -205,15 +208,9 @@ def build_nix_expression(pkg_name: str, pkg_version: str, pkg_arch: str, fmt: st
         "",
         "    # Create bin directory and symlink all executables",
         "    mkdir -p $out/bin",
-        '    for dir in $out/usr/bin $out/usr/local/bin $out/opt/*/bin; do',
-        '      if [ -d "$dir" ]; then',
-        '        for bin in "$dir"/*; do',
-        '          if [ -f "$bin" ] && [ -x "$bin" ] && [ ! -d "$bin" ]; then',
-        '            ln -sf "$bin" "$out/bin/$(basename "$bin")"',
-        "          fi",
-        "        done",
-        "      fi",
-        "    done",
+        '    find $out/usr $out/opt -type f -executable 2>/dev/null | while read f; do',
+        '      case "$f" in *.so.*|*.so) ;; *) ln -sf "$f" "$out/bin/$(basename "$f")" 2>/dev/null ;; esac',
+        '    done',
         "",
         '    if [ -d "$out/usr/share" ]; then',
         "      mkdir -p $out/share",
