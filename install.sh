@@ -21,7 +21,7 @@
 
 set -e
 
-VERSION="1.0.0"
+VERSION="2.0.0"
 REPO="HiTechTN/app2nix"
 RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
@@ -55,14 +55,13 @@ find_python() {
 
 print_banner() {
     cat << 'BANNER'
-     _      ____           _           _
-    | |    |  _ \         | |         | |
-    | |    | |_) | ___ _ _| |_ ___ _ __| | ___  ___
-    | |    | _ < / _ \ '__| __/ _ \ '__| |/ _ \/ __|
-    | |____| |_) |  __/ |  | ||  __/ |  | |  __/\__ \
-    |______|____/ \___|_|   \__\___|_|  |_|\___||___/
+                ___      _
+ __ _ _ __ _ __|_  )_ _(_)_ __
+/ _` | '_ \ '_ \/ /| ' \| \ \ /
+\__,_| .__/ .__/___|_||_|_/_\_\
+     |_|  |_|
 
-    Universal Package to NixOS Converter vVERSION_PLACEHOLDER
+    app2nix vVERSION_PLACEHOLDER
 BANNER
 }
 
@@ -124,6 +123,10 @@ check_docker() {
         return 0
     fi
     return 1
+}
+
+is_nixos() {
+    grep -qi '^ID=nixos' /etc/os-release 2>/dev/null
 }
 
 install_docker() {
@@ -381,7 +384,10 @@ main() {
         "")
             print_banner | sed "s/VERSION_PLACEHOLDER/$VERSION/g"
             echo
-            if check_docker; then
+            if is_nixos; then
+                log "NixOS detected — installing natively"
+                install_user
+            elif check_docker; then
                 install_docker
             else
                 install_user
