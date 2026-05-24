@@ -121,5 +121,20 @@ def serve(
     uvicorn.run("app2nix.server:app", host=host, port=port, reload=reload)
 
 
+@app.command()
+def gui():
+    """Launch the Qt6 graphical interface."""
+    import runpy
+    import sys
+    from pathlib import Path
+
+    gui_path = Path(__file__).resolve().parent.parent.parent / "app2nix_gui.py"
+    if not gui_path.exists():
+        console.print("[red]GUI module not found at:[/red]", gui_path)
+        raise typer.Exit(1)
+    sys.argv = ["app2nix-gui"]
+    runpy.run_path(str(gui_path), run_name="__main__")
+
+
 if __name__ == "__main__":
     app()

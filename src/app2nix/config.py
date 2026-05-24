@@ -1,3 +1,4 @@
+import secrets
 from functools import lru_cache
 from pathlib import Path
 
@@ -5,7 +6,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    secret_key: str
+    secret_key: str = secrets.token_hex(32)
     debug: bool = False
     max_upload_size: int = 500 * 1024 * 1024
     upload_timeout: int = 60
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]
+    return Settings()
 
 
 settings = get_settings()

@@ -250,27 +250,39 @@ install_user() {
     .venv/bin/pip install --upgrade pip -q
     .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
 
+    if [ ! -f .env ]; then
+        local secret_key; secret_key=$($PYTHON -c "import secrets; print(secrets.token_hex(32))")
+        cat > .env << ENVFILE
+APP2NIX_SECRET_KEY=$secret_key
+APP2NIX_DEBUG=false
+APP2NIX_MAX_UPLOAD_SIZE=524288000
+APP2NIX_VALIDATE_NIX=true
+ENVFILE
+        ok "Created .env with generated secret key"
+    fi
+
     create_alias
 
     ok "User installation complete!"
     echo
     info "Server: app2nix-server"
     info "CLI:    app2nix"
+    info "GUI:    app2nix-gui"
 }
 
 create_alias() {
     mkdir -p "$BIN_DIR"
 
-    cat > "$BIN_DIR/app2nix" << 'ALIAS'
+    cat > "$BIN_DIR/app2nix" << ALIAS
 #!/usr/bin/env bash
 # app2nix - Universal Package to NixOS Converter
-INSTALL_DIR="$HOME/.local/app2nix"
-PYTHON_VENV="$INSTALL_DIR/.venv/bin/python"
+INSTALL_DIR="\$HOME/.local/app2nix"
+PYTHON_VENV="\$INSTALL_DIR/.venv/bin/python"
 start_server() {
-    if command -v docker >/dev/null 2>&1 && [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$INSTALL_DIR" && docker compose up -d
-    elif [ -f "$PYTHON_VENV" ]; then
-        cd "$INSTALL_DIR" && nohup "$PYTHON_VENV" server.py >/dev/null 2>&1 &
+    if command -v docker >/dev/null 2>&1 && [ -f "\$INSTALL_DIR/docker-compose.yml" ]; then
+        cd "\$INSTALL_DIR" && docker compose up -d
+    elif [ -f "\$PYTHON_VENV" ]; then
+        cd "\$INSTALL_DIR" && nohup "\$PYTHON_VENV" -m app2nix serve >/dev/null 2>&1 &
     else
         echo "Error: no Docker or Python venv found" >&2
         exit 1
@@ -278,17 +290,18 @@ start_server() {
 }
 stop_server() {
     if command -v docker >/dev/null 2>&1 && docker ps -q --filter name=app2nix 2>/dev/null | grep -q .; then
-        cd "$INSTALL_DIR" 2>/dev/null && docker compose down
+        cd "\$INSTALL_DIR" 2>/dev/null && docker compose down
     else
-        pkill -f "python.*server.py" 2>/dev/null || true
+        pkill -f "app2nix.*serve" 2>/dev/null || true
+        pkill -f "uvicorn.*app2nix" 2>/dev/null || true
     fi
 }
-case "${1:-}" in
+case "\${1:-}" in
     start) start_server ;;
     stop) stop_server ;;
     logs)
-        if command -v docker >/dev/null 2>&1 && [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
-            cd "$INSTALL_DIR" && docker compose logs -f
+        if command -v docker >/dev/null 2>&1 && [ -f "\$INSTALL_DIR/docker-compose.yml" ]; then
+            cd "\$INSTALL_DIR" && docker compose logs -f
         else
             echo "Error: logs only available in Docker mode" >&2
             exit 1
@@ -298,14 +311,11 @@ case "${1:-}" in
         stop_server; sleep 1; start_server
         ;;
     *)
-        cd "$INSTALL_DIR"
-        if [ -f "$PYTHON_VENV" ]; then
-            exec "$PYTHON_VENV" "$INSTALL_DIR/main.py" "$@"
+        cd "\$INSTALL_DIR"
+        if [ -f "\$PYTHON_VENV" ]; then
+            exec "\$PYTHON_VENV" -m app2nix "\$@"
         else
-            command -v python3 >/dev/null 2>&1 && exec python3 "$INSTALL_DIR/main.py" "$@"
-            command -v python >/dev/null 2>&1 && exec python "$INSTALL_DIR/main.py" "$@"
-            command -v python3.11 >/dev/null 2>&1 && exec python3.11 "$INSTALL_DIR/main.py" "$@"
-            echo "Error: Python not found" >&2
+            echo "Error: Python venv not found at \$INSTALL_DIR" >&2
             exit 1
         fi
         ;;
@@ -313,22 +323,33 @@ esac
 ALIAS
     chmod +x "$BIN_DIR/app2nix"
 
-    cat > "$BIN_DIR/app2nix-server" << 'SERVER'
+    cat > "$BIN_DIR/app2nix-server" << SERVER
 #!/usr/bin/env bash
 # app2nix-server - Web UI for app2nix
-INSTALL_DIR="$HOME/.local/app2nix"
-cd "$INSTALL_DIR"
-if [ -f .venv/bin/python ]; then
-    exec .venv/bin/python "$INSTALL_DIR/server.py" "$@"
+INSTALL_DIR="\$HOME/.local/app2nix"
+PYTHON_VENV="\$INSTALL_DIR/.venv/bin/python"
+if [ -f "\$PYTHON_VENV" ]; then
+    exec "\$PYTHON_VENV" -m app2nix serve "\$@"
 else
-    command -v python3 >/dev/null 2>&1 && exec python3 "$INSTALL_DIR/server.py" "$@"
-    command -v python >/dev/null 2>&1 && exec python "$INSTALL_DIR/server.py" "$@"
-    command -v python3.11 >/dev/null 2>&1 && exec python3.11 "$INSTALL_DIR/server.py" "$@"
-    echo "Error: Python not found" >&2
+    echo "Error: Python venv not found at \$INSTALL_DIR" >&2
     exit 1
 fi
 SERVER
     chmod +x "$BIN_DIR/app2nix-server"
+
+    cat > "$BIN_DIR/app2nix-gui" << SERVER
+#!/usr/bin/env bash
+# app2nix-gui - Graphical interface for app2nix
+INSTALL_DIR="\$HOME/.local/app2nix"
+PYTHON_VENV="\$INSTALL_DIR/.venv/bin/python"
+if [ -f "\$PYTHON_VENV" ]; then
+    exec "\$PYTHON_VENV" -m app2nix gui "\$@"
+else
+    echo "Error: Python venv not found at \$INSTALL_DIR" >&2
+    exit 1
+fi
+SERVER
+    chmod +x "$BIN_DIR/app2nix-gui"
 }
 
 uninstall() {
@@ -337,6 +358,7 @@ uninstall() {
     rm -rf "$INSTALL_DIR"
     rm -f "$BIN_DIR/app2nix"
     rm -f "$BIN_DIR/app2nix-server"
+    rm -f "$BIN_DIR/app2nix-gui"
 
     docker stop app2nix 2>/dev/null || true
     docker rm app2nix 2>/dev/null || true
@@ -352,6 +374,17 @@ upgrade() {
         git fetch origin -q
         git checkout -f -B master origin/master -q
         .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
+        if [ ! -f .env ]; then
+            local secret_key; secret_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null || echo "$(date +%s%N | sha256sum | head -c64)")
+            cat > .env << ENVFILE
+APP2NIX_SECRET_KEY=$secret_key
+APP2NIX_DEBUG=false
+APP2NIX_MAX_UPLOAD_SIZE=524288000
+APP2NIX_VALIDATE_NIX=true
+ENVFILE
+            ok "Created .env with generated secret key"
+        fi
+        create_alias
     fi
     ok "Upgraded to latest version!"
 }
