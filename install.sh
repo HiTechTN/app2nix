@@ -218,17 +218,25 @@ install_user() {
     cd "$INSTALL_DIR"
 
     if command -v git >/dev/null 2>&1; then
-        git clone --depth=1 https://github.com/${REPO}.git . 2>/dev/null || {
-            rm -rf .git
-            git init -q
-            git remote add origin https://github.com/${REPO}.git
+        if [ -d .git ]; then
+            log "Existing installation found — updating..."
             git fetch origin -q
-            git checkout -b master origin/master -q
-        }
+            git checkout -f -B master origin/master -q
+        else
+            rm -rf .git 2>/dev/null; rm -f .git 2>/dev/null
+            git clone --depth=1 https://github.com/${REPO}.git . 2>/dev/null || {
+                git init -q
+                git remote add origin https://github.com/${REPO}.git
+                git fetch origin -q --depth=1
+                git checkout -f -B master origin/master -q
+            }
+        fi
     else
-        curl -sL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz
-        mv app2nix-*/* .
-        rm -rf app2nix-*
+        local tmpdir; tmpdir=$(mktemp -d)
+        curl -sL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz -C "$tmpdir"
+        cp -r "$tmpdir"/app2nix-*/* "$INSTALL_DIR/"
+        cp -r "$tmpdir"/app2nix-*/.[!.]* "$INSTALL_DIR/" 2>/dev/null || true
+        rm -rf "$tmpdir"
     fi
 
     local PYTHON
@@ -257,23 +265,42 @@ create_alias() {
 #!/usr/bin/env bash
 # app2nix - Universal Package to NixOS Converter
 INSTALL_DIR="$HOME/.local/app2nix"
-case "${1:-}" in
-    start)
+PYTHON_VENV="$INSTALL_DIR/.venv/bin/python"
+start_server() {
+    if command -v docker >/dev/null 2>&1 && [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
         cd "$INSTALL_DIR" && docker compose up -d
-        ;;
-    stop)
-        cd "$INSTALL_DIR" && docker compose down
-        ;;
+    elif [ -f "$PYTHON_VENV" ]; then
+        cd "$INSTALL_DIR" && nohup "$PYTHON_VENV" server.py >/dev/null 2>&1 &
+    else
+        echo "Error: no Docker or Python venv found" >&2
+        exit 1
+    fi
+}
+stop_server() {
+    if command -v docker >/dev/null 2>&1 && docker ps -q --filter name=app2nix 2>/dev/null | grep -q .; then
+        cd "$INSTALL_DIR" 2>/dev/null && docker compose down
+    else
+        pkill -f "python.*server.py" 2>/dev/null || true
+    fi
+}
+case "${1:-}" in
+    start) start_server ;;
+    stop) stop_server ;;
     logs)
-        cd "$INSTALL_DIR" && docker compose logs -f
+        if command -v docker >/dev/null 2>&1 && [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
+            cd "$INSTALL_DIR" && docker compose logs -f
+        else
+            echo "Error: logs only available in Docker mode" >&2
+            exit 1
+        fi
         ;;
     restart)
-        cd "$INSTALL_DIR" && docker compose restart
+        stop_server; sleep 1; start_server
         ;;
     *)
         cd "$INSTALL_DIR"
-        if [ -f .venv/bin/python ]; then
-            exec .venv/bin/python "$INSTALL_DIR/main.py" "$@"
+        if [ -f "$PYTHON_VENV" ]; then
+            exec "$PYTHON_VENV" "$INSTALL_DIR/main.py" "$@"
         else
             command -v python3 >/dev/null 2>&1 && exec python3 "$INSTALL_DIR/main.py" "$@"
             command -v python >/dev/null 2>&1 && exec python "$INSTALL_DIR/main.py" "$@"
@@ -322,12 +349,8 @@ upgrade() {
         cd "$INSTALL_DIR" 2>/dev/null && docker compose pull && docker compose up -d --force-recreate
     else
         cd "$INSTALL_DIR"
-        git pull origin master 2>/dev/null || {
-            rm -rf .git
-            git init -q
-            git remote add origin https://github.com/${REPO}.git
-            git pull origin master
-        }
+        git fetch origin -q
+        git checkout -f -B master origin/master -q
         .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
     fi
     ok "Upgraded to latest version!"
