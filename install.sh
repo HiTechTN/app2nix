@@ -126,7 +126,9 @@ check_docker() {
 }
 
 is_nixos() {
-    grep -qi '^ID=nixos' /etc/os-release 2>/dev/null
+    grep -qi '^ID=nixos' /etc/os-release 2>/dev/null ||
+    test -f /etc/NIXOS ||
+    command -v nixos-rebuild >/dev/null 2>&1
 }
 
 install_docker() {
