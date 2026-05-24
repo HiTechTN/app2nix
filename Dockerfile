@@ -1,31 +1,39 @@
-FROM python:3.11-slim
+# ---- Build stage ----
+FROM python:3.12-slim AS builder
 
-LABEL maintainer="Azmi <azmi.hitech@gmail.com>"
-LABEL description="Convert any Linux package to NixOS expressions"
-LABEL version="1.0.0"
+WORKDIR /build
+COPY pyproject.toml uv.lock ./
+RUN pip install uv && uv sync --no-dev --frozen
 
-WORKDIR /app
+# ---- Runtime stage ----
+FROM python:3.12-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dpkg \
+    rpm2cpio \
+    cpio \
     patchelf \
     file \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+WORKDIR /app
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /build/.venv /app/.venv
+COPY src/ /app/src/
+COPY static/ /app/static/
+COPY templates/ /app/templates/
+COPY lib/ /app/lib/
 
-COPY . .
+ENV PATH="/app/.venv/bin:$PATH"
+ENV APP2NIX_SECRET_KEY=""
+ENV APP2NIX_DEBUG=false
 
-ENV PYTHONUNBUFFERED=1
-ENV HOST=0.0.0.0
-ENV PORT=8000
+RUN useradd -m -u 1000 app2nix
+USER app2nix
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api || exit 1
+HEALTHCHECK --interval=30s --timeout=5s \
+  CMD python -c "import httpx; httpx.get('http://localhost:8000/api').raise_for_status()"
 
-CMD ["python", "server.py"]
+CMD ["python", "-m", "app2nix", "serve", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,57 @@
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "unknown"]
+
+class PackageInfo(BaseModel):
+    name: str
+    version: str = "1.0"
+    architecture: str = "x86_64"
+    format: PackageFormat = "unknown"
+    dependencies: list[str] = Field(default_factory=list)
+    executables: list[str] = Field(default_factory=list)
+    description: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        import re
+        return re.sub(r"[^a-zA-Z0-9._-]", "-", v).lower()
+
+class ResolvedDependency(BaseModel):
+    original: str
+    nixpkg: str | None = None
+    confidence: float = 0.0
+    source: Literal["dict", "api", "fuzzy", "unknown"] = "unknown"
+
+class ConversionResult(BaseModel):
+    package: PackageInfo
+    nix_content: str
+    flake_content: str | None = None
+    install_script: str = ""
+    install_guide: str = ""
+    resolved_deps: list[ResolvedDependency] = Field(default_factory=list)
+    unresolved_deps: list[str] = Field(default_factory=list)
+    validation_passed: bool = True
+    validation_error: str | None = None
+
+class AnalyzeResponse(BaseModel):
+    name: str
+    version: str
+    format: str
+    architecture: str
+    libraries: list[str]
+    nix_dependencies: list[str]
+    unresolved: list[str] = Field(default_factory=list)
+
+class GenerateResponse(BaseModel):
+    name: str
+    version: str
+    architecture: str
+    content: str
+    flake_content: str | None = None
+    install_guide: str = ""
+    auto_install_script: str = ""
+    validation_passed: bool = True
+    unresolved_deps: list[str] = Field(default_factory=list)

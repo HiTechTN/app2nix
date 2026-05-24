@@ -25,12 +25,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-sys.path.insert(0, str(Path(__file__).parent))
-from analyze_deb import get_all_dependencies
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+from app2nix.core.analyzer import UniversalAnalyzer
+from app2nix.core.resolver import DependencyResolver, DEP_MAP
 from lib import i18n
 from lib import theme as thm
-from lib.deb_to_nix import translate_all
-from universal_analyze import PackageAnalyzer
 
 SUPPORTED_FORMATS = [".deb", ".rpm", ".AppImage", ".appimage", ".tar.gz", ".tgz", ".tar", ".flatpak", ".snap"]
 ARCH_MAP = {
@@ -47,9 +46,7 @@ def get_format(filename: str) -> str | None:
     if name.endswith(".tar.gz") or name.endswith(".tgz"):
         return ".tar.gz"
     ext = Path(name).suffix
-    if ext in SUPPORTED_FORMATS:
-        return ext
-    return None
+    return ext if ext in SUPPORTED_FORMATS else None
 
 def build_nix_expression(pkg_name: str, pkg_version: str, pkg_arch: str, fmt: str, deps_lines: str) -> str:
     if fmt == "deb":
@@ -605,25 +602,20 @@ class App2NixWindow(QMainWindow):
         QApplication.processEvents()
 
         try:
-            if fmt == ".deb":
-                info = get_all_dependencies(file_path)
-            else:
-                analyzer = PackageAnalyzer()
-                try:
-                    info = analyzer.analyze(file_path)
-                finally:
-                    analyzer.cleanup()
+            analyzer = UniversalAnalyzer()
+            info = analyzer.analyze(file_path)
 
-            nix_deps = translate_all(info.get("dependencies", []))
-            pkg_name = info.get("name", Path(file_path).stem)
-            pkg_version = info.get("version", "1.0")
-            pkg_arch = info.get("architecture", "amd64")
-            fmt_name = info.get("format", fmt.lstrip("."))
+            resolver = DependencyResolver(Path("/tmp/app2nix_resolver.db"))
+            nix_deps, unresolved = resolver.resolve_all(info.dependencies)
+            pkg_name = info.name
+            pkg_version = info.version
+            pkg_arch = info.architecture
+            fmt_name = info.format
 
             self.current_result = {
                 "name": pkg_name, "version": pkg_version,
                 "architecture": pkg_arch, "format": fmt_name,
-                "libraries": info.get("dependencies", []),
+                "libraries": info.dependencies,
                 "nix_dependencies": nix_deps,
             }
 
@@ -631,11 +623,11 @@ class App2NixWindow(QMainWindow):
             self.lbl_version.setText(pkg_version)
             self.lbl_arch.setText(map_arch(pkg_arch))
             self.lbl_format.setText(fmt_name)
-            self.lbl_libs_count.setText(str(len(info.get("dependencies", []))))
+            self.lbl_libs_count.setText(str(len(info.dependencies)))
             self.lbl_nix_count.setText(str(len(nix_deps)))
 
             self.libs_text.clear()
-            for lib in sorted(info.get("dependencies", [])):
+            for lib in sorted(info.dependencies):
                 self.libs_text.append(lib)
 
             pa = map_arch(pkg_arch)
@@ -704,7 +696,7 @@ class App2NixWindow(QMainWindow):
             env["NIXPKGS_ALLOW_UNFREE"] = "1"
             result = subprocess.run(
                 ["nix-build", "default.nix"], cwd=str(pkg_dir),
-                capture_output=True, text=True, timeout=600, env=env
+                capture_output=True, text=True, timeout=600, env=env,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"{i18n.tr('error.build_failed')}:\n{result.stderr}")
@@ -759,7 +751,7 @@ class App2NixWindow(QMainWindow):
                     if clicked == f"{i18n.tr('open')} {exe}":
                         subprocess.Popen(
                             [str(Path(store_path) / "bin" / exe)],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                         )
                         break
 
@@ -829,7 +821,7 @@ class App2NixWindow(QMainWindow):
         (pd / "default.nix").write_text(self.nix_output.toPlainText())
         self._status_bar.showMessage(f"{i18n.tr('status.setup_done')}: {pd}")
         QMessageBox.information(self, i18n.tr("setup.complete.title"),
-            f"{i18n.tr('status.setup_done')}:\n{pd}\n\n✓ Package file copied\n✓ default.nix saved\n\n"
+            f"{i18n.tr('status.setup_done')}:\n{pd}\n\nPackage file copied\ndefault.nix saved\n\n"
             f"Run 'cd {pd} && NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix' to install.")
 
     def _show_about(self):

@@ -3,17 +3,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["lib", "utils"]
+packages = ["src/app2nix"]
 
 [project]
 name = "app2nix"
-version = "1.0.0"
+version = "2.0.0"
 description = "Convert any Linux package (.deb, .rpm, AppImage, Flatpak, Snap) to NixOS native applications"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Azmi", email = "azmi.hitech@gmail.com"}
+    {name = "Azmi", email = "azmi.hitech@gmail.com"},
 ]
 keywords = ["nixos", "nix", "packaging", "conversion", "deb", "rpm", "appimage", "flatpak"]
 homepage = "https://github.com/HiTechTN/app2nix"
@@ -23,42 +23,35 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.23.0",
-    "python-multipart>=0.0.6",
-    "pydantic>=2.0.0",
-    "itsdangerous>=2.0.0",
+    "starlette>=0.36",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "jinja2>=3.1",
+    "typer>=0.12",
+    "rich>=13.0",
+    "aiosqlite>=0.20",
+    "itsdangerous>=2.0",
 ]
+
+[project.scripts]
+app2nix = "app2nix.cli:app"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
-    "httpx>=0.24.0",
+    "httpx>=0.27",
     "ruff>=0.0.280",
     "mypy>=1.0.0",
-]
-
-[project.scripts]
-app2nix = "main:main"
-app2nix-server = "server:main"
-
-[tool.uv]
-dev-dependencies = [
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.23.0",
-    "python-multipart>=0.0.6",
-    "pydantic>=2.0.0",
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "httpx>=0.24.0",
 ]
 
 [tool.pytest.ini_options]
@@ -66,11 +59,15 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
-ignore = ["E501"]
+ignore = ["E501", "B008"]
+
+[tool.pyright]
+include = ["src"]
