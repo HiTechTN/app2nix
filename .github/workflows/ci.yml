@@ -61,9 +61,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lowercase image name
+        id: img
+        run: |
+          echo "name=ghcr.io/hitechtn/app2nix" >> $GITHUB_OUTPUT
+
       - uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:cache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:cache,mode=max
+          tags: ${{ steps.img.outputs.name }}:latest
+          cache-from: type=registry,ref=ghcr.io/hitechtn/app2nix:cache
+          cache-to: type=registry,ref=ghcr.io/hitechtn/app2nix:cache,mode=max

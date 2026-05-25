@@ -67,8 +67,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ github.repository }}
-            hitechtn/app2nix
+            ghcr.io/hitechtn/app2nix
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
