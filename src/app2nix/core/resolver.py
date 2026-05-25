@@ -188,8 +188,9 @@ class DependencyResolver:
         if sync_result.nixpkg:
             return sync_result
 
-        import httpx
         import json
+
+        import httpx
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 body = json.dumps({
