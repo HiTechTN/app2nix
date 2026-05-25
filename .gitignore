@@ -24,6 +24,9 @@ ENV/
 # Docker
 .dockerignore
 
+# Generated test directory
+app2nix/
+
 # IDE
 .idea/
 .vscode/
