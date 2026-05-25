@@ -123,17 +123,13 @@ def serve(
 
 @app.command()
 def gui():
-    """Launch the Qt6 graphical interface."""
-    import runpy
-    import sys
-    from pathlib import Path
-
-    gui_path = Path(__file__).resolve().parent.parent.parent / "app2nix_gui.py"
-    if not gui_path.exists():
-        console.print("[red]GUI module not found at:[/red]", gui_path)
+    """Launch the Qt6 graphical interface (requires PyQt6)."""
+    try:
+        from app2nix.gui import run_gui
+        run_gui()
+    except ImportError as e:
+        console.print(f"[red]PyQt6 not installed.[/red] Install with: pip install 'app2nix[gui]'")
         raise typer.Exit(1)
-    sys.argv = ["app2nix-gui"]
-    runpy.run_path(str(gui_path), run_name="__main__")
 
 
 if __name__ == "__main__":

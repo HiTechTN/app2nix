@@ -4,6 +4,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app2nix.config import settings
 from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
@@ -58,16 +59,18 @@ class NixGenerator:
     def _get_env(self) -> Environment:
         return Environment(loader=FileSystemLoader(str(self.templates_dir)))
 
-    def generate_default_nix(self, info: PackageInfo) -> ConversionResult:
+    def generate_default_nix(self, info: PackageInfo, resolved_deps: list[str] | None = None, unresolved: list[str] | None = None) -> ConversionResult:
         env = self._get_env()
         template = env.get_template("default.nix.j2")
 
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 
-        resolver = DependencyResolver(Path("/tmp/app2nix_resolver.db"))
-        resolved, unresolved = resolver.resolve_all(info.dependencies)
+        if resolved_deps is None:
+            resolver = DependencyResolver(settings.cache_db.expanduser())
+            resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = [f"pkgs.{d}" for d in resolved]
+        build_deps = [f"pkgs.{d}" for d in (resolved_deps or [])]
+        unresolved = unresolved or []
         native_deps = ["autoPatchelfHook"]
         if info.format == "deb":
             native_deps.append("dpkg")
@@ -83,11 +86,14 @@ class NixGenerator:
             install_phase=install_phase,
         )
 
+        flake = self.generate_flake_nix(info, resolved_deps=resolved_deps, unresolved=unresolved)
+
         validated, err = self.validate(content)
 
         return ConversionResult(
             package=info,
             nix_content=content,
+            flake_content=flake.nix_content,
             install_script=self._generate_install_script(info),
             install_guide=self._generate_install_guide(info),
             unresolved_deps=unresolved,
@@ -95,14 +101,16 @@ class NixGenerator:
             validation_error=err,
         )
 
-    def generate_flake_nix(self, info: PackageInfo) -> ConversionResult:
+    def generate_flake_nix(self, info: PackageInfo, resolved_deps: list[str] | None = None, unresolved: list[str] | None = None) -> ConversionResult:
         env = self._get_env()
         template = env.get_template("flake.nix.j2")
 
-        resolver = DependencyResolver(Path("/tmp/app2nix_resolver.db"))
-        resolved, unresolved = resolver.resolve_all(info.dependencies)
+        if resolved_deps is None:
+            resolver = DependencyResolver(settings.cache_db.expanduser())
+            resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = [f"pkgs.{d}" for d in resolved]
+        build_deps = [f"pkgs.{d}" for d in (resolved_deps or [])]
+        unresolved = unresolved or []
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 
         content = template.render(

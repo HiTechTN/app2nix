@@ -35,7 +35,7 @@ async def homepage(request):
 async def api_root(request):
     return JSONResponse({
         "message": "app2nix API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "formats": SUPPORTED_FORMATS,
     })
 
@@ -129,8 +129,11 @@ async def generate(request):
         analyzer = UniversalAnalyzer()
         info = analyzer.analyze(str(temp_path))
 
+        resolver = DependencyResolver(settings.cache_db.expanduser())
+        nix_deps, unresolved = resolver.resolve_all(info.dependencies)
+
         generator = NixGenerator()
-        result = generator.generate_default_nix(info)
+        result = generator.generate_default_nix(info, resolved_deps=nix_deps, unresolved=unresolved)
 
         return JSONResponse({
             "name": info.name,
@@ -141,7 +144,7 @@ async def generate(request):
             "install_guide": result.install_guide,
             "auto_install_script": result.install_script,
             "validation_passed": result.validation_passed,
-            "unresolved_deps": result.unresolved_deps,
+            "unresolved_deps": unresolved,
         })
     except Exception as e:
         logger.exception("Error in generate endpoint")

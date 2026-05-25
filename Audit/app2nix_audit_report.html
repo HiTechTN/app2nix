@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>app2nix — Rapport d'Audit v2.0 → v3.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg:       #0a0d14;
+    --bg2:      #0f1420;
+    --bg3:      #141926;
+    --border:   #1e2840;
+    --accent:   #4fffb0;
+    --accent2:  #00c4ff;
+    --accent3:  #ff6b6b;
+    --accent4:  #ffc947;
+    --accent5:  #b87fff;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --grid:     rgba(78, 255, 176, 0.03);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 56px 64px 48px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 10% 50%, rgba(78,255,176,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .tag-row {
+    display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 4px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .tag-green  { background: rgba(78,255,176,0.12); color: var(--accent);  border: 1px solid rgba(78,255,176,0.25); }
+  .tag-blue   { background: rgba(0,196,255,0.12);  color: var(--accent2); border: 1px solid rgba(0,196,255,0.25); }
+  .tag-red    { background: rgba(255,107,107,0.12); color: var(--accent3); border: 1px solid rgba(255,107,107,0.25); }
+  .tag-yellow { background: rgba(255,201,71,0.12); color: var(--accent4); border: 1px solid rgba(255,201,71,0.25); }
+  .tag-purple { background: rgba(184,127,255,0.12);color: var(--accent5); border: 1px solid rgba(184,127,255,0.25); }
+
+  h1 { font-size: 44px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 16px; margin-top: 12px; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 64px 80px; }
+
+  /* ── Section headers ── */
+  .section { margin-top: 64px; }
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 28px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--accent); font-weight: 700;
+    background: rgba(78,255,176,0.08);
+    border: 1px solid rgba(78,255,176,0.2);
+    padding: 3px 8px; border-radius: 4px;
+  }
+  h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--accent2); }
+
+  /* ── Score dashboard ── */
+  .score-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin-bottom: 36px;
+  }
+  .score-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 24px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .score-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+  .score-card.green::before { background: var(--accent); }
+  .score-card.blue::before  { background: var(--accent2); }
+  .score-card.red::before   { background: var(--accent3); }
+  .score-card.yellow::before { background: var(--accent4); }
+  .score-card.purple::before { background: var(--accent5); }
+  .score-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+  .score-val { font-size: 36px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .score-card.green  .score-val { color: var(--accent); }
+  .score-card.blue   .score-val { color: var(--accent2); }
+  .score-card.red    .score-val { color: var(--accent3); }
+  .score-card.yellow .score-val { color: var(--accent4); }
+  .score-card.purple .score-val { color: var(--accent5); }
+  .score-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Delta comparison ── */
+  .delta-row {
+    display: flex; align-items: stretch; gap: 2px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+  }
+  .delta-col { flex: 1; padding: 18px 20px; }
+  .delta-col.before { background: rgba(255,107,107,0.05); border-right: 2px solid var(--border); }
+  .delta-col.after  { background: rgba(78,255,176,0.04); }
+  .delta-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .delta-col.before .delta-label { color: var(--accent3); }
+  .delta-col.after  .delta-label { color: var(--accent); }
+  .delta-content { font-size: 14px; color: var(--text); }
+
+  /* ── Issue table ── */
+  .issue-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .issue-table th {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); padding: 10px 16px; text-align: left;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+  }
+  .issue-table th:first-child { border-radius: 8px 0 0 0; }
+  .issue-table th:last-child  { border-radius: 0 8px 0 0; }
+  .issue-table td {
+    padding: 12px 16px; font-size: 13.5px;
+    border-bottom: 1px solid rgba(30,40,64,0.6);
+    vertical-align: top;
+  }
+  .issue-table tr:last-child td { border-bottom: none; }
+  .issue-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .issue-table tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+  .issue-table tr:last-child td:last-child  { border-radius: 0 0 8px 0; }
+
+  .id-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 4px; display: inline-block; white-space: nowrap;
+  }
+  .id-cr  { background: rgba(255,107,107,0.15); color: var(--accent3); border: 1px solid rgba(255,107,107,0.3); }
+  .id-gui { background: rgba(184,127,255,0.15); color: var(--accent5); border: 1px solid rgba(184,127,255,0.3); }
+  .id-nix { background: rgba(0,196,255,0.15);  color: var(--accent2); border: 1px solid rgba(0,196,255,0.3); }
+  .id-sec { background: rgba(255,201,71,0.15); color: var(--accent4); border: 1px solid rgba(255,201,71,0.3); }
+  .id-arc { background: rgba(78,255,176,0.15); color: var(--accent);  border: 1px solid rgba(78,255,176,0.3); }
+  .id-tst { background: rgba(99,130,255,0.15); color: #7b96ff;         border: 1px solid rgba(99,130,255,0.3); }
+
+  .sev {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 4px; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .sev-crit   { background: rgba(255,60,60,0.18);  color: #ff5c5c; }
+  .sev-high   { background: rgba(255,107,107,0.12); color: var(--accent3); }
+  .sev-med    { background: rgba(255,201,71,0.12);  color: var(--accent4); }
+  .sev-low    { background: rgba(78,255,176,0.10);  color: var(--accent); }
+
+  /* ── Code block ── */
+  pre {
+    background: #060810; border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    line-height: 1.7; overflow-x: auto; color: #a9b3c8;
+    margin: 8px 0;
+  }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .kw { color: #7c8af8; }
+  .str { color: var(--accent); }
+  .cmt { color: #4a5568; font-style: italic; }
+  .err { color: var(--accent3); }
+  .ok  { color: var(--accent); }
+
+  /* ── Progress bars ── */
+  .progress-row { margin-bottom: 14px; }
+  .progress-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; font-size: 13px;
+  }
+  .progress-name { font-weight: 600; }
+  .progress-pct { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .progress-track {
+    height: 6px; background: var(--bg3); border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; border-radius: 99px; }
+
+  /* ── Callout ── */
+  .callout {
+    padding: 16px 20px; border-radius: 10px; margin: 16px 0;
+    font-size: 14px; border-left: 3px solid;
+  }
+  .callout-ok  { background: rgba(78,255,176,0.06); border-color: var(--accent);  color: #b0f0d6; }
+  .callout-err { background: rgba(255,107,107,0.07); border-color: var(--accent3); color: #ffc0c0; }
+  .callout-warn{ background: rgba(255,201,71,0.07); border-color: var(--accent4); color: #ffe9a0; }
+  .callout-info{ background: rgba(0,196,255,0.07);  border-color: var(--accent2); color: #a0e8ff; }
+  .callout strong { font-weight: 700; margin-right: 6px; }
+
+  /* ── Timeline ── */
+  .timeline { padding: 0; list-style: none; position: relative; }
+  .timeline::before {
+    content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--accent5), transparent);
+  }
+  .timeline-item { display: flex; gap: 24px; margin-bottom: 28px; }
+  .tl-dot {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    position: relative; z-index: 1;
+  }
+  .tl-dot.phase1 { background: rgba(78,255,176,0.15); border: 2px solid var(--accent); color: var(--accent); }
+  .tl-dot.phase2 { background: rgba(0,196,255,0.15); border: 2px solid var(--accent2); color: var(--accent2); }
+  .tl-dot.phase3 { background: rgba(255,201,71,0.15); border: 2px solid var(--accent4); color: var(--accent4); }
+  .tl-dot.phase4 { background: rgba(184,127,255,0.15); border: 2px solid var(--accent5); color: var(--accent5); }
+  .tl-content { flex: 1; padding-top: 4px; }
+  .tl-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .tl-desc { font-size: 13px; color: var(--muted); }
+  .tl-tasks { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tl-task {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    padding: 3px 8px; border-radius: 4px; background: var(--bg3);
+    border: 1px solid var(--border); color: var(--text);
+  }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 80px; padding: 28px 64px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-brand { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+  .footer-date  { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #2a3550; }
+
+  /* wrap table in scrollable div */
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+  .divider { height: 1px; background: var(--border); margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="max-width:1100px; margin:0 auto; padding:0 64px;">
+    <div class="tag-row">
+      <span class="tag tag-green">Audit v2</span>
+      <span class="tag tag-blue">app2nix</span>
+      <span class="tag tag-purple">HiTechTN/app2nix</span>
+      <span class="tag tag-yellow">Mai 2026</span>
+    </div>
+    <h1>Rapport d'Audit<br><span>app2nix</span> v2.0 → v3.0</h1>
+    <p class="subtitle">// analyse statique complète · 10 fichiers inspectés · 22 issues identifiées</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Score Global ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2>Score Global du Projet</h2>
+    </div>
+
+    <div class="score-grid">
+      <div class="score-card green">
+        <div class="score-label">Maturité</div>
+        <div class="score-val">72<span style="font-size:20px">/100</span></div>
+        <div class="score-sub">↑ +42pts vs v1.2.0</div>
+      </div>
+      <div class="score-card blue">
+        <div class="score-label">Architecture</div>
+        <div class="score-val">68<span style="font-size:20px">/100</span></div>
+        <div class="score-sub">Refactoring partiel OK</div>
+      </div>
+      <div class="score-card red">
+        <div class="score-label">Sécurité</div>
+        <div class="score-val">41<span style="font-size:20px">/100</span></div>
+        <div class="score-sub">3 failles critiques</div>
+      </div>
+      <div class="score-card yellow">
+        <div class="score-label">Tests</div>
+        <div class="score-val">28<span style="font-size:20px">/100</span></div>
+        <div class="score-sub">Tests manquants sur GUI</div>
+      </div>
+      <div class="score-card purple">
+        <div class="score-label">Qualité Nix</div>
+        <div class="score-val">55<span style="font-size:20px">/100</span></div>
+        <div class="score-sub">Expressions corrigées</div>
+      </div>
+    </div>
+
+    <!-- Health bars -->
+    <div class="table-wrap" style="padding:24px 28px;">
+      <h3 style="margin-bottom:20px; color:var(--text);">Progression par domaine (v1.2 → v2.0)</h3>
+
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Structure du code</span><span class="progress-pct" style="color:var(--accent)">85%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:85%;background:var(--accent)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Modèles de données (Pydantic)</span><span class="progress-pct" style="color:var(--accent)">80%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:80%;background:var(--accent)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Dépendances (pyproject.toml)</span><span class="progress-pct" style="color:var(--accent)">90%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:90%;background:var(--accent)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Interface GUI (PyQt6)</span><span class="progress-pct" style="color:var(--accent2)">70%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:70%;background:var(--accent2)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Sécurité API</span><span class="progress-pct" style="color:var(--accent3)">42%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:42%;background:var(--accent3)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Couverture tests</span><span class="progress-pct" style="color:var(--accent3)">28%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:28%;background:var(--accent3)"></div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span class="progress-name">Validité expressions Nix</span><span class="progress-pct" style="color:var(--accent4)">55%</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:55%;background:var(--accent4)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delta v1.2 → v2.0 ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2>Ce qui a Changé : v1.2.0 → v2.0.0</h2>
+    </div>
+
+    <div class="callout callout-ok">
+      <strong>✅ Bien joué :</strong> Le refactoring de l'architecture core est largement accompli. analyze_deb.py et universal_analyze.py sont devenus des wrappers deprecated pointant vers src/app2nix/. Le pyproject.toml est complet avec hatchling + toutes les dépendances recommandées (Pydantic v2, Jinja2, Typer, Rich, aiosqlite). La GUI PyQt6 est imposante (844 lignes) et utilise déjà UniversalAnalyzer et DependencyResolver.
+    </div>
+
+    <div class="delta-row">
+      <div class="delta-col before">
+        <div class="delta-label">❌ v1.2.0 — Avant</div>
+        <div class="delta-content">analyze_deb.py = logique complète<br>universal_analyze.py = code RPM vide<br>Scripts plats, pas de package<br>Template Nix avec makeSetupHook cassé<br>Pas de modèles Pydantic<br>SECRET_KEY hardcodé<br>Pas d'i18n</div>
+      </div>
+      <div class="delta-col after">
+        <div class="delta-label">✅ v2.0.0 — Après</div>
+        <div class="delta-content">analyze_deb.py = wrapper deprecated<br>src/app2nix/core/analyzer.py = UniversalAnalyzer<br>Package installable (hatchling)<br>Template Nix corrigé (partiellement)<br>Pydantic models intégrés<br>pydantic-settings dans deps<br>i18n + thèmes dans GUI</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Issues ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2>Issues Identifiées — Audit Complet v2.0</h2>
+    </div>
+
+    <p style="color:var(--muted); margin-bottom:24px; font-size:14px;">22 issues réparties en 6 catégories. Les issues du prompt précédent marquées <span class="tag tag-green" style="font-size:10px">RÉSOLU</span> ont été vérifiées comme implémentées.</p>
+
+    <!-- CRITIQUE -->
+    <h3 style="color:var(--accent3); margin-top:32px; margin-bottom:12px;">🔴 Critique (3)</h3>
+    <div class="table-wrap">
+      <table class="issue-table">
+        <thead><tr><th>ID</th><th>Catégorie</th><th>Fichier</th><th>Description</th><th>Sévérité</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="id-badge id-sec">SEC-01</span></td>
+            <td>Sécurité</td>
+            <td><code>app2nix_gui.py:627</code></td>
+            <td><strong>GUI bloque le thread UI pendant nix-build.</strong> La méthode <code>_install_to_system</code> appelle <code>subprocess.run(["nix-build"])</code> avec <code>timeout=600</code> sur le thread principal Qt. L'UI est totalement gelée pendant 10 min max sans annulation possible.</td>
+            <td><span class="sev sev-crit">CRITIQUE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-sec">SEC-02</span></td>
+            <td>Sécurité</td>
+            <td><code>app2nix_gui.py:592</code></td>
+            <td><strong>Exécution silencieuse de binaires inconnus.</strong> <code>_install_to_system</code> copie le package de l'utilisateur dans <code>~/nix-packages/</code> puis lance <code>nix-build</code> dessus. Si le .deb contient des scripts <code>preinst/postinst</code> malveillants, ils s'exécutent. Aucun avertissement à l'utilisateur.</td>
+            <td><span class="sev sev-crit">CRITIQUE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-sec">SEC-03</span></td>
+            <td>Sécurité</td>
+            <td><code>server.py</code></td>
+            <td><strong>Limite upload non appliquée dans le code actuel.</strong> La doc du prompt précédent recommandait d'ajouter la vérification de taille, mais <code>server.py</code> inspecté montre que <code>await file.read()</code> est appelé sans limite. Un fichier de 2 GB fera planter le serveur par OOM.</td>
+            <td><span class="sev sev-crit">CRITIQUE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- HAUTE -->
+    <h3 style="color:var(--accent3); margin-top:32px; margin-bottom:12px;">🟠 Haute (7)</h3>
+    <div class="table-wrap">
+      <table class="issue-table">
+        <thead><tr><th>ID</th><th>Catégorie</th><th>Fichier</th><th>Description</th><th>Sévérité</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="id-badge id-gui">GUI-01</span></td>
+            <td>GUI</td>
+            <td><code>app2nix_gui.py:442</code></td>
+            <td><strong>_analyze() bloque le thread UI.</strong> Même problème : <code>UniversalAnalyzer().analyze()</code> est appelé sur le thread principal. Sur un AppImage lourd, l'interface freeze. Doit migrer vers <code>QThread</code> ou <code>QRunnable</code>.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-gui">GUI-02</span></td>
+            <td>GUI</td>
+            <td><code>app2nix_gui.py:32</code></td>
+            <td><strong>Import <code>from lib import i18n / theme</code> cassé à l'installation.</strong> Ces imports relatifs fonctionnent en mode dev (<code>sys.path.insert(0, ...)</code>) mais échouent si le package est installé via pip (<code>app2nix</code>). Les modules <code>lib/i18n</code> et <code>lib/theme</code> doivent intégrer le package <code>src/app2nix/</code>.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-01</span></td>
+            <td>Architecture</td>
+            <td><code>server.py + app2nix_gui.py</code></td>
+            <td><strong>Duplication de <code>build_nix_expression()</code>.</strong> La fonction est définie identiquement dans <code>server.py</code> (~60 lignes) ET dans <code>app2nix_gui.py</code> (~60 lignes). Si <code>NixGenerator</code> existe dans <code>src/app2nix/core/generator.py</code>, ces deux fichiers doivent l'utiliser.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-02</span></td>
+            <td>Architecture</td>
+            <td><code>server.py:10</code></td>
+            <td><strong><code>server.py</code> importe toujours depuis les wrappers dépréciés.</strong> <code>from analyze_deb import get_all_dependencies</code> et <code>from lib.deb_to_nix import translate_all</code> → doit utiliser <code>from app2nix.core.analyzers.deb import analyze_deb</code> et <code>from app2nix.core.resolver import DependencyResolver</code>.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-nix">NIX-01</span></td>
+            <td>Nix</td>
+            <td><code>server.py:215 + gui.py:74</code></td>
+            <td><strong><code>unpackPhase = "true"</code> — idiome incorrect.</strong> Dans les deux implémentations de <code>build_nix_expression</code>, <code>unpackPhase = "true"</code> exécute le binaire <code>true</code> ce qui fonctionne, mais l'idiome standard NixOS est <code>dontUnpack = true;</code>. Génère des warnings lors du build.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-nix">NIX-02</span></td>
+            <td>Nix</td>
+            <td><code>server.py:270</code></td>
+            <td><strong><code>src = ./.</code> non-reproductible.</strong> Les expressions générées utilisent le répertoire courant comme source. Une expression Nix reproductible devrait utiliser <code>fetchurl { url = ...; sha256 = ...; }</code>. Sans hash, le build n'est pas reproductible et <code>nix-build</code> peut réutiliser un cache corrompu.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-tst">TST-01</span></td>
+            <td>Tests</td>
+            <td><code>tests/</code></td>
+            <td><strong>Tests non visibles / GUI entièrement non testée.</strong> La GUI PyQt6 (844 lignes, logique complexe) n'a aucun test unitaire. Les nouvelles classes <code>UniversalAnalyzer</code> et <code>DependencyResolver</code> n'ont pas de tests de régression visibles pour les formats RPM et Flatpak.</td>
+            <td><span class="sev sev-high">HAUTE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MOYENNE -->
+    <h3 style="color:var(--accent4); margin-top:32px; margin-bottom:12px;">🟡 Moyenne (8)</h3>
+    <div class="table-wrap">
+      <table class="issue-table">
+        <thead><tr><th>ID</th><th>Catégorie</th><th>Fichier</th><th>Description</th><th>Sévérité</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="id-badge id-gui">GUI-03</span></td>
+            <td>GUI</td>
+            <td><code>app2nix_gui.py:363</code></td>
+            <td><strong><code>urllib.request.urlretrieve</code> blocking dans GUI.</strong> Le téléchargement depuis URL utilise l'ancien <code>urllib</code> bloquant au lieu de <code>httpx</code> (déjà en dépendance). Aucune progression, aucune annulation.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-gui">GUI-04</span></td>
+            <td>GUI</td>
+            <td><code>app2nix_gui.py:495</code></td>
+            <td><strong>Cache resolver hardcodé sur <code>/tmp</code>.</strong> <code>DependencyResolver(Path("/tmp/app2nix_resolver.db"))</code> ignore complètement les settings (<code>~/.cache/app2nix/deps.db</code>). Données effacées au reboot.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-03</span></td>
+            <td>Architecture</td>
+            <td><code>app2nix_gui.py:1</code></td>
+            <td><strong>GUI non intégrée à la commande CLI.</strong> La GUI se lance uniquement via <code>python app2nix_gui.py</code>. Elle devrait être accessible via <code>app2nix gui</code> (commande Typer) ou <code>app2nix --gui</code>.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-nix">NIX-03</span></td>
+            <td>Nix</td>
+            <td><code>server.py + gui.py</code></td>
+            <td><strong>Pas de génération <code>flake.nix</code>.</strong> Malgré la mention dans le prompt précédent, aucun des deux fichiers ne génère de <code>flake.nix</code>. Format pourtant standard sur NixOS moderne (nixos-24.05+).</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-04</span></td>
+            <td>Architecture</td>
+            <td><code>lib/</code></td>
+            <td><strong>Répertoire <code>lib/</code> mixé.</strong> <code>lib/</code> contient à la fois <code>deb_to_nix.py</code> (legacy), <code>i18n</code> et <code>theme</code> (GUI), sans séparation claire. Devrait migrer complètement dans <code>src/app2nix/</code>.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-sec">SEC-04</span></td>
+            <td>Sécurité</td>
+            <td><code>app2nix_gui.py:600</code></td>
+            <td><strong>Fichier <code>.desktop</code> avec <code>Terminal=false</code> hardcodé.</strong> Pour les outils CLI convertis (ex: <code>ffmpeg</code>, <code>htop</code>), le fichier .desktop généré sera inutilisable car il n'ouvrira pas de terminal.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-tst">TST-02</span></td>
+            <td>Tests</td>
+            <td><code>.github/workflows/</code></td>
+            <td><strong>CI ne vérifie pas la validité des expressions Nix générées.</strong> Les tests d'intégration devraient inclure un step <code>nix-instantiate --parse</code> sur un exemple .deb connu pour valider les outputs.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-05</span></td>
+            <td>Architecture</td>
+            <td><code>main.py</code></td>
+            <td><strong><code>main.py</code> legacy non synchronisé.</strong> <code>main.py</code> (205 lignes) reste un script standalone utilisant argparse. Son contenu n'est pas visible dans le nouveau package. Soit il doit être supprimé, soit migré comme entry-point de <code>app2nix.cli</code>.</td>
+            <td><span class="sev sev-med">MOYENNE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- BASSE -->
+    <h3 style="color:var(--accent); margin-top:32px; margin-bottom:12px;">🟢 Basse (4)</h3>
+    <div class="table-wrap">
+      <table class="issue-table">
+        <thead><tr><th>ID</th><th>Catégorie</th><th>Fichier</th><th>Description</th><th>Sévérité</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="id-badge id-gui">GUI-05</span></td>
+            <td>GUI</td>
+            <td><code>app2nix_gui.py:530</code></td>
+            <td><strong>HTML inline pour install guide.</strong> La génération du guide d'installation (lignes 530-570) est du HTML concatené à la main dans une f-string de 30 lignes. Devrait utiliser Jinja2 (déjà dépendance) pour la maintenabilité.</td>
+            <td><span class="sev sev-low">BASSE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-nix">NIX-04</span></td>
+            <td>Nix</td>
+            <td><code>server.py:240</code></td>
+            <td><strong>Guide d'installation en français hardcodé.</strong> <code>build_nix_expression</code> dans server.py génère un guide avec des commentaires en français (<code># Guide d'installation NixOS</code>) — incohérent avec le reste du projet en anglais.</td>
+            <td><span class="sev sev-low">BASSE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-tst">TST-03</span></td>
+            <td>Tests</td>
+            <td><code>pyproject.toml</code></td>
+            <td><strong>Coverage non configurée.</strong> <code>pytest-cov</code> est dans les deps dev mais aucune config de seuil minimum (<code>--cov-fail-under=80</code>) dans <code>pyproject.toml</code>.</td>
+            <td><span class="sev sev-low">BASSE</span></td>
+          </tr>
+          <tr>
+            <td><span class="id-badge id-arc">ARC-06</span></td>
+            <td>Architecture</td>
+            <td><code>README.md</code></td>
+            <td><strong>README non mis à jour pour v2.0.</strong> Les instructions Quick Start montrent encore <code>python server.py</code> et <code>python main.py</code> au lieu de <code>app2nix serve</code> et <code>app2nix convert</code>.</td>
+            <td><span class="sev sev-low">BASSE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Analyse technique détaillée ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2>Analyse Technique Détaillée</h2>
+    </div>
+
+    <h3>SEC-01 / GUI-01 — Freezes UI Thread : Exemple du problème</h3>
+    <pre><span class="cmt"># ❌ PROBLÈME — app2nix_gui.py:627</span>
+<span class="kw">def</span> _install_to_system(<span class="kw">self</span>):
+    <span class="cmt"># QApplication.processEvents() NE suffit PAS pour les appels bloquants longs</span>
+    QApplication.processEvents()  <span class="cmt"># illusion de réactivité</span>
+
+    result = subprocess.run(
+        [<span class="str">"nix-build"</span>, <span class="str">"default.nix"</span>], cwd=str(pkg_dir),
+        capture_output=<span class="kw">True</span>, text=<span class="kw">True</span>,
+        <span class="err">timeout=600</span>,   <span class="cmt"># ← 10 minutes de freeze UI garanties</span>
+        env=env,
+    )
+
+<span class="cmt"># ✅ CORRECTION — Utiliser QThread</span>
+<span class="kw">class</span> InstallWorker(QThread):
+    finished = pyqtSignal(str)          <span class="cmt"># store_path</span>
+    failed   = pyqtSignal(str)          <span class="cmt"># error message</span>
+    progress = pyqtSignal(str)          <span class="cmt"># log lines</span>
+
+    <span class="kw">def</span> __init__(<span class="kw">self</span>, pkg_dir, nix_expr, env):
+        super().__init__()
+        <span class="kw">self</span>.pkg_dir = pkg_dir
+        <span class="kw">self</span>.nix_expr = nix_expr
+        <span class="kw">self</span>.env = env
+
+    <span class="kw">def</span> run(<span class="kw">self</span>):
+        proc = subprocess.Popen(
+            [<span class="str">"nix-build"</span>, <span class="str">"default.nix"</span>],
+            cwd=str(<span class="kw">self</span>.pkg_dir),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=<span class="kw">True</span>, env=<span class="kw">self</span>.env
+        )
+        <span class="kw">for</span> line <span class="kw">in</span> proc.stdout:
+            <span class="kw">self</span>.progress.emit(line.rstrip())
+        proc.wait()
+        <span class="kw">if</span> proc.returncode == <span class="str">0</span>:
+            <span class="kw">self</span>.finished.emit(proc.stdout.read().strip())
+        <span class="kw">else</span>:
+            <span class="kw">self</span>.failed.emit(<span class="str">f"nix-build exited {proc.returncode}"</span>)</pre>
+
+    <h3 style="margin-top:28px;">NIX-01/02 — Expression Nix : Avant / Après</h3>
+    <div class="delta-row">
+      <div class="delta-col before">
+        <div class="delta-label">❌ Actuel (problématique)</div>
+        <div class="delta-content">
+<pre style="background:transparent;border:none;padding:4px 0;font-size:12px;"><span class="err">phases = [ "unpackPhase" "installPhase" "fixupPhase" ];
+unpackPhase = "true";  # exécute le binaire true
+src = ./.;             # non reproductible</span></pre>
+        </div>
+      </div>
+      <div class="delta-col after">
+        <div class="delta-label">✅ Cible (correct)</div>
+        <div class="delta-content">
+<pre style="background:transparent;border:none;padding:4px 0;font-size:12px;"><span class="ok">dontUnpack = true;     # idiome standard
+src = fetchurl {
+  url = "https://...";
+  sha256 = "sha256-..."; # reproductible
+};</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:28px;">ARC-02 — Imports dépréciés dans server.py</h3>
+    <pre><span class="cmt"># ❌ server.py ligne 10 — imports vers wrappers deprecated</span>
+<span class="err">from analyze_deb import get_all_dependencies
+from lib.deb_to_nix import translate_all</span>
+
+<span class="cmt"># ✅ Doit devenir</span>
+<span class="ok">from app2nix.core.analyzers.deb import analyze_deb
+from app2nix.core.resolver import DependencyResolver</span></pre>
+
+    <h3 style="margin-top:28px;">GUI-02 — Imports lib/ cassés post-install</h3>
+    <pre><span class="cmt"># ❌ app2nix_gui.py ligne 32 — cassé si installé via pip</span>
+sys.path.insert(<span class="str">0</span>, str(Path(__file__).parent / <span class="str">"src"</span>))
+<span class="err">from lib import i18n          # chemin relatif fragile
+from lib import theme as thm  # idem</span>
+
+<span class="cmt"># ✅ Doit être dans le package src/</span>
+<span class="ok">from app2nix.i18n import get_translator as i18n
+from app2nix.themes import ThemeManager as thm</span></pre>
+  </div>
+
+  <!-- ── Éléments résolus ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2>Issues Résolues depuis v1.2.0</h2>
+    </div>
+    <div class="callout callout-ok">
+      <strong>6 issues du prompt précédent confirmées implémentées :</strong>
+    </div>
+    <div class="table-wrap" style="padding:0;">
+      <table class="issue-table">
+        <thead><tr><th>Issue originale</th><th>Résolution observée</th></tr></thead>
+        <tbody>
+          <tr><td><strong>B1</strong> — CLI ignore .rpm/.AppImage</td><td><span class="tag tag-green">RÉSOLU</span> — <code>UniversalAnalyzer</code> dispatch par format implémenté</td></tr>
+          <tr><td><strong>B2</strong> — Template Nix avec makeSetupHook cassé</td><td><span class="tag tag-green">RÉSOLU</span> — <code>build_nix_expression()</code> corrigé (sans makeSetupHook)</td></tr>
+          <tr><td><strong>Q1</strong> — Pas de type hints</td><td><span class="tag tag-green">RÉSOLU</span> — Pydantic models + types partout dans GUI</td></tr>
+          <tr><td><strong>Q3</strong> — Pas de logging structuré</td><td><span class="tag tag-yellow">PARTIEL</span> — Rich dans CLI mais print() reste dans GUI</td></tr>
+          <tr><td><strong>Q9</strong> — pyproject.toml incomplet</td><td><span class="tag tag-green">RÉSOLU</span> — pyproject.toml complet avec hatchling</td></tr>
+          <tr><td><strong>B4</strong> — SECRET_KEY hardcodé</td><td><span class="tag tag-yellow">PARTIEL</span> — pydantic-settings en deps mais server.py non mis à jour</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Roadmap ── -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2>Feuille de Route v3.0 Recommandée</h2>
+    </div>
+
+    <ul class="timeline">
+      <li class="timeline-item">
+        <div class="tl-dot phase1">P1</div>
+        <div class="tl-content">
+          <div class="tl-title">Phase 1 — Sécurité (Jour 1-2)</div>
+          <div class="tl-desc">Corriger les 3 failles critiques avant tout le reste</div>
+          <div class="tl-tasks">
+            <span class="tl-task">SEC-01: QThread pour nix-build</span>
+            <span class="tl-task">SEC-02: Avertissement sécurité avant install</span>
+            <span class="tl-task">SEC-03: Limite upload dans server.py</span>
+          </div>
+        </div>
+      </li>
+      <li class="timeline-item">
+        <div class="tl-dot phase2">P2</div>
+        <div class="tl-content">
+          <div class="tl-title">Phase 2 — Architecture (Jour 3-4)</div>
+          <div class="tl-desc">Éliminer la duplication et corriger les imports</div>
+          <div class="tl-tasks">
+            <span class="tl-task">ARC-01: Supprimer build_nix_expression() dupliquée</span>
+            <span class="tl-task">ARC-02: Migrer imports server.py</span>
+            <span class="tl-task">GUI-02: Migrer lib/i18n + lib/theme dans src/</span>
+            <span class="tl-task">ARC-03: Commande app2nix gui</span>
+          </div>
+        </div>
+      </li>
+      <li class="timeline-item">
+        <div class="tl-dot phase3">P3</div>
+        <div class="tl-content">
+          <div class="tl-title">Phase 3 — Nix Quality (Jour 5-6)</div>
+          <div class="tl-desc">Expressions Nix correctes et reproductibles</div>
+          <div class="tl-tasks">
+            <span class="tl-task">NIX-01: dontUnpack = true</span>
+            <span class="tl-task">NIX-02: fetchurl avec sha256</span>
+            <span class="tl-task">NIX-03: Générer flake.nix</span>
+          </div>
+        </div>
+      </li>
+      <li class="timeline-item">
+        <div class="tl-dot phase4">P4</div>
+        <div class="tl-content">
+          <div class="tl-title">Phase 4 — Tests & Polish (Jour 7-8)</div>
+          <div class="tl-desc">Couverture, CI Nix validation, README</div>
+          <div class="tl-tasks">
+            <span class="tl-task">TST-01: Tests GUI avec pytest-qt</span>
+            <span class="tl-task">TST-02: CI nix-instantiate --parse</span>
+            <span class="tl-task">TST-03: cov-fail-under=80</span>
+            <span class="tl-task">ARC-06: README v2.0</span>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-brand">app2nix Audit Report · HiTechTN/app2nix · Généré par analyse statique</div>
+  <div class="footer-date">// Mai 2026 · v2.0-audit</div>
+</footer>
+
+</body>
+</html>

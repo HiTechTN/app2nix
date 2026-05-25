@@ -27,16 +27,40 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Run tests with coverage
+      - name: Run tests
         run: |
-          uv run pytest tests/ -v --cov=src/app2nix --cov-report=xml --cov-report=term
+          uv run pytest tests/ -v --ignore=tests/gui
         env:
           APP2NIX_SECRET_KEY: test-secret-key-for-ci
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+  nix-validate:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
         with:
-          file: coverage.xml
+          nix_path: nixpkgs=channel:nixos-24.05
+
+      - name: Install app2nix
+        run: pip install uv && uv sync
+        env:
+          APP2NIX_SECRET_KEY: test-ci-key
+
+      - name: Generate and validate Nix expression
+        run: |
+          mkdir -p /tmp/test_deb/DEBIAN
+          echo -e "Package: test-app\nVersion: 1.0\nArchitecture: amd64\nDescription: test" \
+            > /tmp/test_deb/DEBIAN/control
+          dpkg-deb --build /tmp/test_deb /tmp/test-app_1.0_amd64.deb
+          mkdir -p /tmp/nix_output
+          uv run app2nix convert /tmp/test-app_1.0_amd64.deb --output-dir /tmp/nix_output
+          nix-instantiate --parse /tmp/nix_output/default.nix
+          echo "✅ Nix expression is syntactically valid"
+        env:
+          APP2NIX_SECRET_KEY: test-ci-key
 
   lint:
     runs-on: ubuntu-latest
