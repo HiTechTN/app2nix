@@ -1,6 +1,10 @@
+import pytest
+
+pytest.importorskip("PyQt6")
+pytest.importorskip("pytestqt")
+
 from unittest.mock import MagicMock, patch
 
-import pytest
 from PyQt6.QtCore import Qt
 
 
@@ -38,7 +42,7 @@ def test_clear_resets_state(qtbot, window):
     assert window.current_file is None
 
 
-@pytest.mark.skip(reason="QThread causes test hang in CI")
+@pytest.mark.skip(reason="QThread causes test hang")
 def test_nix_generator_called_on_analysis(qtbot, window, tmp_path):
     with patch('app2nix.gui.main_window.AnalyzeWorker') as mock_worker:
         instance = mock_worker.return_value
