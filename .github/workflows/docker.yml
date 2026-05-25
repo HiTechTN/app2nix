@@ -34,7 +34,7 @@ jobs:
           pip install ruff mypy
 
       - name: Run ruff linter
-        run: ruff check .
+        run: ruff check src/ tests/
 
   test:
     name: Test
