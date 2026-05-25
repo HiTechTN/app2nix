@@ -5,9 +5,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/app2nix"]
 
+[tool.hatch.build]
+include = ["src/app2nix/gui/templates/**"]
+
 [project]
 name = "app2nix"
-version = "2.0.0"
+version = "3.0.0"
 description = "Convert any Linux package (.deb, .rpm, AppImage, Flatpak, Snap) to NixOS native applications"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,13 +45,16 @@ dependencies = [
 ]
 
 [project.scripts]
-app2nix = "app2nix.cli:app"
+app2nix     = "app2nix.cli:app"
+app2nix-gui = "app2nix.gui:run_gui"
 
 [project.optional-dependencies]
+gui = ["PyQt6>=6.5"]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+    "pytest-qt>=4.0",
     "httpx>=0.27",
     "ruff>=0.0.280",
     "mypy>=1.0.0",
@@ -60,6 +66,18 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+addopts = "--cov=src/app2nix --cov-report=term-missing --cov-fail-under=20"
+
+[tool.coverage.run]
+source = ["src/app2nix"]
+omit = ["*/gui/main_window.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+]
 
 [tool.ruff]
 line-length = 100

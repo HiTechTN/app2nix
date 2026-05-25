@@ -83,52 +83,53 @@
 
 ## 🛠️ Quick Start
 
-### Option 1: Web UI (Recommended for Beginners)
+### Installation
 
 ```bash
-# Clone the repo
-git clone git@github.com:HiTechTN/app2nix.git
-cd app2nix
+# From PyPI (recommended)
+pip install app2nix
 
-# Install dependencies
-pip install -e .
+# With GUI
+pip install "app2nix[gui]"
+
+# From source
+git clone https://github.com/HiTechTN/app2nix.git
+cd app2nix && pip install -e .
+```
+
+### CLI
+
+```bash
+# Convert a .deb
+app2nix convert package.deb
+
+# Convert a .rpm
+app2nix convert package.rpm --output-dir ./myapp
+
+# Also generate flake.nix (default in v3.0)
+app2nix convert package.deb
+
+# Print dependencies
+app2nix convert package.deb --print-deps
 
 # Start the web server
-python server.py
+app2nix serve
 
-# Open your browser
-xdg-open http://localhost:8000
+# Graphical interface (requires pip install "app2nix[gui]")
+app2nix gui
 ```
 
-### Option 2: CLI (For Automation)
+### Web UI
 
 ```bash
-# Analyze a .deb file
-python main.py package.deb
-
-# Generate Nix expression
-python main.py package.deb --output-dir ./myapp
-
-# Print dependencies only
-python main.py package.deb --print-deps
-
-# Download from URL
-python main.py --url https://example.com/package.deb
+app2nix serve
+# Open http://localhost:8000
 ```
 
-### Option 3: Python API
+### Docker
 
-```python
-from analyze_deb import get_all_dependencies
-from lib.deb_to_nix import translate_all
-
-# Analyze package
-info = get_all_dependencies("package.deb")
-
-# Get Nix dependencies
-nix_deps = translate_all(info["dependencies"])
-
-print(f"Nix packages: {nix_deps}")
+```bash
+docker run -p 8000:8000 -e APP2NIX_SECRET_KEY=mysecret ghcr.io/hitechtn/app2nix:latest
 ```
 
 ---
@@ -164,22 +165,36 @@ Or test online at **[app2nix.dev](https://hitechtn.github.io/app2nix)**
 
 ```
 app2nix/
-├── main.py                 # CLI interface
-├── server.py              # Starlette web server
-├── universal_analyze.py  # Universal package analyzer
-├── analyze_deb.py         # .deb package analyzer
-├── lib/
-│   └── deb_to_nix.py     # Library → Nixpkgs mapping (150+ libraries)
-├── utils/
-│   └── __init__.py      # Utility functions
+├── src/app2nix/
+│   ├── __init__.py       # Package init, version
+│   ├── cli.py            # Typer CLI (app2nix convert/serve/gui)
+│   ├── config.py         # Settings via pydantic-settings
+│   ├── models.py         # PackageInfo, ConversionResult (pydantic)
+│   ├── logging.py        # Structured logging
+│   ├── exceptions.py     # Custom exceptions
+│   ├── core/
+│   │   ├── analyzer.py       # UniversalAnalyzer
+│   │   ├── analyzers/        # Format-specific analyzers
+│   │   ├── generator.py      # NixGenerator (default.nix, flake.nix)
+│   │   ├── resolver.py       # DependencyResolver (150+ libs)
+│   │   └── validator.py      # Nix expression validator
+│   ├── gui/
+│   │   ├── __init__.py       # run_gui() entry point
+│   │   ├── main_window.py    # PyQt6 GUI with QThread workers
+│   │   ├── i18n.py           # Internationalization
+│   │   ├── theme.py          # Light/dark theme
+│   │   └── templates/        # Jinja2 install guide
+│   └── server.py         # Starlette web server
 ├── static/
-│   └── index.html       # Web UI
+│   └── index.html        # Web UI
 ├── templates/
-│   └── default.nix      # Nix expression template
-├── tests/                # Unit tests
+│   ├── default.nix.j2    # Nix expression template
+│   └── flake.nix.j2      # Flake expression template
+├── tests/                # Unit & GUI tests
 ├── docs/                 # Documentation
-│   └── screenshots/     # UI screenshots
-└── install.sh           # One-line installer
+├── main.py               # Deprecated → use app2nix CLI
+├── server.py             # Deprecated → use app2nix serve
+└── app2nix_gui.py        # Deprecated → use app2nix gui
 ```
 
 ---
