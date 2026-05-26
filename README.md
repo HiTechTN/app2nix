@@ -151,8 +151,9 @@ Or test online at **[app2nix.dev](https://hitechtn.github.io/app2nix)**
 
 ## 📚 Documentation
 
-| Document | Description |
+| Resource | Description |
 |----------|-------------|
+| [📖 Full Documentation](docs/index.html) | Complete HTML guide — install, CLI, API, examples, architecture, FAQ |
 | [Installation Guide](docs/INSTALL.md) | How to install app2nix |
 | [Usage Guide](docs/USAGE.md) | Detailed usage instructions |
 | [API Reference](docs/API.md) | REST API documentation |
