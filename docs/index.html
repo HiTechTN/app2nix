@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>app2nix Documentation — Convert Any Package to NixOS</title>
+<meta name="description" content="Complete documentation for app2nix: convert .deb, .rpm, .AppImage, Flatpak, Snap and tarball packages to native NixOS expressions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0f1a;
+  --bg2: #111827;
+  --bg3: #1a2235;
+  --bg4: #243050;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent: #5272be;
+  --accent2: #7c3aed;
+  --accent3: #34d399;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --code-bg: #0d1117;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 15px;
+  display: flex;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+pre, code { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Sidebar ── */
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  overflow-y: auto; z-index: 100; padding: 0;
+}
+.sidebar-logo {
+  padding: 24px 20px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-logo .emoji { font-size: 28px; }
+.sidebar-logo h1 { font-size: 18px; font-weight: 700; color: #fff; }
+.sidebar-logo span { font-size: 11px; color: var(--text3); }
+.sidebar nav { padding: 12px 0; }
+.sidebar nav a {
+  display: block; padding: 8px 20px 8px 24px;
+  color: var(--text2); font-size: 13px; font-weight: 500;
+  border-left: 3px solid transparent; transition: all .15s;
+}
+.sidebar nav a:hover, .sidebar nav a.active {
+  color: #fff; background: var(--bg3); text-decoration: none;
+  border-left-color: var(--accent);
+}
+.sidebar nav .section-label {
+  padding: 16px 20px 4px 24px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text3);
+}
+.sidebar-toggle {
+  display: none; position: fixed; top: 12px; left: 12px;
+  z-index: 200; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 12px; border-radius: 8px;
+  cursor: pointer; font-size: 20px;
+}
+.sidebar-overlay { display: none; }
+
+/* ── Main Content ── */
+.content {
+  margin-left: 280px; flex: 1; min-width: 0;
+  max-width: 900px; padding: 40px 48px 80px;
+}
+.content h2 {
+  font-size: 28px; font-weight: 700; color: #fff;
+  margin: 48px 0 16px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+.content h2:first-child { margin-top: 0; }
+.content h3 {
+  font-size: 20px; font-weight: 600; color: #f1f5f9;
+  margin: 32px 0 12px;
+}
+.content h4 {
+  font-size: 16px; font-weight: 600; color: var(--text);
+  margin: 24px 0 8px;
+}
+.content p { margin: 12px 0; color: var(--text2); }
+.content ul, .content ol { margin: 12px 0; padding-left: 24px; color: var(--text2); }
+.content li { margin: 4px 0; }
+.content strong { color: var(--text); font-weight: 600; }
+
+/* ── Code blocks ── */
+.content pre {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 20px; overflow-x: auto;
+  font-size: 13px; line-height: 1.6; margin: 16px 0;
+  position: relative;
+}
+.content pre .lang-label {
+  position: absolute; top: 8px; right: 12px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  color: var(--text3); letter-spacing: .5px;
+}
+.content code {
+  background: var(--bg3); padding: 2px 6px; border-radius: 4px;
+  font-size: 13px; color: var(--accent3);
+}
+.content pre code {
+  background: none; padding: 0; color: inherit; font-size: inherit;
+}
+.content .inline-code { background: var(--bg3); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--accent3); }
+
+/* ── Callouts ── */
+.callout {
+  margin: 16px 0; padding: 14px 18px; border-radius: 10px;
+  border-left: 4px solid; font-size: 14px;
+}
+.callout.info { background: rgba(82,114,190,.12); border-color: var(--accent); }
+.callout.info strong { color: var(--accent); }
+.callout.warning { background: rgba(245,158,11,.1); border-color: var(--orange); }
+.callout.warning strong { color: var(--orange); }
+.callout.success { background: rgba(52,211,153,.1); border-color: var(--accent3); }
+.callout.success strong { color: var(--accent3); }
+
+/* ── Tables ── */
+.content table {
+  width: 100%; border-collapse: collapse; margin: 16px 0;
+  font-size: 14px;
+}
+.content th, .content td {
+  padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.content th {
+  background: var(--bg3); color: var(--text); font-weight: 600;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+}
+.content td { color: var(--text2); }
+.content tr:hover td { background: var(--bg3); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.badge.green { background: rgba(52,211,153,.15); color: var(--accent3); }
+.badge.blue { background: rgba(82,114,190,.2); color: var(--accent); }
+.badge.purple { background: rgba(124,58,237,.2); color: #a78bfa; }
+.badge.yellow { background: rgba(245,158,11,.15); color: var(--orange); }
+.badge.red { background: rgba(239,68,68,.15); color: var(--red); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); transition: transform .25s; }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay.open { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
+  .sidebar-toggle { display: block; }
+  .content { margin-left: 0; padding: 60px 20px 40px; }
+}
+
+/* ── Scrollbar ── */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Hero section ── */
+.hero {
+  text-align: center; padding: 32px 0 24px; margin-bottom: 8px;
+}
+.hero h1 { font-size: 36px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+.hero .subtitle { font-size: 16px; color: var(--text2); max-width: 600px; margin: 0 auto; }
+.hero .badge-row { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Tabs ── */
+.tabs { margin: 16px 0; }
+.tab-headers { display: flex; gap: 0; border-bottom: 2px solid var(--border); }
+.tab-btn {
+  padding: 10px 20px; background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 13px; font-weight: 600; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: all .15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Subsection anchors ── */
+.anchor-link {
+  opacity: 0; margin-left: 6px; font-size: 16px; color: var(--text3);
+  transition: opacity .15s;
+}
+h2:hover .anchor-link, h3:hover .anchor-link { opacity: 1; }
+.anchor-link:hover { color: var(--accent); text-decoration: none; }
+
+/* ── Endpoint card ── */
+.endpoint { margin: 16px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.endpoint-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; background: var(--bg3); border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: 14px;
+}
+.endpoint-head .method {
+  padding: 2px 10px; border-radius: 6px; font-size: 11px;
+  font-weight: 700; text-transform: uppercase;
+}
+.method.get { background: rgba(52,211,153,.15); color: var(--accent3); }
+.method.post { background: rgba(82,114,190,.2); color: var(--accent); }
+.endpoint-head .path { font-family: 'JetBrains Mono', monospace; color: #fff; }
+.endpoint-body { padding: 18px; background: var(--bg2); }
+.endpoint-body p { margin: 6px 0; }
+
+/* ── Architecture diagram ── */
+.arch-diagram {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin: 24px 0; padding: 24px; background: var(--bg2);
+  border-radius: 12px; border: 1px solid var(--border);
+}
+.arch-box {
+  padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  text-align: center; min-width: 100px;
+}
+.arch-box.input { background: rgba(82,114,190,.2); color: var(--accent); }
+.arch-box.process { background: rgba(124,58,237,.2); color: #a78bfa; }
+.arch-box.nix { background: rgba(52,211,153,.15); color: var(--accent3); }
+.arch-box.output { background: rgba(245,158,11,.15); color: var(--orange); }
+.arch-arrow { color: var(--text3); font-size: 20px; align-self: center; }
+</style>
+</head>
+<body>
+
+<button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">☰</button>
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <span class="emoji">📦</span>
+    <div>
+      <h1>app2nix</h1>
+      <span>v3.0.0 — Documentation</span>
+    </div>
+  </div>
+  <nav>
+    <div class="section-label">Getting Started</div>
+    <a href="#overview">Overview</a>
+    <a href="#installation">Installation</a>
+    <a href="#quick-start">Quick Start</a>
+
+    <div class="section-label">CLI Reference</div>
+    <a href="#cli">Commands</a>
+    <a href="#cli-convert"><code>convert</code></a>
+    <a href="#cli-serve"><code>serve</code></a>
+    <a href="#cli-gui"><code>gui</code></a>
+
+    <div class="section-label">API Reference</div>
+    <a href="#api">Endpoints</a>
+    <a href="#api-analyze">POST /analyze</a>
+    <a href="#api-generate">POST /generate</a>
+
+    <div class="section-label">Guides</div>
+    <a href="#examples">Examples</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#docker">Docker</a>
+    <a href="#ci-cd">CI/CD Integration</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+
+    <div class="section-label">Reference</div>
+    <a href="#faq">FAQ</a>
+    <a href="#formats">Supported Formats</a>
+  </nav>
+</aside>
+
+<main class="content">
+
+<!-- Hero -->
+<div class="hero">
+  <h1>📦 app2nix Documentation</h1>
+  <p class="subtitle">Convert any Linux package — .deb, .rpm, .AppImage, Flatpak, Snap, tarball — into a native NixOS expression with one command.</p>
+  <div class="badge-row">
+    <span class="badge blue">v3.0.0</span>
+    <span class="badge green">Stable</span>
+    <span class="badge purple">Python 3.11+</span>
+    <span class="badge yellow">CLI + GUI + API</span>
+  </div>
+</div>
+
+<!-- ─────────────────── OVERVIEW ─────────────────── -->
+<h2 id="overview">Overview <a class="anchor-link" href="#overview">#</a></h2>
+<p><strong>app2nix</strong> is a universal package converter for NixOS. It takes packages from mainstream Linux formats and produces production-ready Nix expressions. No more manual dependency hunting.</p>
+
+<div class="arch-diagram">
+  <div class="arch-box input">📦 package.deb</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box process">🔍 Analyze</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box process">📋 Resolve</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box nix">⚙️ Generate</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box output">📄 default.nix</div>
+</div>
+
+<h3>Key Features</h3>
+<ul>
+  <li><strong>Universal formats</strong> — .deb, .rpm, .AppImage, Flatpak, Snap, tar.gz</li>
+  <li><strong>Auto-dependency resolution</strong> — maps 150+ libraries to Nixpkgs</li>
+  <li><strong>Auto-PatchELF</strong> — automatic rpath fixing and binary patching</li>
+  <li><strong>Three interfaces</strong> — CLI, Web UI (Starlette), Desktop GUI (PyQt6)</li>
+  <li><strong>REST API</strong> — integrate into your own tools and pipelines</li>
+  <li><strong>Docker support</strong> — ready-to-use container image on ghcr.io</li>
+</ul>
+
+<!-- ─────────────────── INSTALLATION ─────────────────── -->
+<h2 id="installation">Installation <a class="anchor-link" href="#installation">#</a></h2>
+
+<h3>Requirements</h3>
+<ul>
+  <li>Linux with glibc (x86_64, aarch64, i686, armv7l)</li>
+  <li>Python 3.11 or later</li>
+  <li><span class="inline-code">dpkg-deb</span> (for .deb packages)</li>
+  <li><span class="inline-code">patchelf</span> (for ELF binary patching)</li>
+  <li><span class="inline-code">file</span> command</li>
+</ul>
+
+<h3>Install from PyPI</h3>
+<pre><span class="lang-label">bash</span>pip install app2nix
+
+<span class="c"># With PyQt6 GUI</span>
+pip install "app2nix[gui]"</pre>
+
+<h3>Install from Source</h3>
+<pre><span class="lang-label">bash</span>git clone https://github.com/HiTechTN/app2nix.git
+cd app2nix
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .</pre>
+
+<h3>Install with GUI</h3>
+<pre><span class="lang-label">bash</span>pip install -e ".[gui]"</pre>
+
+<h3>Docker</h3>
+<pre><span class="lang-label">bash</span>docker pull ghcr.io/hitechtn/app2nix:latest
+docker run -p 8000:8000 \
+  -e APP2NIX_SECRET_KEY=mysecret \
+  ghcr.io/hitechtn/app2nix:latest</pre>
+
+<h3>Verify Installation</h3>
+<pre><span class="lang-label">bash</span>app2nix --help
+app2nix convert --help</pre>
+
+<!-- ─────────────────── QUICK START ─────────────────── -->
+<h2 id="quick-start">Quick Start <a class="anchor-link" href="#quick-start">#</a></h2>
+
+<h3>Convert a .deb package</h3>
+<pre><span class="lang-label">bash</span>app2nix convert package.deb</pre>
+<p>Generates <span class="inline-code">default.nix</span> in the current directory.</p>
+
+<h3>Generate also a flake.nix</h3>
+<pre><span class="lang-label">bash</span>app2nix convert package.deb --flake</pre>
+
+<h3>Start the Web UI</h3>
+<pre><span class="lang-label">bash</span>app2nix serve
+<span class="c"># Open http://localhost:8000</span></pre>
+
+<h3>Launch the Desktop GUI</h3>
+<pre><span class="lang-label">bash</span>app2nix gui</pre>
+
+<div class="callout info"><strong>💡 GUI requirement</strong> — The GUI requires PyQt6. Install with <span class="inline-code">pip install "app2nix[gui]"</span>.</div>
+
+<h3>Install the generated package on NixOS</h3>
+<pre><span class="lang-label">bash</span><span class="c"># User install</span>
+NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+
+<span class="c"># Or add to /etc/nixos/configuration.nix:</span>
+<span class="c"># environment.systemPackages = with pkgs; [</span>
+<span class="c">#   (callPackage ~/nix-packages/myapp {})</span>
+<span class="c"># ];</span>
+sudo nixos-rebuild switch</pre>
+
+<!-- ─────────────────── CLI REFERENCE ─────────────────── -->
+<h2 id="cli">CLI Reference <a class="anchor-link" href="#cli">#</a></h2>
+
+<div class="callout info"><strong>Usage:</strong> <span class="inline-code">app2nix [OPTIONS] COMMAND [ARGS]...</span></div>
+
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><span class="inline-code">convert</span></td><td>Convert a package to a NixOS expression</td></tr>
+  <tr><td><span class="inline-code">serve</span></td><td>Start the Starlette web server</td></tr>
+  <tr><td><span class="inline-code">gui</span></td><td>Launch the PyQt6 graphical interface</td></tr>
+</table>
+
+<h3 id="cli-convert">convert <a class="anchor-link" href="#cli-convert">#</a></h3>
+<p>Convert a Linux package file into a NixOS expression.</p>
+
+<pre><span class="lang-label">bash</span>app2nix convert [OPTIONS] PACKAGE</pre>
+
+<table>
+  <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><span class="inline-code">PACKAGE</span></td><td>PATH</td><td>—</td><td>Package file (.deb, .rpm, .AppImage, …)</td></tr>
+  <tr><td><span class="inline-code">--output-dir, -d</span></td><td>PATH</td><td><span class="inline-code">.</span></td><td>Output directory</td></tr>
+  <tr><td><span class="inline-code">--flake, -f</span></td><td>flag</td><td>—</td><td>Also generate <span class="inline-code">flake.nix</span></td></tr>
+  <tr><td><span class="inline-code">--json</span></td><td>flag</td><td>—</td><td>Output JSON descriptor to stdout</td></tr>
+  <tr><td><span class="inline-code">--print-deps</span></td><td>flag</td><td>—</td><td>Only print dependencies</td></tr>
+  <tr><td><span class="inline-code">--validate / --no-validate</span></td><td>flag</td><td>yes</td><td>Validate Nix syntax via <span class="inline-code">nix-instantiate</span></td></tr>
+  <tr><td><span class="inline-code">--verbose, -v</span></td><td>flag</td><td>—</td><td>Verbose output</td></tr>
+</table>
+
+<div class="callout warning"><strong>⚠️ Note</strong> — Nix validation requires <span class="inline-code">nix-instantiate</span> on your PATH. If Nix is not installed, validation is skipped automatically.</div>
+
+<h3 id="cli-serve">serve <a class="anchor-link" href="#cli-serve">#</a></h3>
+<p>Start the Starlette web server with a drag-and-drop web interface.</p>
+
+<pre><span class="lang-label">bash</span>app2nix serve [OPTIONS]</pre>
+
+<table>
+  <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+  <tr><td><span class="inline-code">--host</span></td><td><span class="inline-code">0.0.0.0</span></td><td>Bind host</td></tr>
+  <tr><td><span class="inline-code">--port</span></td><td><span class="inline-code">8000</span></td><td>Port</td></tr>
+  <tr><td><span class="inline-code">--reload</span></td><td>—</td><td>Auto-reload on file changes (development)</td></tr>
+</table>
+
+<h3 id="cli-gui">gui <a class="anchor-link" href="#cli-gui">#</a></h3>
+<p>Launch the desktop graphical interface (requires PyQt6).</p>
+
+<pre><span class="lang-label">bash</span>app2nix gui</pre>
+<p>The GUI provides:</p>
+<ul>
+  <li>File picker + URL download</li>
+  <li>QThread-based background analysis (UI stays responsive)</li>
+  <li>Nix expression and flake.nix display</li>
+  <li>One-click nix-build with real-time log streaming</li>
+  <li>Security warning with .deb script detection before install</li>
+  <li>Automatic .desktop entry creation with Terminal detection heuristic</li>
+  <li>Internationalization (i18n) — language switcher in the menu</li>
+  <li>Light/dark theme switcher</li>
+</ul>
+
+<!-- ─────────────────── API REFERENCE ─────────────────── -->
+<h2 id="api">API Reference <a class="anchor-link" href="#api">#</a></h2>
+<p>The Starlette web server exposes a REST API for programmatic integration.</p>
+
+<h3 id="api-analyze">GET /api <a class="anchor-link" href="#api-analyze">#</a></h3>
+<div class="endpoint">
+  <div class="endpoint-head">
+    <span class="method get">GET</span>
+    <span class="path">/api</span>
+  </div>
+  <div class="endpoint-body">
+    <p>Returns API version and supported formats.</p>
+<pre>{
+  "message": "app2nix API",
+  "version": "3.0.0",
+  "formats": [".deb", ".rpm", ".AppImage", …]
+}</pre>
+  </div>
+</div>
+
+<h3>POST /analyze</h3>
+<div class="endpoint">
+  <div class="endpoint-head">
+    <span class="method post">POST</span>
+    <span class="path">/analyze</span>
+  </div>
+  <div class="endpoint-body">
+    <p>Upload a package file (multipart/form-data) or provide a URL. Returns metadata, dependency list, and resolved Nixpkgs names.</p>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><span class="inline-code">file</span></td><td>file</td><td>Package file upload</td></tr>
+      <tr><td><span class="inline-code">url</span></td><td>string</td><td>Package download URL (alternative)</td></tr>
+    </table>
+    <p><strong>Response:</strong></p>
+<pre>{
+  "name": "firefox",
+  "version": "136.0",
+  "format": "deb",
+  "architecture": "amd64",
+  "libraries": ["libc.so.6", "libpthread.so.0", …],
+  "nix_dependencies": ["xorg.libX11", "libGL", …],
+  "unresolved": []
+}</pre>
+  </div>
+</div>
+
+<h3 id="api-generate">POST /generate</h3>
+<div class="endpoint">
+  <div class="endpoint-head">
+    <span class="method post">POST</span>
+    <span class="path">/generate</span>
+  </div>
+  <div class="endpoint-body">
+    <p>Upload a package and receive the full conversion result: Nix expression, flake.nix, install guide, auto-install script.</p>
+    <p><strong>Response:</strong></p>
+<pre>{
+  "name": "firefox",
+  "version": "136.0",
+  "architecture": "amd64",
+  "content": "{ pkgs ? import <nixpkgs> {} }:\n…",
+  "flake_content": "{\n  description = …\n}",
+  "install_guide": "## 1. Prepare\nmkdir -p ~/…",
+  "auto_install_script": "#!/usr/bin/env bash\n…",
+  "validation_passed": true,
+  "unresolved_deps": []
+}</pre>
+  </div>
+</div>
+
+<h3>Error Handling</h3>
+<table>
+  <tr><th>Status</th><th>Description</th></tr>
+  <tr><td><span class="inline-code">400</span></td><td>Unsupported format or missing file/URL</td></tr>
+  <tr><td><span class="inline-code">413</span></td><td>File exceeds maximum upload size (configurable via <span class="inline-code">APP2NIX_MAX_UPLOAD_SIZE</span>)</td></tr>
+  <tr><td><span class="inline-code">422</span></td><td>Analysis or generation failed</td></tr>
+  <tr><td><span class="inline-code">500</span></td><td>Internal server error</td></tr>
+</table>
+
+<div class="callout info"><strong>📖 Full API reference</strong> — See <a href="https://github.com/HiTechTN/app2nix/blob/master/docs/API.md">docs/API.md</a> on GitHub for curl, Python, and JavaScript examples.</div>
+
+<!-- ─────────────────── EXAMPLES ─────────────────── -->
+<h2 id="examples">Examples <a class="anchor-link" href="#examples">#</a></h2>
+
+<h3>Convert a .deb (Firefox)</h3>
+<pre><span class="lang-label">bash</span>app2nix convert firefox_136.0_amd64.deb -d ./firefox-nix
+cat ./firefox-nix/default.nix</pre>
+
+<h3>Convert with flake output</h3>
+<pre><span class="lang-label">bash</span>app2nix convert discord.deb --flake -d ./discord-nix
+ls ./discord-nix/
+<span class="c"># default.nix  flake.nix</span></pre>
+
+<h3>JSON output</h3>
+<pre><span class="lang-label">bash</span>app2nix convert code_1.96_amd64.deb --json | jq '.nix_dependencies'</pre>
+
+<h3>Batch conversion</h3>
+<pre><span class="lang-label">bash</span><span class="c">#!/usr/bin/env bash</span>
+<span class="k">for</span> pkg in <span class="s">*.deb</span>; <span class="k">do</span>
+  name=<span class="s">$(</span>basename <span class="s">"$pkg"</span> .deb<span class="s">)</span>
+  app2nix convert <span class="s">"$pkg"</span> -d <span class="s">"./nix-packages/$name"</span>
+<span class="k">done</span></pre>
+
+<h3>RPM conversion</h3>
+<pre><span class="lang-label">bash</span>app2nix convert package.rpm --output-dir ./myapp</pre>
+
+<h3>AppImage conversion</h3>
+<pre><span class="lang-label">bash</span>app2nix convert MyApp.AppImage -d ./myapp-nix</pre>
+
+<h3>Using the generated expression</h3>
+<pre><span class="lang-label">bash</span><span class="c"># User install (current profile)</span>
+NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+
+<span class="c"># System-wide (NixOS)</span>
+<span class="c"># Add to /etc/nixos/configuration.nix:</span>
+<span class="c">#   environment.systemPackages = with pkgs; [</span>
+<span class="c">#     (callPackage ./path/to/default.nix {})</span>
+<span class="c">#   ];</span>
+sudo nixos-rebuild switch</pre>
+
+<div class="callout success"><strong>💡 Pro tip</strong> — For CI/CD pipelines, use <span class="inline-code">--json</span> to parse results programmatically with <span class="inline-code">jq</span>.</div>
+
+<!-- ─────────────────── ARCHITECTURE ─────────────────── -->
+<h2 id="architecture">Architecture <a class="anchor-link" href="#architecture">#</a></h2>
+
+<div class="arch-diagram">
+  <div class="arch-box input">📦 CLI</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box process">🔍 Analyzer</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box process">📋 Resolver</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box nix">⚙️ Generator</div>
+  <span class="arch-arrow">→</span>
+  <div class="arch-box output">📄 default.nix</div>
+</div>
+
+<p>The project is organized as a Python package under <span class="inline-code">src/app2nix/</span>:</p>
+
+<table>
+  <tr><th>Module</th><th>Responsibility</th></tr>
+  <tr><td><span class="inline-code">cli.py</span></td><td>Typer CLI — convert, serve, gui commands</td></tr>
+  <tr><td><span class="inline-code">server.py</span></td><td>Starlette web server with REST API</td></tr>
+  <tr><td><span class="inline-code">config.py</span></td><td>Settings via pydantic-settings</td></tr>
+  <tr><td><span class="inline-code">models.py</span></td><td>PackageInfo, ConversionResult (pydantic)</td></tr>
+  <tr><td><span class="inline-code">core/analyzer.py</span></td><td>UniversalAnalyzer — dispatches to format-specific analyzers</td></tr>
+  <tr><td><span class="inline-code">core/analyzers/</span></td><td>Format parsers: deb, rpm, appimage, flatpak, snap, tarball</td></tr>
+  <tr><td><span class="inline-code">core/resolver.py</span></td><td>DependencyResolver — maps 150+ libraries to Nixpkgs</td></tr>
+  <tr><td><span class="inline-code">core/generator.py</span></td><td>NixGenerator — produces default.nix, flake.nix, install scripts</td></tr>
+  <tr><td><span class="inline-code">core/validator.py</span></td><td>Nix syntax validation via nix-instantiate</td></tr>
+  <tr><td><span class="inline-code">gui/</span></td><td>PyQt6 desktop GUI with QThread workers, i18n, themes</td></tr>
+</table>
+
+<h3>Conversion Pipeline</h3>
+<ol>
+  <li><strong>Analyze</strong> — Extract metadata from the package (dpkg-deb for .deb, rpm2cpio for .rpm, unsquashfs for AppImage, etc.)</li>
+  <li><strong>Detect binaries</strong> — Find ELF executables and shared libraries</li>
+  <li><strong>Extract dependencies</strong> — Run <span class="inline-code">ldd</span> and <span class="inline-code">patchelf --print-needed</span> on each binary</li>
+  <li><strong>Resolve</strong> — Map each library to its Nixpkgs package name via the built-in 150+ entry dictionary (+ API and fuzzy matching)</li>
+  <li><strong>Generate</strong> — Render a production-ready <span class="inline-code">default.nix</span> (and optionally <span class="inline-code">flake.nix</span>) using Jinja2 templates</li>
+  <li><strong>Validate</strong> — Check syntax via <span class="inline-code">nix-instantiate --parse</span> (if nix is installed)</li>
+</ol>
+
+<h3>Architecture Mapping</h3>
+<table>
+  <tr><th>Package Arch</th><th>Nix Platform</th></tr>
+  <tr><td>amd64, x86_64</td><td><span class="inline-code">x86_64-linux</span></td></tr>
+  <tr><td>i386, i686</td><td><span class="inline-code">i686-linux</span></td></tr>
+  <tr><td>arm64</td><td><span class="inline-code">aarch64-linux</span></td></tr>
+  <tr><td>armhf, arm</td><td><span class="inline-code">armv7l-linux</span></td></tr>
+  <tr><td>unknown</td><td><span class="inline-code">x86_64-linux</span> (fallback)</td></tr>
+</table>
+
+<!-- ─────────────────── DOCKER ─────────────────── -->
+<h2 id="docker">Docker <a class="anchor-link" href="#docker">#</a></h2>
+
+<h3>Pull & Run</h3>
+<pre><span class="lang-label">bash</span>docker pull ghcr.io/hitechtn/app2nix:latest
+docker run -d -p 8000:8000 \
+  --name app2nix \
+  -e APP2NIX_SECRET_KEY="your-secret-here" \
+  -e APP2NIX_MAX_UPLOAD_SIZE=1073741824 \
+  ghcr.io/hitechtn/app2nix:latest</pre>
+
+<h3>Build Locally</h3>
+<pre><span class="lang-label">bash</span>docker build -t app2nix .
+docker run -p 8000:8000 -e APP2NIX_SECRET_KEY=devkey app2nix</pre>
+
+<h3>Environment Variables</h3>
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+  <tr><td><span class="inline-code">APP2NIX_SECRET_KEY</span></td><td>—</td><td>Required. Session signing key.</td></tr>
+  <tr><td><span class="inline-code">APP2NIX_MAX_UPLOAD_SIZE</span></td><td><span class="inline-code">524288000</span> (500 MB)</td><td>Maximum file upload size in bytes</td></tr>
+  <tr><td><span class="inline-code">APP2NIX_CACHE_DB</span></td><td><span class="inline-code">~/.cache/app2nix/resolver.db</span></td><td>SQLite cache path for dependency resolution</td></tr>
+  <tr><td><span class="inline-code">APP2NIX_DEBUG</span></td><td><span class="inline-code">false</span></td><td>Enable debug mode</td></tr>
+</table>
+
+<!-- ─────────────────── CI/CD ─────────────────── -->
+<h2 id="ci-cd">CI/CD Integration <a class="anchor-link" href="#ci-cd">#</a></h2>
+
+<h3>GitHub Actions</h3>
+<pre><span class="lang-label">yaml</span><span class="c"># .github/workflows/convert.yml</span>
+name: Convert package to Nix
+on: [push]
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install app2nix
+      - run: app2nix convert my-package.deb -d ./nix-output --json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nix-expression
+          path: ./nix-output/</pre>
+
+<h3>Validate Nix in CI</h3>
+<pre><span class="lang-label">yaml</span><span class="c"># Requires Nix on the runner</span>
+- name: Install Nix
+  uses: cachix/install-nix-action@v26
+- name: Validate generated Nix
+  run: nix-instantiate --parse ./nix-output/default.nix</pre>
+
+<h3>GitLab CI</h3>
+<pre><span class="lang-label">yaml</span><span class="c"># .gitlab-ci.yml</span>
+stages: [convert]
+convert:
+  stage: convert
+  image: python:3.12
+  script:
+    - pip install app2nix
+    - app2nix convert $PACKAGE_FILE -d nix-output
+  artifacts:
+    paths: [nix-output/]</pre>
+
+<!-- ─────────────────── TROUBLESHOOTING ─────────────────── -->
+<h2 id="troubleshooting">Troubleshooting <a class="anchor-link" href="#troubleshooting">#</a></h2>
+
+<h3>Missing dependencies in generated Nix</h3>
+<p>Some libraries may not be in the built-in mapping (150+ entries). Check unresolved deps with <span class="inline-code">--print-deps</span> and search for them manually:</p>
+<pre><span class="lang-label">bash</span>nix search nixpkgs <span class="s">"libfoo"</span>
+<span class="c"># Then add them to your Nix expression manually</span></pre>
+
+<h3>patchelf: not found</h3>
+<p>Install patchelf on your system:</p>
+<pre><span class="lang-label">bash</span><span class="c"># Debian/Ubuntu</span>
+sudo apt install patchelf
+
+<span class="c"># NixOS</span>
+nix-shell -p patchelf</pre>
+
+<h3>dpkg-deb: not found</h3>
+<p>For .deb packages, install dpkg:</p>
+<pre><span class="lang-label">bash</span>sudo apt install dpkg</pre>
+
+<h3>nix-build errors</h3>
+<ul>
+  <li><strong>autoPatchelfHook</strong> errors → run <span class="inline-code">patchelf --print-needed</span> on the binary and add missing libs to <span class="inline-code">buildInputs</span></li>
+  <li><strong>Unfree license</strong> → set <span class="inline-code">NIXPKGS_ALLOW_UNFREE=1</span></li>
+  <li><strong>Unsupported system</strong> → set <span class="inline-code">NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM=1</span></li>
+</ul>
+
+<h3>Web UI won't start</h3>
+<pre><span class="lang-label">bash</span><span class="c"># Check if port is in use</span>
+sudo lsof -i :8000
+
+<span class="c"># Run with debug mode</span>
+APP2NIX_DEBUG=true app2nix serve
+
+<span class="c"># Generate a secret key</span>
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
+
+<!-- ─────────────────── FAQ ─────────────────── -->
+<h2 id="faq">FAQ <a class="anchor-link" href="#faq">#</a></h2>
+
+<div class="callout info"><strong>Q: What formats are supported?</strong> — .deb, .rpm, .AppImage, Flatpak (.flatpak), Snap (.snap), and tarballs (.tar.gz, .tgz, .tar).</div>
+<div class="callout info"><strong>Q: Do I need NixOS to use app2nix?</strong> — No. The CLI and API work on any Linux distribution. Only installing the generated package requires Nix/NixOS.</div>
+<div class="callout info"><strong>Q: Can I convert packages from a URL?</strong> — Yes. Both the CLI (<span class="inline-code">app2nix convert URL</span>) and the Web UI support URL download.</div>
+<div class="callout info"><strong>Q: Does it work for proprietary/closed-source packages?</strong> — Yes. app2nix handles any binary package regardless of license. Set <span class="inline-code">NIXPKGS_ALLOW_UNFREE=1</span> to install.</div>
+<div class="callout info"><strong>Q: How accurate is the dependency resolution?</strong> — The built-in dictionary covers 150+ common libraries. For unknown libraries, a fuzzy matching algorithm tries to find the closest Nixpkgs name. Unresolved deps are reported and can be added manually.</div>
+<div class="callout info"><strong>Q: Can I use app2nix in CI/CD?</strong> — Yes. The <span class="inline-code">--json</span> flag outputs machine-readable results. See the <a href="#ci-cd">CI/CD section</a> for examples.</div>
+<div class="callout info"><strong>Q: How do I contribute?</strong> — Fork the repo, create a feature branch, and submit a PR. Report bugs via GitHub Issues.</div>
+
+<!-- ─────────────────── FORMATS ─────────────────── -->
+<h2 id="formats">Supported Formats <a class="anchor-link" href="#formats">#</a></h2>
+
+<table>
+  <tr><th>Format</th><th>Extension</th><th>Status</th><th>Requires</th></tr>
+  <tr><td>Debian</td><td><span class="inline-code">.deb</span></td><td><span class="badge green">Stable</span></td><td><span class="inline-code">dpkg-deb</span></td></tr>
+  <tr><td>RPM</td><td><span class="inline-code">.rpm</span></td><td><span class="badge green">Stable</span></td><td><span class="inline-code">rpm2cpio</span>, <span class="inline-code">cpio</span></td></tr>
+  <tr><td>AppImage</td><td><span class="inline-code">.AppImage</span>, <span class="inline-code">.appimage</span></td><td><span class="badge green">Stable</span></td><td>FUSE or <span class="inline-code">unsquashfs</span></td></tr>
+  <tr><td>Flatpak</td><td><span class="inline-code">.flatpak</span></td><td><span class="badge yellow">Beta</span></td><td><span class="inline-code">flatpak</span> build tools</td></tr>
+  <tr><td>Snap</td><td><span class="inline-code">.snap</span></td><td><span class="badge yellow">Beta</span></td><td><span class="inline-code">squashfs-tools</span></td></tr>
+  <tr><td>Tarball</td><td><span class="inline-code">.tar.gz</span>, <span class="inline-code">.tgz</span>, <span class="inline-code">.tar</span></td><td><span class="badge green">Stable</span></td><td><span class="inline-code">tar</span></td></tr>
+</table>
+
+<hr style="border-color: var(--border); margin: 48px 0 24px;">
+
+<div style="text-align: center; padding: 24px 0;">
+  <p style="color: var(--text3); font-size: 13px;">
+    <a href="https://github.com/HiTechTN/app2nix">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/HiTechTN/app2nix/issues">Report Bug</a>
+    &nbsp;·&nbsp;
+    <span class="inline-code">app2nix v3.0.0</span>
+  </p>
+  <p style="color: var(--text3); font-size: 12px; margin-top: 8px;">
+    Made with ❤️ by <a href="https://github.com/HiTechTN">HiTechTN</a>
+    &nbsp;·&nbsp; MIT License
+  </p>
+</div>
+
+</main>
+
+<script>
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.querySelector('.sidebar-overlay').classList.toggle('open');
+}
+
+// Close sidebar on link click (mobile)
+document.querySelectorAll('.sidebar nav a').forEach(function(a) {
+  a.addEventListener('click', function() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.querySelector('.sidebar-overlay').classList.remove('open');
+  });
+});
+
+// Active link highlighting
+var sections = document.querySelectorAll('h2[id]');
+var links = document.querySelectorAll('.sidebar nav a[href^="#"]');
+function highlightNav() {
+  var scrollY = window.scrollY + 100;
+  var current = '';
+  sections.forEach(function(s) {
+    if (s.offsetTop <= scrollY) current = '#' + s.id;
+  });
+  links.forEach(function(l) {
+    l.classList.toggle('active', l.getAttribute('href') === current);
+  });
+}
+window.addEventListener('scroll', highlightNav);
+window.addEventListener('load', highlightNav);
+</script>
+
+</body>
+</html>
