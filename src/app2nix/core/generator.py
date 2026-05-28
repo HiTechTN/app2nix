@@ -115,6 +115,7 @@ class NixGenerator:
 
         content = template.render(
             name=info.name,
+            app_name=info.name,
             version=info.version,
             format=info.format,
             description=info.description or f"{info.name} — converted from {info.format} by app2nix",
