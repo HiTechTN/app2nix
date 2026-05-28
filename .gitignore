@@ -1,28 +1,33 @@
+# Rust
+target/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
 *.egg-info/
 dist/
 build/
 .eggs/
-
 .pytest_cache/
 .coverage
 htmlcov/
 *.log
+.mypy_cache/
+.ruff_cache/
 
+# Virtual environments
 .env
 .venv
 venv/
 ENV/
 
+# OS
 .DS_Store
 *.swp
 *~
-
-# Docker
-.dockerignore
+*.bak
+*.orig
 
 # Generated test directory
 app2nix/
@@ -30,3 +35,8 @@ app2nix/
 # IDE
 .idea/
 .vscode/
+*.swp
+
+# Build artifacts
+result*
+*.nix-build-*

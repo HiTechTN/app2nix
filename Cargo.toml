@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cli",
+    "crates/core",
+    "crates/detector",
+    "crates/extractor",
+    "crates/analyzer",
+    "crates/resolver",
+    "crates/patcher",
+    "crates/nixgen",
+    "crates/installer",
+    "crates/desktop",
+    "crates/sandbox",
+    "crates/fhs",
+    "crates/plugins",
+]
+
+[workspace.package]
+version = "3.0.0"
+edition = "2021"
+license = "MIT"
+authors = ["Azmi <azmi.hitech@gmail.com>"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive", "env"] }
+tempfile = "3"
+walkdir = "2"
+glob = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+regex = "1"
+sha2 = "0.10"
+indicatif = "0.17"
+console = "0.15"
+dirs = "5"
+xdg = "2"
+toml = "0.8"
+tera = "1"

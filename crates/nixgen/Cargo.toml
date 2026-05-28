@@ -1,0 +1,15 @@
+[package]
+name = "app2nix-nixgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+app2nix-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tera.workspace = true
+chrono.workspace = true

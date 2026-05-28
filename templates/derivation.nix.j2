@@ -1,0 +1,56 @@
+{ lib, stdenv, autoPatchelfHook, makeWrapper
+, dpkg, rpm, cpio, squashfsTools, p7zip, file
+, fetchurl, writeScript
+{% for input in build_inputs %}
+, {{ input }}
+{% endfor %}
+}:
+
+stdenv.mkDerivation {
+  pname = "{{ app_name }}";
+  version = "{{ version }}";
+
+  src = ./.;
+
+  dontBuild = true;
+  dontConfigure = true;
+
+  nativeBuildInputs = [
+    autoPatchelfHook
+    makeWrapper
+    {% for input in native_build_inputs %}
+    {{ input }}
+    {% endfor %}
+  ];
+
+  buildInputs = [
+    {% for input in build_inputs %}
+    {{ input }}
+    {% endfor %}
+  ];
+
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/bin $out/lib $out/share
+
+    {{ install_phase }}
+
+    # Fix permissions
+    find $out -type f -executable -exec chmod +x {} \;
+
+    # Create wrapper
+    {{ wrapper_script }}
+
+    {{ desktop_phase }}
+
+    runHook postInstall
+  '';
+
+  meta = with lib; {
+    description = "{{ description }}";
+    license = licenses.unfree;
+    platforms = platforms.linux;
+    maintainers = [];
+  };
+}

@@ -1,8 +1,8 @@
 {
-  description = "{{ name }} — converted from {{ format }} by app2nix";
+  description = "{{ description }}";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -10,37 +10,14 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in {
-        packages.{{ name | replace("-", "_") }} = pkgs.stdenv.mkDerivation {
-          pname = "{{ name }}";
-          version = "{{ version }}";
-          src = ./.;
-
-          nativeBuildInputs = with pkgs; [
-            autoPatchelfHook
-          ];
-
-          buildInputs = with pkgs; [
-            stdenv.cc.cc.lib
-            {% for dep in build_deps %}
-            {{ dep }}
-            {% endfor %}
-          ];
-
-          installPhase = ''
-            runHook preInstall
-            {{ install_phase }}
-            runHook postInstall
-          '';
-
-          meta = with pkgs.lib; {
-            description = "{{ description }}";
-            platforms = platforms.linux;
-            license = licenses.unfree;
-          };
+      in
+      {
+        packages.default = pkgs.callPackage ./derivation.nix {};
+        packages.{{ app_name }} = pkgs.callPackage ./derivation.nix {};
+        apps.default = {
+          type = "app";
+          program = "${pkgs.callPackage ./derivation.nix {}}/bin/{{ app_name }}";
         };
-
-        packages.default = self.packages.${system}.{{ name | replace("-", "_") }};
       }
     );
 }

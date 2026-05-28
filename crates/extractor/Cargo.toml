@@ -1,0 +1,16 @@
+[package]
+name = "app2nix-extractor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+app2nix-core = { path = "../core" }
+app2nix-detector = { path = "../detector" }
+serde.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+walkdir.workspace = true
+sha2.workspace = true

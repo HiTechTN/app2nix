@@ -1,0 +1,33 @@
+[package]
+name = "app2nix"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "app2nix"
+path = "src/main.rs"
+
+[dependencies]
+app2nix-core = { path = "../core" }
+app2nix-detector = { path = "../detector" }
+app2nix-extractor = { path = "../extractor" }
+app2nix-analyzer = { path = "../analyzer" }
+app2nix-resolver = { path = "../resolver" }
+app2nix-patcher = { path = "../patcher" }
+app2nix-nixgen = { path = "../nixgen" }
+app2nix-installer = { path = "../installer" }
+app2nix-desktop = { path = "../desktop" }
+app2nix-sandbox = { path = "../sandbox" }
+app2nix-fhs = { path = "../fhs" }
+app2nix-plugins = { path = "../plugins" }
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+indicatif.workspace = true
+console.workspace = true
+tempfile.workspace = true
+chrono.workspace = true
