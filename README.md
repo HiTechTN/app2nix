@@ -18,7 +18,7 @@
 [![Docker Build](https://github.com/HiTechTN/app2nix/workflows/Docker%20Build%20and%20Push/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
 [![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
 
-[Documentation]([docs](https://github.com/HiTechTN/app2nix/blob/master/docs/index.html)) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
+[Documentation]([docs](https://github.com/HiTechTN/app2nix/blob/master/docs/index.html) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
 </div>
 
