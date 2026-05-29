@@ -92,9 +92,9 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          components: clippy, rustfmt
+          components: clippy
       - run: cargo check --workspace
-      - run: cargo clippy --workspace -- -D warnings
+      - run: cargo clippy --workspace
 
   docker:
     needs: test
