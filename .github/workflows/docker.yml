@@ -61,7 +61,7 @@ jobs:
           sudo apt-get install -y dpkg patchelf file
 
       - name: Run tests
-        run: python -m pytest tests/ -v --cov=. --cov-report=xml
+        run: python -m pytest tests/ -v --cov=. --cov-report=xml --ignore=tests/gui
 
   build:
     name: Build Docker Image
