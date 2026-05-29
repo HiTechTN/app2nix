@@ -2,6 +2,9 @@ use std::path::Path;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{AnalysisResult, ResolvedDependency, Patcher, Result, App2NixError};
 
 pub struct DefaultPatcher;

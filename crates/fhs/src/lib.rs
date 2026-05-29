@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::Result;
 
 pub struct FhsCompat {
@@ -60,6 +63,9 @@ in
         app_name: &str,
         deps: &[String],
     ) -> Result<String> {
+        if !self.enabled {
+            return Ok(String::new());
+        }
         let dep_list = deps
             .iter()
             .map(|d| format!("      {}", d))

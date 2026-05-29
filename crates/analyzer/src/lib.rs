@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 use std::fs;
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{
     PackageInfo, ExtractedFile, ElfInfo, AnalysisResult,
     ResolvedDependency, DetectedDesktopEntry, DetectedIcon, AppTypeHint,

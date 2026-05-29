@@ -1,6 +1,9 @@
 use std::path::Path;
 use std::fs;
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{
     AppEntry, AppRegistry, Installer, PackageFormat,
     Result, App2NixError,

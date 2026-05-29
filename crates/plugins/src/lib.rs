@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{
     PackageFormat, AnalysisResult, Plugin, Detector, Extractor, Analyzer,
     Patcher, NixGenerator, Installer, DesktopIntegrator, Result, App2NixError,

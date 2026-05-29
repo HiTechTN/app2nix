@@ -1,6 +1,9 @@
 use std::path::Path;
 use std::fs;
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{
     GenerateOptions, PackageFormat, NixGenerator,
     Result, App2NixError,

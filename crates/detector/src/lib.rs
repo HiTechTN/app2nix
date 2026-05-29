@@ -2,6 +2,9 @@ use std::path::Path;
 use std::fs;
 use sha2::{Sha256, Digest};
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{PackageInfo, PackageFormat, Detector, App2NixError, Result};
 
 pub struct DefaultDetector;
@@ -158,6 +161,8 @@ impl DefaultDetector {
                 let s = s.trim_end_matches("_x86_64");
                 let s = s.trim_end_matches("-amd64");
                 let s = s.trim_end_matches("-x86_64");
+                let s = s.trim_end_matches("_x64");
+                let s = s.trim_end_matches("-x64");
                 let s = s.trim_end_matches("_linux");
                 let s = s.trim_end_matches("-linux");
                 s.to_lowercase()

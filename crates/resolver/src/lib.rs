@@ -1,6 +1,9 @@
 use std::sync::Mutex;
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{ResolvedDependency, Analyzer, Result, App2NixError};
 
 pub struct DependencyResolver {
@@ -66,6 +69,9 @@ impl DependencyResolver {
 
     fn fuzzy_match(&self, lib: &str) -> Option<(String, String)> {
         for (key, val) in &self.dep_map {
+            if key.len() < 2 {
+                continue;
+            }
             if key.contains(lib) || lib.contains(key) {
                 return Some(val.clone());
             }
@@ -129,7 +135,7 @@ fn build_dep_map() -> HashMap<String, (String, String)> {
     let mut m = HashMap::new();
     macro_rules! dep {
         ($lib:expr, $attr:expr, $name:expr) => {
-            m.insert($lib.to_string(), ($attr.to_string(), $name.to_string()));
+            m.insert($lib.to_string().to_lowercase(), ($attr.to_string(), $name.to_string()));
         };
     }
 

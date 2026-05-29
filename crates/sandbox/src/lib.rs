@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use app2nix_core::{Result, App2NixError};
 
 pub struct Sandbox {
