@@ -85,6 +85,17 @@ jobs:
       - run: ruff check src/ tests/
       - run: mypy src/app2nix --ignore-missing-imports
 
+  rust-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - run: cargo check --workspace
+      - run: cargo clippy --workspace -- -D warnings
+
   docker:
     needs: test
     runs-on: ubuntu-latest
