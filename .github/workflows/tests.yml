@@ -37,11 +37,12 @@ jobs:
           sudo apt-get install -y dpkg patchelf file
 
       - name: Run tests
-        run: python -m pytest tests/ -v --cov=. --cov-report=xml
+        run: python -m pytest tests/ -v --cov-report=lcov
 
-      - name: Upload coverage
+      - name: Upload coverage to Coveralls
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+        uses: coverallsapp/github-action@v2
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./coverage/lcov.info
+          format: lcov

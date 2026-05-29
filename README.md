@@ -15,6 +15,7 @@
 
 [![CI](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
 [![Tests](https://github.com/HiTechTN/app2nix/workflows/Tests/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Coverage Status](https://coveralls.io/repos/github/HiTechTN/app2nix/badge.svg)](https://coveralls.io/github/HiTechTN/app2nix)
 [![Docker Build](https://github.com/HiTechTN/app2nix/workflows/Docker%20Build%20and%20Push/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
 [![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
 
@@ -220,6 +221,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 | 🍴 Forks | [![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members) |
 | 🐛 Issues | [![Issues](https://img.shields.io/github/issues/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/issues) |
 | ⬇️ Downloads | [![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)](https://github.com/HiTechTN/app2nix/releases) |
+| ✅ Coverage | [![Coverage Status](https://coveralls.io/repos/github/HiTechTN/app2nix/badge.svg)](https://coveralls.io/github/HiTechTN/app2nix) |
 
 ---
 
