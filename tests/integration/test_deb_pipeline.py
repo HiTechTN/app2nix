@@ -19,8 +19,6 @@ from httpx import ASGITransport, AsyncClient
 from app2nix.core.analyzers.deb import analyze_deb
 from app2nix.core.generator import NixGenerator
 from app2nix.core.resolver import DependencyResolver
-from app2nix.models import PackageInfo
-
 
 # =============================================================================
 # Helpers — factory for mocked subprocess calls during .deb analysis
@@ -30,7 +28,7 @@ from app2nix.models import PackageInfo
 def make_subprocess_side_effect(
     *,
     dpkg_deb_x_ok: bool = True,
-    dpkg_deb_I_stdout: str = "",
+    dpkg_deb_info_stdout: str = "",
     file_responses: dict[str, str] | None = None,
     ldd_stdout: str = "",
     patchelf_stdout: str = "",
@@ -72,7 +70,7 @@ def make_subprocess_side_effect(
 
         # 2. dpkg-deb -I
         elif cmd[:2] == ["dpkg-deb", "-I"]:
-            mock.stdout = dpkg_deb_I_stdout
+            mock.stdout = dpkg_deb_info_stdout
 
         # 3. file -b <path>
         elif cmd[:2] == ["file", "-b"]:
@@ -127,7 +125,7 @@ class TestDebAnalysisE2E:
         deb_file.write_text("fake deb content")
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=DPKG_DEB_I_OUTPUT,
+            dpkg_deb_info_stdout=DPKG_DEB_I_OUTPUT,
             file_responses={
                 "myapp": "ELF 64-bit LSB executable, x86-64",
                 "libhelper.so": "ELF 64-bit LSB shared object, x86-64",
@@ -173,7 +171,7 @@ class TestDebAnalysisE2E:
             return str(d)
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: pkg\nVersion: 1.0\nArchitecture: amd64\n"
             ),
         )
@@ -204,14 +202,14 @@ class TestDebAnalysisE2E:
 
         side_effect = make_subprocess_side_effect(
             dpkg_deb_x_ok=False,
-            dpkg_deb_I_stdout="",
+            dpkg_deb_info_stdout="",
         )
 
         with (
             patch("app2nix.core.analyzers.deb.tempfile.mkdtemp", side_effect=track_mkdtemp),
             patch("app2nix.core.analyzers.deb.shutil.rmtree") as mock_rmtree,
             patch.object(subprocess, "run", side_effect=side_effect),
-            pytest.raises(Exception),
+            pytest.raises(Exception, match="dpkg-deb"),
         ):
             analyze_deb(str(deb_file))
 
@@ -232,7 +230,7 @@ class TestDebAnalysisE2E:
             return str(d)
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: pkg\nVersion: 1.0\nArchitecture: amd64\n"
             ),
         )
@@ -268,7 +266,7 @@ class TestDebParsingEdgeCases:
         deb_file.write_text("data")
         ctrl = f"Package: pkg\nVersion: 1.0\nArchitecture: {arch}\n"
 
-        side_effect = make_subprocess_side_effect(dpkg_deb_I_stdout=ctrl)
+        side_effect = make_subprocess_side_effect(dpkg_deb_info_stdout=ctrl)
 
         with patch.object(subprocess, "run", side_effect=side_effect):
             info = analyze_deb(str(deb_file))
@@ -289,7 +287,7 @@ class TestDebParsingEdgeCases:
         )
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=ctrl,
+            dpkg_deb_info_stdout=ctrl,
         )
 
         with patch.object(subprocess, "run", side_effect=side_effect):
@@ -307,7 +305,7 @@ class TestDebParsingEdgeCases:
         deb_file.write_text("data")
         ctrl = "Package: epoch-pkg\nVersion: 2:1.0-1\nArchitecture: amd64\n"
 
-        side_effect = make_subprocess_side_effect(dpkg_deb_I_stdout=ctrl)
+        side_effect = make_subprocess_side_effect(dpkg_deb_info_stdout=ctrl)
 
         with patch.object(subprocess, "run", side_effect=side_effect):
             info = analyze_deb(str(deb_file))
@@ -319,7 +317,7 @@ class TestDebParsingEdgeCases:
         deb_file.write_text("data")
         ctrl = "Package: minimal-pkg\n"
 
-        side_effect = make_subprocess_side_effect(dpkg_deb_I_stdout=ctrl)
+        side_effect = make_subprocess_side_effect(dpkg_deb_info_stdout=ctrl)
 
         with patch.object(subprocess, "run", side_effect=side_effect):
             info = analyze_deb(str(deb_file))
@@ -337,7 +335,7 @@ class TestDebElfDetection:
         deb_file.write_text("data")
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout="Package: multi\nVersion: 1.0\nArchitecture: amd64\n",
+            dpkg_deb_info_stdout="Package: multi\nVersion: 1.0\nArchitecture: amd64\n",
             file_responses={
                 "myapp": "ELF 64-bit LSB executable, x86-64",
                 "libhelper.so": "ELF 64-bit LSB shared object, x86-64",
@@ -359,7 +357,7 @@ class TestDebElfDetection:
         deb_file.write_text("data")
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout="Package: no-elf\nVersion: 1.0\nArchitecture: all\n",
+            dpkg_deb_info_stdout="Package: no-elf\nVersion: 1.0\nArchitecture: all\n",
             file_responses={
                 "myapp": "Bourne-Again shell script, ASCII text executable",
                 "libhelper.so": "ASCII text",
@@ -539,7 +537,7 @@ class TestDebAnalysisWithFullPipeline:
 
         # Only deps that are in DEP_MAP
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout="Package: simple\nVersion: 1.0\nArchitecture: amd64\n",
+            dpkg_deb_info_stdout="Package: simple\nVersion: 1.0\nArchitecture: amd64\n",
             ldd_stdout=(
                 "\tlibz.so.1 => /usr/lib/libz.so.1 (0x00007f00)\n"
             ),
@@ -562,7 +560,7 @@ class TestDebAnalysisWithFullPipeline:
         deb_file.write_text("data")
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout="Package: mixed\nVersion: 1.0\nArchitecture: amd64\n",
+            dpkg_deb_info_stdout="Package: mixed\nVersion: 1.0\nArchitecture: amd64\n",
             ldd_stdout=(
                 "\tlibssl.so.3 => /usr/lib/libssl.so.3 (0x00007f00)\n"
                 "\tlibweird_internal.so => /opt/lib/libweird_internal.so (0x00007f00)\n"
@@ -585,7 +583,7 @@ class TestDebAnalysisWithFullPipeline:
         deb_file.write_text("data")
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout="Package: mixed2\nVersion: 1.0\nArchitecture: amd64\n",
+            dpkg_deb_info_stdout="Package: mixed2\nVersion: 1.0\nArchitecture: amd64\n",
             ldd_stdout=(
                 "\tlibssl.so.3 => /usr/lib/libssl.so.3 (0x00007f00)\n"
                 "\tlibunknown_xyz.so => /usr/lib/libunknown_xyz.so (0x00007f00)\n"
@@ -623,7 +621,7 @@ class TestDebServerPipeline:
         deb_content = b"fake deb"
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: server-test\n"
                 "Version: 3.0.0\n"
                 "Architecture: amd64\n"
@@ -657,7 +655,7 @@ class TestDebServerPipeline:
         deb_content = b"fake deb"
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: gen-test\n"
                 "Version: 4.0.0\n"
                 "Architecture: arm64\n"
@@ -699,6 +697,7 @@ class TestDebCLIPipeline:
         Verifies the CLI output file contains the expected Nix expression.
         """
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         deb_file = tmp_path / "cli-test_1.0_amd64.deb"
@@ -707,7 +706,7 @@ class TestDebCLIPipeline:
         out_dir.mkdir()
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: cli-test\n"
                 "Version: 1.0\n"
                 "Architecture: amd64\n"
@@ -740,6 +739,7 @@ class TestDebCLIPipeline:
         Simulate 'app2nix convert package.deb --flake' with mocked subprocess.
         """
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         deb_file = tmp_path / "flake-test_2.0_amd64.deb"
@@ -748,7 +748,7 @@ class TestDebCLIPipeline:
         out_dir.mkdir()
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: flake-test\n"
                 "Version: 2.0\n"
                 "Architecture: amd64\n"
@@ -774,6 +774,7 @@ class TestDebCLIPipeline:
     def test_cli_convert_with_json_flag(self, tmp_path):
         """Simulate 'app2nix convert package.deb --json' generates JSON descriptor."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         deb_file = tmp_path / "json-test_1.5_amd64.deb"
@@ -782,7 +783,7 @@ class TestDebCLIPipeline:
         out_dir.mkdir()
 
         side_effect = make_subprocess_side_effect(
-            dpkg_deb_I_stdout=(
+            dpkg_deb_info_stdout=(
                 "Package: json-test\n"
                 "Version: 1.5\n"
                 "Architecture: amd64\n"
@@ -807,6 +808,7 @@ class TestDebCLIPipeline:
     def test_cli_convert_nonexistent_file_errors(self, tmp_path):
         """Non-existent .deb file should exit with error."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         runner = CliRunner()

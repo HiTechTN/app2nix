@@ -9,8 +9,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 import lib.i18n as i18n
 
 TRANSLATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "translations"

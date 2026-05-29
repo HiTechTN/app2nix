@@ -12,16 +12,14 @@ Extra CLI tests covering the remaining uncovered code paths in cli.py:
 """
 
 import json
-import sys
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from app2nix.cli import app
-
 
 # =============================================================================
 # Helpers

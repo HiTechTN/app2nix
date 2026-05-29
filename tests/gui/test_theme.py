@@ -5,7 +5,6 @@ These tests cover the LIGHT/DARK colour dictionaries, the global theme
 state management (set/get/name), and ensure all required keys exist.
 """
 
-import pytest
 
 import lib.theme as theme
 

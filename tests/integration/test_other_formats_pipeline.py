@@ -10,8 +10,6 @@ factories.  Tests cover:
 No real package files or system tools are required.
 """
 
-import os
-import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -19,15 +17,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app2nix.core.analyzers.appimage import analyze_appimage
+from app2nix.core.analyzers.flatpak import analyze_flatpak
+from app2nix.core.analyzers.rpm import analyze_rpm
+from app2nix.core.analyzers.snap import analyze_snap
+from app2nix.core.analyzers.tarball import analyze_tarball
 from app2nix.core.generator import NixGenerator
 from app2nix.core.resolver import DependencyResolver
-from app2nix.core.analyzers.appimage import analyze_appimage
-from app2nix.core.analyzers.rpm import analyze_rpm
-from app2nix.core.analyzers.flatpak import analyze_flatpak
-from app2nix.core.analyzers.tarball import analyze_tarball
-from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.models import PackageInfo
-
 
 # =============================================================================
 # Helpers — shared mock utilities
@@ -931,7 +928,7 @@ class TestTarballE2E:
             patch("app2nix.core.analyzers.tarball.shutil.rmtree") as mock_rmtree,
         ):
             (tmp_path / "fail_workdir").mkdir(exist_ok=True)
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="extraction"):
                 analyze_tarball(str(tar_path))
 
         mock_rmtree.assert_called_once()
@@ -1203,6 +1200,7 @@ class TestCliCrossFormat:
     def test_cli_convert_rpm_with_mocked_subprocess(self, tmp_path):
         """Simulate 'app2nix convert package.rpm' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         rpm_file = tmp_path / "hello-rpm-1.0.x86_64.rpm"
@@ -1237,6 +1235,7 @@ class TestCliCrossFormat:
     def test_cli_convert_rpm_with_flake(self, tmp_path):
         """Simulate 'app2nix convert package.rpm --flake' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         rpm_file = tmp_path / "rpm-flake-3.0.x86_64.rpm"
@@ -1271,6 +1270,7 @@ class TestCliCrossFormat:
     def test_cli_convert_rpm_print_deps(self, tmp_path):
         """Simulate 'app2nix convert package.rpm --print-deps' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         rpm_file = tmp_path / "deps-rpm-2.0.x86_64.rpm"
@@ -1299,6 +1299,7 @@ class TestCliCrossFormat:
     def test_cli_convert_appimage_with_flake(self, tmp_path):
         """Simulate 'app2nix convert package.AppImage --flake' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         ai_file = tmp_path / "gui-app-2.0.AppImage"
@@ -1328,6 +1329,7 @@ class TestCliCrossFormat:
     def test_cli_convert_appimage_print_deps(self, tmp_path):
         """Simulate 'app2nix convert package.AppImage --print-deps' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         ai_file = tmp_path / "deps-app-3.0.AppImage"
@@ -1356,9 +1358,11 @@ class TestCliCrossFormat:
 
     def test_cli_convert_flatpak_with_json(self, tmp_path):
         """Simulate 'app2nix convert package.flatpak --json' with mocked subprocess."""
-        from typer.testing import CliRunner
-        from app2nix.cli import app
         import json
+
+        from typer.testing import CliRunner
+
+        from app2nix.cli import app
 
         flatpak_file = tmp_path / "org.example.FlatTest.flatpak"
         flatpak_file.write_text("fake")
@@ -1384,6 +1388,7 @@ class TestCliCrossFormat:
     def test_cli_convert_flatpak_with_flake(self, tmp_path):
         """Simulate 'app2nix convert package.flatpak --flake' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         flatpak_file = tmp_path / "org.example.FlakeTest.flatpak"
@@ -1418,6 +1423,7 @@ class TestCliCrossFormat:
     def test_cli_convert_tarball_with_flake(self, tmp_path):
         """Simulate 'app2nix convert package.tar.gz --flake' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         tar_file = tmp_path / "tar-flake-2.0.tar.gz"
@@ -1454,6 +1460,7 @@ class TestCliCrossFormat:
     def test_cli_convert_tarball_print_deps(self, tmp_path):
         """Simulate 'app2nix convert package.tar.gz --print-deps' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         tar_file = tmp_path / "tar-deps-1.0.tar.gz"
@@ -1484,6 +1491,7 @@ class TestCliCrossFormat:
     def test_cli_convert_snap_with_flake(self, tmp_path):
         """Simulate 'app2nix convert package.snap --flake' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         snap_file = tmp_path / "snap-flake-1.0.snap"
@@ -1518,6 +1526,7 @@ class TestCliCrossFormat:
     def test_cli_convert_snap_print_deps(self, tmp_path):
         """Simulate 'app2nix convert package.snap --print-deps' with mocked subprocess."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         snap_file = tmp_path / "snap-deps-2.0.snap"
@@ -1537,6 +1546,7 @@ class TestCliCrossFormat:
     def test_cli_convert_nonexistent_file_errors(self, tmp_path):
         """Non-existent file should exit with error regardless of format."""
         from typer.testing import CliRunner
+
         from app2nix.cli import app
 
         runner = CliRunner()

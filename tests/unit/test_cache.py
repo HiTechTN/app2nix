@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
+
 import pytest
 
 from app2nix.cache import DepCache

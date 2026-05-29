@@ -12,8 +12,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app2nix.models import PackageInfo
-from app2nix.server import app, get_format, SUPPORTED_FORMATS
-
+from app2nix.server import SUPPORTED_FORMATS, app, get_format
 
 # =============================================================================
 # get_format  (pure-function helper)
@@ -56,8 +55,6 @@ class TestGetFormat:
     def test_supported_formats_list(self):
         """All entries in SUPPORTED_FORMATS should be recognised by get_format."""
         for ext in SUPPORTED_FORMATS:
-            # All returned extensions are lowercased by get_format
-            expected = ext.lower() if ext.startswith(".") else ext
             assert get_format(f"pkg{ext}") is not None, f"{ext} not recognised"
 
 

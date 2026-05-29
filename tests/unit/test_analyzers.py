@@ -5,13 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app2nix.core.analyzers.deb import (
-    _extract_lib_name,
-    _find_elf,
-    _get_libs_ldd,
-    _get_libs_patchelf,
-    analyze_deb,
-)
+from app2nix.core.analyzer import SUPPORTED_FORMATS, UniversalAnalyzer
 from app2nix.core.analyzers.appimage import (
     _appimage_offset,
     _extract_fuse,
@@ -19,14 +13,19 @@ from app2nix.core.analyzers.appimage import (
     _find_elf_deps,
     analyze_appimage,
 )
+from app2nix.core.analyzers.deb import (
+    _extract_lib_name,
+    _find_elf,
+    _get_libs_ldd,
+    _get_libs_patchelf,
+    analyze_deb,
+)
 from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
-from app2nix.core.analyzer import SUPPORTED_FORMATS, UniversalAnalyzer
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
-
 
 # =============================================================================
 # deb.py — _extract_lib_name (pure function)
@@ -203,7 +202,7 @@ class TestAnalyzeDeb:
         Path(deb_path).write_text("dummy")
 
         with patch.object(subprocess, "run", side_effect=Exception("boom")):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="boom"):
                 analyze_deb(deb_path)
 
         mock_rmtree.assert_called_once()
@@ -364,7 +363,7 @@ class TestExtractUnsquashfs:
             mock.stderr = ""
             mock_run.return_value = mock
 
-            result = _extract_unsquashfs(path, tmp_path)
+            _extract_unsquashfs(path, tmp_path)
 
         # dest was cleaned before extraction
         mock_rmtree.assert_called_once_with(tmp_path / "squashfs-root")
@@ -404,7 +403,6 @@ class TestExtractUnsquashfs:
         """When both unsquashfs attempts fail, return None."""
         path = tmp_path / "test.AppImage"
         path.write_bytes(b"x" * 50 + b"     12345")
-        dest = tmp_path / "squashfs-root"
 
         with (
             patch("app2nix.core.analyzers.appimage.shutil.which", return_value="/usr/bin/unsquashfs"),
@@ -762,7 +760,7 @@ class TestAnalyzeTarball:
         Path(tar_path).write_text("dummy")
 
         with patch.object(subprocess, "run", side_effect=Exception("extraction failed")):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="extraction"):
                 analyze_tarball(tar_path)
 
         mock_rmtree.assert_called_once()

@@ -137,8 +137,8 @@ def test_clear_during_active_analysis_resets_ui(qtbot, window, tmp_path):
     pkg_file.write_bytes(b"fake content")
     window.file_path.setText(str(pkg_file))
 
-    with patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker:
-        instance = MockWorker.return_value
+    with patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker:
+        instance = mock_worker.return_value
         instance.finished.connect = MagicMock()
         instance.error.connect = MagicMock()
         instance.start = MagicMock()
@@ -150,7 +150,7 @@ def test_clear_during_active_analysis_resets_ui(qtbot, window, tmp_path):
         assert window._worker is instance
         assert window.current_file == str(pkg_file)
         assert window.analyze_btn.isEnabled() is False
-        assert window.status_bar.text() == f"⏳ Analyzing test-app_1.2.3_amd64.deb…"
+        assert window.status_bar.text() == "⏳ Analyzing test-app_1.2.3_amd64.deb…"
         assert window.lbl_name.text() == "test-app_1.2.3_amd64"  # Path(pkg_file).stem
         assert window.lbl_format.text() == ".deb"
         assert window.lbl_version.text() == "…"
@@ -184,8 +184,8 @@ def test_clear_disconnects_worker_and_sets_to_none(qtbot, window, tmp_path):
     pkg_file.write_bytes(b"fake")
     window.file_path.setText(str(pkg_file))
 
-    with patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker:
-        instance = MockWorker.return_value
+    with patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker:
+        instance = mock_worker.return_value
         instance.finished.connect = MagicMock()
         instance.error.connect = MagicMock()
         instance.start = MagicMock()
@@ -218,8 +218,6 @@ def test_worker_error_after_clear_race_condition_fixed(qtbot, window, tmp_path):
     pkg_file.write_bytes(b"fake")
     window.file_path.setText(str(pkg_file))
 
-    error_message = "Corrupted package: missing control.tar.gz"
-
     error_callbacks = []
 
     def _connect_error(cb):
@@ -230,10 +228,10 @@ def test_worker_error_after_clear_race_condition_fixed(qtbot, window, tmp_path):
             error_callbacks.remove(cb)
 
     with (
-        patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker,
+        patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker,
         patch("PyQt6.QtWidgets.QMessageBox.critical") as mock_critical,
     ):
-        instance = MockWorker.return_value
+        instance = mock_worker.return_value
         instance.error.connect = _connect_error
         instance.error.disconnect = _disconnect_error
         instance.finished.connect = MagicMock()
@@ -288,14 +286,14 @@ def test_separator_is_qframe_horizontal_line(qtbot, window):
 
 def test_separator_theme_toggle(qtbot, window):
     """The separator background color should change when toggling themes."""
-    LIGHT_SEP = LIGHT["separator"]  # "#e5e7eb"
-    DARK_SEP = DARK["separator"]   # "#334155"
+    light_sep = LIGHT["separator"]  # "#e5e7eb"
+    dark_sep = DARK["separator"]   # "#334155"
 
     # Initially light theme
     assert window._theme_mode == "light"
     ss = window.styleSheet()
-    assert LIGHT_SEP in ss, (
-        f"Light stylesheet should contain '{LIGHT_SEP}', got stylesheet containing…"
+    assert light_sep in ss, (
+        f"Light stylesheet should contain '{light_sep}', got stylesheet containing…"
         f"\n  …{ss[ss.find('QFrame#separator'):ss.find('QFrame#separator')+120]}…"
     )
 
@@ -303,8 +301,8 @@ def test_separator_theme_toggle(qtbot, window):
     qtbot.mouseClick(window.theme_btn, Qt.MouseButton.LeftButton)
     assert window._theme_mode == "dark"
     ss = window.styleSheet()
-    assert DARK_SEP in ss, (
-        f"Dark stylesheet should contain '{DARK_SEP}', got stylesheet containing…"
+    assert dark_sep in ss, (
+        f"Dark stylesheet should contain '{dark_sep}', got stylesheet containing…"
         f"\n  …{ss[ss.find('QFrame#separator'):ss.find('QFrame#separator')+120]}…"
     )
 
@@ -312,8 +310,8 @@ def test_separator_theme_toggle(qtbot, window):
     qtbot.mouseClick(window.theme_btn, Qt.MouseButton.LeftButton)
     assert window._theme_mode == "light"
     ss = window.styleSheet()
-    assert LIGHT_SEP in ss, (
-        f"Re-light stylesheet should contain '{LIGHT_SEP}', got stylesheet containing…"
+    assert light_sep in ss, (
+        f"Re-light stylesheet should contain '{light_sep}', got stylesheet containing…"
         f"\n  …{ss[ss.find('QFrame#separator'):ss.find('QFrame#separator')+120]}…"
     )
 
@@ -455,8 +453,8 @@ def test_e2e_analyze_and_generate(qtbot, window, tmp_path):
     mock_result.nix_content = nix_content
 
     # ── 3. Patch AnalyzeWorker so it emits ``finished`` synchronously ──
-    with patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker:
-        instance = MockWorker.return_value
+    with patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker:
+        instance = mock_worker.return_value
 
         connected_callbacks = []
         instance.finished.connect = lambda cb: connected_callbacks.append(cb)
@@ -596,10 +594,10 @@ def test_analysis_worker_error_shows_critical(qtbot, window, tmp_path):
     error_message = "Corrupted package: missing control.tar.gz"
 
     with (
-        patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker,
+        patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker,
         patch("PyQt6.QtWidgets.QMessageBox.critical") as mock_critical,
     ):
-        instance = MockWorker.return_value
+        instance = mock_worker.return_value
 
         connected_error_callbacks = []
         instance.error.connect = lambda cb: connected_error_callbacks.append(cb)
@@ -679,8 +677,8 @@ def test_worker_finished_after_clear_race_condition_fixed(qtbot, window, tmp_pat
         if cb in finished_callbacks:
             finished_callbacks.remove(cb)
 
-    with patch("app2nix.gui.main_window.AnalyzeWorker") as MockWorker:
-        instance = MockWorker.return_value
+    with patch("app2nix.gui.main_window.AnalyzeWorker") as mock_worker:
+        instance = mock_worker.return_value
         instance.finished.connect = _connect_finished
         instance.finished.disconnect = _disconnect_finished
         instance.error.connect = MagicMock()
