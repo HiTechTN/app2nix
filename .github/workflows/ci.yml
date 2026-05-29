@@ -94,6 +94,7 @@ jobs:
           toolchain: stable
           components: clippy
       - run: cargo check --workspace
+      - run: cargo test --workspace
       - run: cargo clippy --workspace
 
   docker:
