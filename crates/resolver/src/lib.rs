@@ -6,12 +6,27 @@ mod tests;
 
 use app2nix_core::{ResolvedDependency, Analyzer, Result, App2NixError};
 
+#[derive(Default)]
 pub struct DependencyResolver {
     dep_map: HashMap<String, (String, String)>,
     fuzzy_cache: Mutex<HashMap<String, Option<(String, String)>>>,
 }
 
 impl DependencyResolver {
+    /// Create a new `DependencyResolver` with a built-in dependency map.
+    ///
+    /// The dependency map contains hundreds of common Linux library mappings
+    /// (glibc, X11, Qt, GTK, etc.).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_resolver::DependencyResolver;
+    ///
+    /// let resolver = DependencyResolver::new();
+    /// assert_eq!(resolver.resolve("libc.so.6"),
+    ///            Some(("glibc".to_string(), "glibc".to_string())));
+    /// ```
     pub fn new() -> Self {
         Self {
             dep_map: build_dep_map(),
@@ -19,6 +34,31 @@ impl DependencyResolver {
         }
     }
 
+    /// Resolve a library name to its Nix package attribute.
+    ///
+    /// First tries an exact match against the hardcoded dependency map,
+    /// then falls back to fuzzy matching (substring and Levenshtein distance).
+    /// Results are cached for performance.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_resolver::DependencyResolver;
+    ///
+    /// let resolver = DependencyResolver::new();
+    ///
+    /// // Exact match: libX11 → xorg.libX11
+    /// let r = resolver.resolve("libX11.so.6");
+    /// assert_eq!(r, Some(("xorg.libX11".to_string(), "libX11".to_string())));
+    ///
+    /// // Fuzzy match via Levenshtein: libsndfille → libsndfile
+    /// let r = resolver.resolve("libsndfille.so");
+    /// assert_eq!(r, Some(("libsndfile".to_string(), "libsndfile".to_string())));
+    ///
+    /// // Unknown library returns None
+    /// let r = resolver.resolve("libtotally_unknown_lib.so");
+    /// assert_eq!(r, None);
+    /// ```
     pub fn resolve(&self, library: &str) -> Option<(String, String)> {
         let clean = Self::clean_lib_name(library);
 
@@ -40,6 +80,24 @@ impl DependencyResolver {
         result
     }
 
+    /// Resolve multiple libraries at once.
+    ///
+    /// Each library is resolved individually via [`resolve`](DependencyResolver::resolve).
+    /// Returns a vector of `ResolvedDependency` with confidence scores.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_resolver::DependencyResolver;
+    ///
+    /// let resolver = DependencyResolver::new();
+    /// let libs = vec!["libX11.so.6".to_string(), "libc.so.6".to_string()];
+    /// let results = resolver.resolve_all(&libs);
+    ///
+    /// assert_eq!(results.len(), 2);
+    /// assert!(results[0].nix_attr.is_some());
+    /// assert!(results[1].nix_attr.is_some());
+    /// ```
     pub fn resolve_all(&self, libs: &[String]) -> Vec<ResolvedDependency> {
         libs
             .iter()
@@ -264,7 +322,7 @@ fn build_dep_map() -> HashMap<String, (String, String)> {
     dep!("SDL2", "SDL2", "SDL2");
     dep!("vulkan", "vulkan-loader", "vulkan-loader");
     dep!("xcb", "xorg.libxcb", "libxcb");
-    dep!("xcb", "xcb-util", "xcb-util");
+    dep!("xcb-util", "xcb-util", "xcb-util");
     dep!("Xau", "xorg.libXau", "libXau");
     dep!("Xdmcp", "xorg.libXdmcp", "libXdmcp");
     dep!("SM", "xorg.libSM", "libSM");

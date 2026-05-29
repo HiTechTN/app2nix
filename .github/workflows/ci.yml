@@ -74,17 +74,6 @@ jobs:
         env:
           APP2NIX_SECRET_KEY: test-ci-key
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install ruff mypy
-      - run: ruff check src/ tests/
-      - run: mypy src/app2nix --ignore-missing-imports
-
   rust-check:
     runs-on: ubuntu-latest
     steps:
@@ -92,7 +81,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          components: clippy
+          components: clippy, rustfmt
+      - run: cargo fmt --check
       - run: cargo check --workspace
       - run: cargo test --workspace
       - run: cargo clippy --workspace

@@ -14,11 +14,13 @@ members = [
     "crates/sandbox",
     "crates/fhs",
     "crates/plugins",
+    "tests/rust",
 ]
 
 [workspace.package]
 version = "3.0.0"
 edition = "2021"
+rust-version = "1.80"
 license = "MIT"
 authors = ["Azmi <azmi.hitech@gmail.com>"]
 

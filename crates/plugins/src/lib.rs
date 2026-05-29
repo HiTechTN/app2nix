@@ -6,17 +6,47 @@ use app2nix_core::{
     Patcher, NixGenerator, Installer, DesktopIntegrator, Result, App2NixError,
 };
 
+#[derive(Default)]
 pub struct PluginManager {
     plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl PluginManager {
+    /// Create an empty `PluginManager`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_plugins::PluginManager;
+    ///
+    /// let mgr = PluginManager::new();
+    /// assert_eq!(mgr.plugin_count(), 0);
+    /// ```
     pub fn new() -> Self {
         Self {
             plugins: Vec::new(),
         }
     }
 
+    /// Register a plugin.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_plugins::PluginManager;
+    /// use app2nix_core::{Plugin, PackageFormat, AnalysisResult, Result};
+    ///
+    /// struct MyPlugin;
+    /// impl Plugin for MyPlugin {
+    ///     fn name(&self) -> &'static str { "my-plugin" }
+    ///     fn detect_format(&self, _path: &str) -> Option<PackageFormat> { None }
+    ///     fn analyze(&self, _path: &str) -> Result<Option<AnalysisResult>> { Ok(None) }
+    /// }
+    ///
+    /// let mut mgr = PluginManager::new();
+    /// mgr.register(Box::new(MyPlugin));
+    /// assert_eq!(mgr.plugin_count(), 1);
+    /// ```
     pub fn register(&mut self, plugin: Box<dyn Plugin>) {
         self.plugins.push(plugin);
     }
@@ -43,11 +73,22 @@ impl PluginManager {
         self.plugins.iter().map(|p| p.name()).collect()
     }
 
+    /// Return the number of registered plugins.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_plugins::PluginManager;
+    ///
+    /// let mgr = PluginManager::new();
+    /// assert_eq!(mgr.plugin_count(), 0);
+    /// ```
     pub fn plugin_count(&self) -> usize {
         self.plugins.len()
     }
 }
 
+#[derive(Default)]
 pub struct PipelineBuilder {
     detector: Option<Box<dyn Detector>>,
     extractor: Option<Box<dyn Extractor>>,

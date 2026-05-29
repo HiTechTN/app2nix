@@ -278,6 +278,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "app2nix-tests"
+version = "3.0.0"
+dependencies = [
+ "app2nix-analyzer",
+ "app2nix-core",
+ "app2nix-detector",
+ "app2nix-extractor",
+ "app2nix-nixgen",
+ "app2nix-patcher",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "walkdir",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

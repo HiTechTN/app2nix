@@ -10,6 +10,7 @@ use app2nix_core::{
     Analyzer, Result,
 };
 
+#[derive(Default)]
 pub struct DefaultAnalyzer;
 
 impl DefaultAnalyzer {
@@ -38,15 +39,15 @@ impl DefaultAnalyzer {
         let mut i = 0;
         while i < lines.len() {
             let line = lines[i].trim();
-            if line.starts_with("interpreter: ") {
-                interpreter = Some(line["interpreter: ".len()..].to_string());
-            } else if line.starts_with("rpath: ") {
-                rpath = line["rpath: ".len()..]
+            if let Some(val) = line.strip_prefix("interpreter: ") {
+                interpreter = Some(val.to_string());
+            } else if let Some(val) = line.strip_prefix("rpath: ") {
+                rpath = val
                     .split(':')
                     .map(|s| s.to_string())
                     .collect();
-            } else if line.starts_with("needed: ") {
-                needed_libs.push(line["needed: ".len()..].to_string());
+            } else if let Some(val) = line.strip_prefix("needed: ") {
+                needed_libs.push(val.to_string());
             }
             i += 1;
         }
@@ -272,8 +273,11 @@ impl DefaultAnalyzer {
     }
 }
 
-fn fuzzy_match<'a>(lib: &str, map: &'a std::collections::HashMap<String, (String, String)>) -> Option<(String, String)> {
+fn fuzzy_match(lib: &str, map: &std::collections::HashMap<String, (String, String)>) -> Option<(String, String)> {
     for (key, val) in map {
+        if key.len() < 2 {
+            continue;
+        }
         if key.contains(lib) || lib.contains(key) {
             return Some(val.clone());
         }

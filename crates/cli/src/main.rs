@@ -157,12 +157,9 @@ fn main() {
         Commands::Clean { all } => cmd_clean(&config, *all),
     };
 
-    match result {
-        Ok(_) => {},
-        Err(e) => {
-            eprintln!("error: {}", e);
-            std::process::exit(1);
-        }
+    if let Err(e) = result {
+        eprintln!("error: {}", e);
+        std::process::exit(1);
     }
 }
 
@@ -403,7 +400,7 @@ fn cmd_doctor(_config: &App2NixConfig) -> Result<()> {
     eprintln!("🔧 app2nix system diagnostics");
     eprintln!("──────────────────────────────");
 
-    let checks: Vec<(&str, fn() -> bool)> = vec![
+    let checks: Vec<Check> = vec![
         ("nix", || which("nix")),
         ("patchelf", || which("patchelf")),
         ("file", || which("file")),
@@ -432,10 +429,9 @@ fn cmd_doctor(_config: &App2NixConfig) -> Result<()> {
             eprintln!(" nix version: {}", String::from_utf8_lossy(&output.stdout).trim());
         }
 
-        if let Some(nixos_output) = std::process::Command::new("nixos-version")
+        if let Ok(nixos_output) = std::process::Command::new("nixos-version")
             .arg("--version")
             .output()
-            .ok()
         {
             let ver = String::from_utf8_lossy(&nixos_output.stdout);
             eprintln!(" OS: NixOS {}", ver.trim());
@@ -519,6 +515,8 @@ fn cmd_clean(config: &App2NixConfig, all: bool) -> Result<()> {
 
     Ok(())
 }
+
+type Check = (&'static str, fn() -> bool);
 
 fn which(cmd: &str) -> bool {
     std::process::Command::new("which")

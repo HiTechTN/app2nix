@@ -8,10 +8,32 @@ pub struct FhsCompat {
 }
 
 impl FhsCompat {
+    /// Create a new `FhsCompat` instance.
+    ///
+    /// When `enabled` is `false`, all generation methods return empty strings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_fhs::FhsCompat;
+    ///
+    /// let compat = FhsCompat::new(false);
+    /// assert!(!compat.is_enabled());
+    /// ```
     pub fn new(enabled: bool) -> Self {
         Self { enabled }
     }
 
+    /// Check whether FHS compatibility mode is enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_fhs::FhsCompat;
+    ///
+    /// let compat = FhsCompat::new(true);
+    /// assert!(compat.is_enabled());
+    /// ```
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }

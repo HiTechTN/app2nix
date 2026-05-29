@@ -30,6 +30,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Generate rustdoc documentation
+        run: |
+          cargo doc --no-deps --workspace
+          mkdir -p docs/_site/rustdoc
+          cp -r target/doc/* docs/_site/rustdoc/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

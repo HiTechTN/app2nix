@@ -9,6 +9,7 @@ use app2nix_core::{
     Result, App2NixError,
 };
 
+#[derive(Default)]
 pub struct DefaultNixGenerator;
 
 impl DefaultNixGenerator {
@@ -192,13 +193,10 @@ find $out -name "AppRun" -type f -exec cp {} $out/bin/ \; 2>/dev/null || true
 "#.to_string()
             }
             PackageFormat::TarGz | PackageFormat::Zip => {
-                r#"cp -rfl * $out/ 2>/dev/null || cp -r * $out/
-"#.to_string()
+                "cp -rfl * $out/ 2>/dev/null || cp -r * $out/\n".to_string()
             }
             PackageFormat::ElfBinary | PackageFormat::Electron => {
-                r#"cp "$src" $out/bin/
-chmod +x $out/bin/*
-"#.to_string()
+                "cp \"$src\" $out/bin/\nchmod +x $out/bin/*\n".to_string()
             }
             _ => {
                 r#"cp -r * $out/ 2>/dev/null || true
@@ -216,9 +214,7 @@ chmod +x $out/bin/*
 
         for entry in &opts.desktop_entries {
             let desktop_path = entry.path.trim_start_matches("/build/").trim_start_matches("/tmp/");
-            phase.push_str(&format!(
-                "mkdir -p $out/share/applications\n"
-            ));
+            phase.push_str("mkdir -p $out/share/applications\n");
             phase.push_str(&format!(
                 "cp -f {} $out/share/applications/ 2>/dev/null || true\n",
                 desktop_path
@@ -227,9 +223,7 @@ chmod +x $out/bin/*
 
         for icon in &opts.icons {
             let icon_path = icon.path.trim_start_matches("/build/").trim_start_matches("/tmp/");
-            phase.push_str(&format!(
-                "mkdir -p $out/share/icons/hicolor/48x48/apps\n"
-            ));
+            phase.push_str("mkdir -p $out/share/icons/hicolor/48x48/apps\n");
             phase.push_str(&format!(
                 "cp -f {} $out/share/icons/hicolor/48x48/apps/ 2>/dev/null || true\n",
                 icon_path
@@ -328,6 +322,19 @@ impl NixGenerator for DefaultNixGenerator {
     }
 }
 
+/// Sanitize an application name for use in Nix expressions.
+///
+/// Converts to lowercase, replaces non-alphanumeric characters with `-`,
+/// and trims leading/trailing hyphens.
+///
+/// # Examples
+///
+/// ```
+/// use app2nix_nixgen::sanitize_name;
+///
+/// assert_eq!(sanitize_name("My App 1.0!"), "my-app-1-0");
+/// assert_eq!(sanitize_name("-my_app-"), "my_app");
+/// ```
 pub fn sanitize_name(name: &str) -> String {
     name.to_lowercase()
         .chars()
@@ -337,6 +344,18 @@ pub fn sanitize_name(name: &str) -> String {
         .to_string()
 }
 
+/// Sanitize a version string for use in Nix expressions.
+///
+/// Keeps only alphanumeric characters, `.`, `-`, and `_`.
+///
+/// # Examples
+///
+/// ```
+/// use app2nix_nixgen::sanitize_version;
+///
+/// assert_eq!(sanitize_version("1.2.3-beta"), "1.2.3-beta");
+/// assert_eq!(sanitize_version("v2024.03.01"), "v2024.03.01");
+/// ```
 pub fn sanitize_version(version: &str) -> String {
     version
         .chars()

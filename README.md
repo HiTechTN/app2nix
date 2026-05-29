@@ -5,7 +5,7 @@
 [![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/stargazers)
 [![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members)
 [![License](https://img.shields.io/github/license/HiTechTN/app2nix)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)](https://github.com/HiTechTN/app2nix/releases)
+[![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total?label=downloads&logo=rust)](https://github.com/HiTechTN/app2nix/releases)
 
 </p>
 
@@ -14,10 +14,15 @@
 ### Transform any Linux package into a NixOS native application with one click
 
 [![CI](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
-[![Tests](https://github.com/HiTechTN/app2nix/workflows/Tests/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Tests](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Rust](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests.yml?label=Rust&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml)
+[![Ruff](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ruff.yml?label=ruff&logo=python)](https://github.com/HiTechTN/app2nix/actions/workflows/ruff.yml)
+[![Mypy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/mypy.yml?label=mypy&logo=python)](https://github.com/HiTechTN/app2nix/actions/workflows/mypy.yml)
+[![Clippy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=clippy&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/HiTechTN/app2nix/badge.svg)](https://coveralls.io/github/HiTechTN/app2nix)
-[![Docker Build](https://github.com/HiTechTN/app2nix/workflows/Docker%20Build%20and%20Push/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
-[![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?include_prereleases&sort=semver)](https://github.com/HiTechTN/app2nix/releases/latest)
+[![Docker Build](https://github.com/HiTechTN/app2nix/actions/workflows/docker.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
+[![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?label=version&include_prereleases&sort=semver&logo=github)](https://github.com/HiTechTN/app2nix/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/app2nix?label=pypi&logo=pypi)](https://pypi.org/project/app2nix)
 
 [Documentation](https://github.com/HiTechTN/app2nix/blob/master/docs/index.html) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
@@ -201,6 +206,57 @@ app2nix/
 
 ---
 
+## 🦀 Rust Core Engine
+
+The conversion pipeline is powered by a **Rust workspace** of **13 crates** (12 libraries + 1 CLI binary) with **245+ unit, integration & doc tests** and zero clippy warnings.
+
+| Badge | Description |
+|-------|-------------|
+| [![Docs](https://img.shields.io/badge/docs-app2nix.dev-blue?style=flat)](https://app2nix.dev) | API & user documentation |
+| [![Rust](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests.yml?label=tests&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml) | 245+ tests pass on CI |
+| [![Clippy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=clippy&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml) | Zero warnings |
+| [![Doctests](https://img.shields.io/badge/doctests-12-passing?logo=rust)](https://github.com/HiTechTN/app2nix/tree/master/crates) | 12 doc-tests across 5 crates |
+
+### Crate Architecture
+
+```
+crates/                         # 13 Rust crates (12 lib + 1 bin)
+├── cli/                        # CLI binary (clap-based entry point)
+├── core/                       # Shared types, errors, pipeline orchestration
+├── detector/                   # Package format detection (magic bytes, extensions)
+├── extractor/                  # File extraction (deb, rpm, tar, zip, AppImage)
+├── analyzer/                   # Package metadata & dependency analysis
+├── resolver/                   # Dependency resolution (150+ lib → Nixpkgs map)
+├── nixgen/                     # Nix expression generation (default.nix, flake.nix)
+├── patcher/                    # Binary patching (rpath, shebangs, ELF)
+├── desktop/                    # Desktop entry & icon integration
+├── installer/                  # Installation logic & conflict resolution
+├── sandbox/                    # Sandboxed extraction (bubblewrap)
+├── fhs/                        # FHS compatibility environment (buildFHSUserEnv)
+├── plugins/                    # Plugin system for custom analyzers
+└── tests/rust/                 # Integration tests crate (27 end-to-end tests)
+```
+
+Documentation is embedded as **doctests** in public API functions — examples that compile and run as tests:
+
+```bash
+# Run all Rust tests (unit + integration + doctests)
+cargo test --workspace
+
+# Test a specific crate
+cargo test -p app2nix-detector
+cargo test -p app2nix-resolver
+
+# Run integration tests only
+cargo test -p app2nix-tests
+
+# Check formatting & lints
+cargo fmt --check
+cargo clippy --workspace
+```
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -220,8 +276,14 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 | ⭐ Stars | [![Stars](https://img.shields.io/github/stars/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/stargazers) |
 | 🍴 Forks | [![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members) |
 | 🐛 Issues | [![Issues](https://img.shields.io/github/issues/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/issues) |
-| ⬇️ Downloads | [![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total)](https://github.com/HiTechTN/app2nix/releases) |
+| ⬇️ Binary | [![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total?label=downloads&logo=rust)](https://github.com/HiTechTN/app2nix/releases) |
 | ✅ Coverage | [![Coverage Status](https://coveralls.io/repos/github/HiTechTN/app2nix/badge.svg)](https://coveralls.io/github/HiTechTN/app2nix) |
+| 🦀 Rust Tests | [![Rust](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests.yml?label=tests&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml) |
+| 🔧 Clippy | [![Clippy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=clippy&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml) |
+| 🐍 Ruff | [![Ruff](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ruff.yml?label=ruff&logo=python)](https://github.com/HiTechTN/app2nix/actions/workflows/ruff.yml) |
+| 📝 Mypy | [![Mypy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/mypy.yml?label=mypy&logo=python)](https://github.com/HiTechTN/app2nix/actions/workflows/mypy.yml) |
+| 📦 Version | [![Version](https://img.shields.io/github/v/release/HiTechTN/app2nix?label=version&include_prereleases&sort=semver&logo=github)](https://github.com/HiTechTN/app2nix/releases/latest) |
+| 🐍 PyPI | [![PyPI](https://img.shields.io/pypi/v/app2nix?label=pypi&logo=pypi)](https://pypi.org/project/app2nix) |
 
 ---
 
@@ -247,3 +309,9 @@ Made with ❤️ by [HiTechTN](https://github.com/HiTechTN)
 ⭐ Star this repo if app2nix helps you!
 
 </div>
+
+---
+
+<p align="center">
+  <small>Copyright &copy; 2026 app2nix. MIT License.</small>
+</p>

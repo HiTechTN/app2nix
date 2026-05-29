@@ -9,6 +9,19 @@ pub struct Sandbox {
 }
 
 impl Sandbox {
+    /// Create a new `Sandbox` instance.
+    ///
+    /// When `enabled` is `false`, [`create_sandbox`](Sandbox::create_sandbox)
+    /// returns a plain temp directory and [`cleanup`](Sandbox::cleanup) is a no-op.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_sandbox::Sandbox;
+    ///
+    /// let sb = Sandbox::new(false);
+    /// assert!(!sb.is_enabled());
+    /// ```
     pub fn new(enabled: bool) -> Self {
         Self {
             enabled,
@@ -49,6 +62,16 @@ impl Sandbox {
             .map_err(|e| App2NixError::SandboxError(e.to_string()))
     }
 
+    /// Check whether the sandbox is enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use app2nix_sandbox::Sandbox;
+    ///
+    /// let sb = Sandbox::new(true);
+    /// assert!(sb.is_enabled());
+    /// ```
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }

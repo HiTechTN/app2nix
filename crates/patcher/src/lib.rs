@@ -7,6 +7,7 @@ mod tests;
 
 use app2nix_core::{AnalysisResult, ResolvedDependency, Patcher, Result, App2NixError};
 
+#[derive(Default)]
 pub struct DefaultPatcher;
 
 impl DefaultPatcher {

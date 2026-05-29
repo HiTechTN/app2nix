@@ -9,6 +9,7 @@ use app2nix_core::{
     App2NixError, Result,
 };
 
+#[derive(Default)]
 pub struct DefaultExtractor;
 
 impl DefaultExtractor {

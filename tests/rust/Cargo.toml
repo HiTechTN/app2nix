@@ -1,0 +1,19 @@
+[package]
+name = "app2nix-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+app2nix-core = { path = "../../crates/core" }
+app2nix-detector = { path = "../../crates/detector" }
+app2nix-extractor = { path = "../../crates/extractor" }
+app2nix-analyzer = { path = "../../crates/analyzer" }
+app2nix-nixgen = { path = "../../crates/nixgen" }
+app2nix-patcher = { path = "../../crates/patcher" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+walkdir = { workspace = true }
+sha2 = { workspace = true }

@@ -9,6 +9,7 @@ use app2nix_core::{
     Result, App2NixError,
 };
 
+#[derive(Default)]
 pub struct DefaultDesktopIntegrator;
 
 impl DefaultDesktopIntegrator {
