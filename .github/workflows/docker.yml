@@ -15,6 +15,18 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  rust-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo check --workspace
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace
+
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
