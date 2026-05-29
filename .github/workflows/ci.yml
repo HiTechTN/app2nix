@@ -24,14 +24,25 @@ jobs:
       - name: Install uv
         run: pip install uv
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb libnss3 \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 \
+            libxcb-xfixes0 libxcb-cursor0
+
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra gui
 
       - name: Run tests
         run: |
-          uv run pytest tests/ -v --ignore=tests/gui
+          uv run pytest tests/ -v
         env:
           APP2NIX_SECRET_KEY: test-secret-key-for-ci
+          QT_QPA_PLATFORM: offscreen
 
   nix-validate:
     runs-on: ubuntu-latest

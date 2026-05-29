@@ -34,10 +34,21 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg patchelf file
+          sudo apt-get install -y \
+            dpkg patchelf file \
+            xvfb libnss3 \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 \
+            libxcb-xfixes0 libxcb-cursor0
+
+      - name: Install GUI dependencies
+        run: pip install -e ".[gui]"
 
       - name: Run tests
-        run: python -m pytest tests/ -v --cov-report=lcov --ignore=tests/gui
+        run: python -m pytest tests/ -v --cov-report=lcov
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Upload coverage to Coveralls
         if: matrix.python-version == '3.11'
