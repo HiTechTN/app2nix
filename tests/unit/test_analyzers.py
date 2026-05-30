@@ -693,14 +693,15 @@ class TestAnalyzeFlatpak:
     def test_parses_manifest_json(self, tmp_path):
         flatpak_path = str(tmp_path / "my-app.flatpak")
         Path(flatpak_path).write_text("dummy")
+        # New implementation looks for manifest in parent dir
+        manifest = tmp_path / "app.json"
+        manifest.write_text('{"id": "org.foo.Bar", "version": "2.0"}')
 
-        with patch.object(subprocess, "run") as mock_run:
-            mock_run.return_value.stdout = '{"id": "org.foo.Bar", "version": "2.0"}'
-            mock_run.return_value.stderr = ""
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(flatpak_path)
 
         assert info.name == "org.foo.Bar"
-        assert info.version == "1.0"  # not parsed from JSON currently
+        assert info.version == "2.0"
         assert info.format == "flatpak"
 
 

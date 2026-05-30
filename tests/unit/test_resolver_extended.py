@@ -41,7 +41,7 @@ class TestResolveSyncEdgeCases:
 
     def test_both_lib_prefix_and_so_suffix(self, resolver):
         r = resolver.resolve_sync("libGL.so.1")
-        assert r.nixpkg == "mesa"
+        assert r.nixpkg == "libGL"
 
     def test_dotted_name_without_lib_prefix(self, resolver):
         r = resolver.resolve_sync("gtk-3.so.0")

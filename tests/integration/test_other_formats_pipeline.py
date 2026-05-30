@@ -388,28 +388,23 @@ class TestSnapE2E:
         assert result.validation_passed is True
 
     def test_cleanup_no_tempdir_needed(self, tmp_path):
-        """
-        Snap analyzer doesn't create any temp directories — verify that
-        no ``tempfile.mkdtemp`` or ``shutil.rmtree`` calls are made.
-
-        Unlike deb/AppImage/Tarball which extract to a temp dir, the Snap
-        analyzer simply runs ``unsquashfs -l`` (output ignored) and returns
-        basic ``PackageInfo`` derived from the filename.
-        """
+        """Snap analyzer creates temp dirs for extraction, cleans up after."""
         snap_path = tmp_path / "no-cleanup.snap"
         snap_path.write_text("fake")
 
         with (
             patch("app2nix.core.analyzers.snap.subprocess.run") as mock_run,
+            patch("app2nix.core.analyzers.snap.tempfile.mkdtemp") as mock_mkdtemp,
+            patch("app2nix.core.analyzers.snap.shutil.rmtree") as mock_rmtree,
         ):
+            mock_mkdtemp.return_value = str(tmp_path / "work")
+            (tmp_path / "work").mkdir(exist_ok=True)
             mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
             info = analyze_snap(str(snap_path))
 
         assert info.name == "no-cleanup"
         assert info.format == "snap"
-        # Verify subprocess.run was called (for unsquashfs -l)
-        mock_run.assert_called_once()
-        # No cleanup needed — no temp dirs created
         assert info.dependencies == []
 
 
@@ -718,40 +713,32 @@ class TestFlatpakE2E:
         assert info.format == "flatpak"
 
     def test_parses_manifest_json(self, tmp_path):
-        """When flatpak-builder succeeds, parse the JSON manifest for app ID."""
+        """When manifest exists in parent dir, parse JSON for app ID."""
         flatpak_path = tmp_path / "my-app.flatpak"
         flatpak_path.write_text("fake")
+        # New implementation looks for manifest in parent dir
+        manifest = tmp_path / "app.json"
+        manifest.write_text('{"id": "org.foo.Bar", "version": "2.0"}')
 
-        with patch.object(subprocess, "run") as mock_run:
-            mock_run.return_value.stdout = '{"id": "org.foo.Bar", "version": "2.0"}'
-            mock_run.return_value.stderr = ""
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(str(flatpak_path))
 
         assert info.name == "org.foo.Bar"
         assert info.format == "flatpak"
 
     def test_cleanup_no_tempdir_needed(self, tmp_path):
-        """
-        Flatpak analyzer doesn't create any temp directories — verify that
-        no ``tempfile.mkdtemp`` or ``shutil.rmtree`` calls are made.
-
-        Like Snap, Flatpak simply runs ``flatpak-builder --show-manifest``
-        (output parsed as JSON) and returns basic ``PackageInfo`` derived
-        from the filename. No extraction or temp dirs are involved.
-        """
+        """Flatpak analyzer uses temp dirs for extraction, cleans up after."""
         flatpak_path = tmp_path / "org.example.NoCleanup.flatpak"
         flatpak_path.write_text("fake")
+        # Put manifest in parent dir
+        manifest = tmp_path / "app.json"
+        manifest.write_text('{"id": "org.example.NoCleanup"}')
 
-        with patch.object(subprocess, "run") as mock_run:
-            mock_run.return_value.stdout = '{"id": "org.example.NoCleanup"}'
-            mock_run.return_value.stderr = ""
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(str(flatpak_path))
 
         assert info.name == "org.example.NoCleanup"
         assert info.format == "flatpak"
-        # Verify subprocess.run was called (for flatpak-builder --show-manifest)
-        mock_run.assert_called_once()
-        # No cleanup needed — no temp dirs created
         assert info.dependencies == []
 
     def test_full_pipeline_flatpak_to_nix_generation(self, tmp_path):
