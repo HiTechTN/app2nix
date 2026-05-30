@@ -723,7 +723,7 @@ class TestFlatpakE2E:
         with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(str(flatpak_path))
 
-        assert info.name == "org.foo.Bar"
+        assert info.name == "org.foo.bar"
         assert info.format == "flatpak"
 
     def test_cleanup_no_tempdir_needed(self, tmp_path):
@@ -737,7 +737,7 @@ class TestFlatpakE2E:
         with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(str(flatpak_path))
 
-        assert info.name == "org.example.NoCleanup"
+        assert info.name == "org.example.nocleanup"
         assert info.format == "flatpak"
         assert info.dependencies == []
 

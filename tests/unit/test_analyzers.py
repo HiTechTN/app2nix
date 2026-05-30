@@ -700,7 +700,7 @@ class TestAnalyzeFlatpak:
         with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
             info = analyze_flatpak(flatpak_path)
 
-        assert info.name == "org.foo.Bar"
+        assert info.name == "org.foo.bar"
         assert info.version == "2.0"
         assert info.format == "flatpak"
 
