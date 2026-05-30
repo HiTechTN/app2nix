@@ -395,7 +395,7 @@ class TestSnapE2E:
         with (
             patch("app2nix.core.analyzers.snap.subprocess.run") as mock_run,
             patch("app2nix.core.analyzers.snap.tempfile.mkdtemp") as mock_mkdtemp,
-            patch("app2nix.core.analyzers.snap.shutil.rmtree") as mock_rmtree,
+            patch("app2nix.core.analyzers.snap.shutil.rmtree"),
         ):
             mock_mkdtemp.return_value = str(tmp_path / "work")
             (tmp_path / "work").mkdir(exist_ok=True)

@@ -1,6 +1,7 @@
 """Main window for the app2nix graphical interface."""
 
 from pathlib import Path
+
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
@@ -275,8 +276,8 @@ class App2NixWindow(QWidget):
         # Validate required theme keys — fallback to LIGHT defaults for any missing
         missing = _REQUIRED_THEME_KEYS - t.keys()
         if missing:
-            from app2nix.gui.theme import LIGHT as default_theme
-            t = {**default_theme, **t}
+            from app2nix.gui.theme import LIGHT
+            t = {**LIGHT, **t}
 
         h = t["header_start"]
         he = t["header_end"]
