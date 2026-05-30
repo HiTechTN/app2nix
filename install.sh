@@ -247,6 +247,10 @@ install_user() {
     log "Using Python: $PYTHON"
     
     $PYTHON -m venv .venv 2>/dev/null || $PYTHON -m venv --system-site-packages .venv
+
+    # Remove stale files from old installations that shadow the package
+    rm -rf "$INSTALL_DIR/app2nix" 2>/dev/null || true
+
     .venv/bin/pip install --upgrade pip -q
     .venv/bin/pip install -e '.[gui]' -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
 
