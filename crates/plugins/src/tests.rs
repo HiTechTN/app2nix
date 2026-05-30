@@ -1,9 +1,8 @@
 use crate::{PipelineBuilder, PluginManager};
 use app2nix_core::{
-    AnalysisResult, Analyzer, DesktopIntegrator,
-    DetectedDesktopEntry, DetectedIcon, Detector, ExtractedFile, Extractor,
-    GenerateOptions, Installer, NixGenerator, PackageFormat, PackageInfo, Patcher, Plugin,
-    ResolvedDependency, Result,
+    AnalysisResult, Analyzer, DesktopIntegrator, DetectedDesktopEntry, DetectedIcon, Detector,
+    ExtractedFile, Extractor, GenerateOptions, Installer, NixGenerator, PackageFormat, PackageInfo,
+    Patcher, Plugin, ResolvedDependency, Result,
 };
 
 /// A mock Plugin for testing
