@@ -643,6 +643,20 @@
             </div>
             <div class="row">
                 <div class="col-lg-8 mx-auto">
+                    <!-- Backend launch banner -->
+                    <div class="alert alert-dark border-secondary mb-4" role="alert" style="background:rgba(82,114,190,0.1);border-color:rgba(82,114,190,0.3)!important;">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="bi bi-rocket-takeoff text-primary fs-4 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <h6 class="text-light mb-1">Start the backend to use the converter</h6>
+                                <p class="text-secondary small mb-2">Run this command in your terminal, then click <strong>Connect</strong> below:</p>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" value="docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest" readonly id="dockerCmd" style="font-size:12px">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('dockerCmd').value);this.innerHTML='<i class=\'bi bi-check\'></i>';setTimeout(()=>this.innerHTML='<i class=\'bi bi-clipboard\'></i>',1500)"><i class="bi bi-clipboard"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="card bg-dark border-secondary">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
@@ -651,7 +665,7 @@
                             </div>
                             <div class="input-group input-group-sm mb-4">
                                 <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-link-45deg"></i></span>
-                                <input type="text" class="form-control bg-dark text-light border-secondary" id="apiUrlInput" placeholder="http://localhost:8000 or your Render URL">
+                                <input type="text" class="form-control bg-dark text-light border-secondary" id="apiUrlInput" placeholder="http://localhost:8000">
                                 <button class="btn btn-sm btn-gradient" type="button" id="apiUrlSaveBtn">Connect</button>
                             </div>
                             <div class="drop-zone" id="dropZone">
@@ -1169,11 +1183,11 @@ python main.py --url https://example.com/package.deb
         animateParticles();
         
         // Converter logic
-        const API_URL = localStorage.getItem('app2nix_api_url') || window.location.origin;
+        const API_URL = localStorage.getItem('app2nix_api_url') || 'http://localhost:8000';
         
         // API URL configuration
         function getApiUrl() {
-            return localStorage.getItem('app2nix_api_url') || window.location.origin;
+            return localStorage.getItem('app2nix_api_url') || 'http://localhost:8000';
         }
         function setApiUrl(url) {
             localStorage.setItem('app2nix_api_url', url.replace(/\/$/, ''));
@@ -1200,7 +1214,7 @@ python main.py --url https://example.com/package.deb
                 apiUrlInput.value = saved;
                 apiUrlStatus.innerHTML = '<i class="bi bi-check-circle text-success"></i> Connected';
             } else {
-                apiUrlInput.value = window.location.origin;
+                apiUrlInput.value = 'http://localhost:8000';
             }
         }
 

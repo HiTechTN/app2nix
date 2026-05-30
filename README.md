@@ -6,12 +6,14 @@
 
 **Convert any Linux package to NixOS — automatically.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=CI&logo=github)](https://github.com/HiTechTN/app2nix/actions)
-[![Version](https://img.shields.io/github/v/release/HiTechTN/app2nix?logo=github)](https://github.com/HiTechTN/app2nix/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/app2nix?logo=pypi)](https://pypi.org/project/app2nix)
-[![License](https://img.shields.io/github/license/HiTechTN/app2nix)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=CI&logo=github&color=brightgreen)](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/release/HiTechTN/app2nix?logo=github&color=blue)](https://github.com/HiTechTN/app2nix/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/app2nix?logo=pypi&color=yellow)](https://pypi.org/project/app2nix)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fhitechtn%2Fapp2nix-blue?logo=docker)](https://ghcr.io/hitechtn/app2nix)
+[![License](https://img.shields.io/github/license/HiTechTN/app2nix?color=green)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen?logo=firefox)](https://hitechtn.github.io/app2nix/)
 
-[Quick Start](#-quick-start) | [Formats](#-supported-formats) | [Docs](#-documentation) | [Contributing](#-contributing)
+[Live Demo](https://hitechtn.github.io/app2nix/) | [Quick Start](#-quick-start) | [Formats](#-supported-formats) | [Docs](#-documentation) | [Contributing](#-contributing)
 
 </div>
 
@@ -31,7 +33,14 @@ $ app2nix convert firefox.deb
 
 ## Quick Start
 
-### Install
+### Docker (recommended)
+
+```bash
+docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
+# Open http://localhost:8000
+```
+
+### pip
 
 ```bash
 pip install app2nix          # CLI only
@@ -52,13 +61,17 @@ app2nix convert package.deb --print-deps
 
 # Start web UI
 app2nix serve
-# → http://localhost:8000
+# -> http://localhost:8000
 
 # Start GUI
 app2nix gui
 ```
 
-### Docker
+## Live Converter
+
+Try the converter directly in your browser at **[hitechtn.github.io/app2nix/](https://hitechtn.github.io/app2nix/)**.
+
+You'll need to start the backend first:
 
 ```bash
 docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
@@ -78,9 +91,9 @@ docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
 ## How it works
 
 ```
-Package → Detect → Extract → Analyze → Resolve → Patch → Generate
+Package -> Detect -> Extract -> Analyze -> Resolve -> Patch -> Generate
   .deb     format    files     ELF      150+ libs   rpath   default.nix
-  .rpm               deps      metadata  → Nixpkgs  interp  flake.nix
+  .rpm               deps      metadata  -> Nixpkgs  interp  flake.nix
   .AppImage          icons     desktop
 ```
 
@@ -98,20 +111,20 @@ Package → Detect → Extract → Analyze → Resolve → Patch → Generate
 
 ```
 src/app2nix/
-├── cli.py              # Typer CLI (convert, serve, gui)
-├── server.py           # Starlette web API
-├── models.py           # PackageInfo, ConversionResult
-├── core/
-│   ├── analyzer.py     # UniversalAnalyzer (format dispatch)
-│   ├── analyzers/      # deb, rpm, appimage, flatpak, snap, tarball
-│   ├── _elf_utils.py   # Shared ELF helpers
-│   ├── resolver.py     # DependencyResolver (DEP_MAP)
-│   ├── generator.py    # NixGenerator (Jinja2)
-│   └── validator.py    # nix-instantiate check
-└── gui/
-    ├── main_window.py  # PyQt6 GUI
-    ├── i18n.py         # en, fr, ar
-    └── theme.py        # light / dark
+  cli.py              # Typer CLI (convert, serve, gui)
+  server.py           # Starlette web API
+  models.py           # PackageInfo, ConversionResult
+  core/
+    analyzer.py       # UniversalAnalyzer (format dispatch)
+    analyzers/        # deb, rpm, appimage, flatpak, snap, tarball
+    _elf_utils.py     # Shared ELF helpers
+    resolver.py       # DependencyResolver (DEP_MAP)
+    generator.py      # NixGenerator (Jinja2)
+    validator.py      # nix-instantiate check
+  gui/
+    main_window.py    # PyQt6 GUI
+    i18n.py           # en, fr, ar
+    theme.py          # light / dark
 ```
 </details>
 
@@ -120,19 +133,19 @@ src/app2nix/
 
 ```
 crates/
-├── cli/         # clap binary
-├── core/        # Traits, Pipeline, types, errors
-├── detector/    # Magic bytes + extension detection
-├── extractor/   # deb, rpm, tar, zip, AppImage extraction
-├── analyzer/    # ELF analysis, desktop entry detection
-├── resolver/    # Levenshtein fuzzy matching + dep map
-├── nixgen/      # Nix derivation generation
-├── patcher/     # rpath, interpreter, wrapper scripts
-├── desktop/     # XDG .desktop + icon registration
-├── installer/   # nix build / install / uninstall
-├── sandbox/     # Sandbox + FHS compatibility
-├── plugins/     # PipelineBuilder + plugin system
-└── tests/       # Integration tests
+  cli/         # clap binary
+  core/        # Traits, Pipeline, types, errors
+  detector/    # Magic bytes + extension detection
+  extractor/   # deb, rpm, tar, zip, AppImage extraction
+  analyzer/    # ELF analysis, desktop entry detection
+  resolver/    # Levenshtein fuzzy matching + dep map
+  nixgen/      # Nix derivation generation
+  patcher/     # rpath, interpreter, wrapper scripts
+  desktop/     # XDG .desktop + icon registration
+  installer/   # nix build / install / uninstall
+  sandbox/     # Sandbox + FHS compatibility
+  plugins/     # PipelineBuilder + plugin system
+  tests/       # Integration tests
 ```
 </details>
 
@@ -140,10 +153,11 @@ crates/
 
 | | |
 |---|---|
-| [Full Docs](https://app2nix.dev) | Complete guide |
-| [Rust API](https://app2nix.dev/rustdoc/app2nix/index.html) | rustdoc for all crates |
+| [Live Demo](https://hitechtn.github.io/app2nix/) | Web converter |
+| [Full Docs](https://hitechtn.github.io/app2nix/index.html) | Complete guide |
 | [API Reference](docs/API.md) | REST API |
 | [Examples](docs/EXAMPLES.md) | Real-world usage |
+| [Rust API](https://hitechtn.github.io/app2nix/rustdoc/app2nix/index.html) | rustdoc for all crates |
 
 ## Screenshots
 
@@ -178,7 +192,7 @@ MIT — see [LICENSE](LICENSE).
 
 <div align="center">
 
-**[Website](https://app2nix.dev)** | **[Issues](https://github.com/HiTechTN/app2nix/issues)** | **[Releases](https://github.com/HiTechTN/app2nix/releases)**
+**[Website](https://hitechtn.github.io/app2nix/)** | **[Docker](https://ghcr.io/hitechtn/app2nix)** | **[Issues](https://github.com/HiTechTN/app2nix/issues)** | **[Releases](https://github.com/HiTechTN/app2nix/releases)**
 
 Made by [HiTechTN](https://github.com/HiTechTN) and [contributors](https://github.com/HiTechTN/app2nix/graphs/contributors).
 
