@@ -5,9 +5,12 @@ from pathlib import Path
 from app2nix.models import ResolvedDependency
 
 DEP_MAP = {
-    "webkit2gtk-4.1": "webkitgtk",
-    "webkit2gtk-4.0": "webkitgtk",
-    "javascriptcoregtk-4.1": "webkitgtk",
+    "webkit2gtk-4.1": "webkitgtk_4_1",
+    "webkit2gtk-4.0": "webkitgtk_4_0",
+    "webkit2gtk-6.0": "webkitgtk_6_0",
+    "javascriptcoregtk-4.1": "webkitgtk_4_1",
+    "javascriptcoregtk-4.0": "webkitgtk_4_0",
+    "javascriptcoregtk-6.0": "webkitgtk_6_0",
     "soup-3.0": "libsoup_3",
     "soup-2.4": "libsoup_2_4",
     "secret-1": "libsecret",

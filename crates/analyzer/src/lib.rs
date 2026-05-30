@@ -403,9 +403,12 @@ fn dependency_map() -> std::collections::HashMap<String, (String, String)> {
     dep!("secret-1", "libsecret", "libsecret");
     dep!("soup-2.4", "libsoup_2_4", "libsoup");
     dep!("soup-3.0", "libsoup_3", "libsoup3");
-    dep!("webkit2gtk-4.0", "webkitgtk", "webkitgtk");
-    dep!("webkit2gtk-4.1", "webkitgtk", "webkitgtk");
-    dep!("javascriptcoregtk", "webkitgtk", "webkitgtk");
+    dep!("webkit2gtk-4.0", "webkitgtk_4_0", "webkitgtk_4_0");
+    dep!("webkit2gtk-4.1", "webkitgtk_4_1", "webkitgtk_4_1");
+    dep!("webkit2gtk-6.0", "webkitgtk_6_0", "webkitgtk_6_0");
+    dep!("javascriptcoregtk-4.0", "webkitgtk_4_0", "webkitgtk_4_0");
+    dep!("javascriptcoregtk-4.1", "webkitgtk_4_1", "webkitgtk_4_1");
+    dep!("javascriptcoregtk-6.0", "webkitgtk_6_0", "webkitgtk_6_0");
     dep!("epoxy", "libepoxy", "libepoxy");
     dep!("systemd", "systemd", "systemd");
     dep!("cups", "cups", "cups");

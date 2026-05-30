@@ -295,8 +295,14 @@ fn build_dep_map() -> HashMap<String, (String, String)> {
     dep!("readline", "readline", "readline");
     dep!("secret", "libsecret", "libsecret");
     dep!("soup", "libsoup_3", "libsoup3");
-    dep!("webkit2gtk", "webkitgtk", "webkitgtk");
-    dep!("javascriptcoregtk", "webkitgtk", "webkitgtk");
+    dep!("webkit2gtk-4.0", "webkitgtk_4_0", "webkitgtk_4_0");
+    dep!("webkit2gtk-4.1", "webkitgtk_4_1", "webkitgtk_4_1");
+    dep!("webkit2gtk-6.0", "webkitgtk_6_0", "webkitgtk_6_0");
+    dep!("webkit2gtk", "webkitgtk_4_1", "webkitgtk_4_1");
+    dep!("javascriptcoregtk-4.0", "webkitgtk_4_0", "webkitgtk_4_0");
+    dep!("javascriptcoregtk-4.1", "webkitgtk_4_1", "webkitgtk_4_1");
+    dep!("javascriptcoregtk-6.0", "webkitgtk_6_0", "webkitgtk_6_0");
+    dep!("javascriptcoregtk", "webkitgtk_4_1", "webkitgtk_4_1");
     dep!("epoxy", "libepoxy", "libepoxy");
     dep!("systemd", "systemd", "systemd");
     dep!("cups", "cups", "cups");
