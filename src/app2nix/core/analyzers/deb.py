@@ -44,7 +44,9 @@ def _parse_control(deb_path: Path) -> tuple[str, str, str]:
             ["dpkg-deb", "-I", str(deb_path)],
             capture_output=True, text=True, timeout=10,
         )
-        name = version = arch = "unknown"
+        name = "unknown"
+        version = "1.0"
+        arch = "amd64"
         for line in r.stdout.splitlines():
             line = line.strip()
             if line.startswith("Package:"):

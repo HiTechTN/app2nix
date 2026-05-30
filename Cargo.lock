@@ -78,7 +78,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app2nix"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-analyzer",
@@ -86,7 +86,6 @@ dependencies = [
  "app2nix-desktop",
  "app2nix-detector",
  "app2nix-extractor",
- "app2nix-fhs",
  "app2nix-installer",
  "app2nix-nixgen",
  "app2nix-patcher",
@@ -106,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-analyzer"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -120,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-core"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -142,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-desktop"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -155,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-detector"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -168,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-extractor"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -182,18 +181,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "app2nix-fhs"
-version = "3.0.0"
-dependencies = [
- "anyhow",
- "app2nix-core",
- "thiserror 2.0.18",
- "tracing",
-]
-
-[[package]]
 name = "app2nix-installer"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -207,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-nixgen"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -221,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-patcher"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -234,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-plugins"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-analyzer",
@@ -242,7 +231,6 @@ dependencies = [
  "app2nix-desktop",
  "app2nix-detector",
  "app2nix-extractor",
- "app2nix-fhs",
  "app2nix-installer",
  "app2nix-nixgen",
  "app2nix-patcher",
@@ -254,7 +242,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-resolver"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -267,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-sandbox"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "app2nix-core",
@@ -279,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "app2nix-tests"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "app2nix-analyzer",
  "app2nix-core",

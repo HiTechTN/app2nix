@@ -156,7 +156,6 @@ fn test_resolve_caches_fuzzy_result() {
 
 #[test]
 fn test_build_dep_map_has_essential_entries() {
-    use std::collections::HashMap;
     let m = crate::build_dep_map();
     assert!(m.contains_key("c"));
     assert!(m.contains_key("z"));

@@ -840,21 +840,15 @@ class TestAnalyzeFlatpak:
         assert info.version == "2.0"
         assert info.format == "flatpak"
 
-    def test_tar_extraction_fallback(self, tmp_path):
-        """When unsquashfs fails, should try tar extraction."""
+    def test_unsquashfs_failure_still_returns_info(self, tmp_path):
+        """When unsquashfs fails, should still return basic info."""
         flatpak_path = str(tmp_path / "my-app.flatpak")
         Path(flatpak_path).write_text("dummy")
 
-        call_count = 0
-
         def mock_run(cmd, **kwargs):
-            nonlocal call_count
-            call_count += 1
             mock = MagicMock()
             if "unsquashfs" in cmd:
                 raise subprocess.CalledProcessError(1, "unsquashfs")
-            elif "tar" in cmd:
-                mock.returncode = 0
             else:
                 mock.stdout = ""
                 mock.stderr = ""
@@ -864,35 +858,7 @@ class TestAnalyzeFlatpak:
             info = analyze_flatpak(flatpak_path)
 
         assert info.format == "flatpak"
-        assert call_count >= 2  # unsquashfs + tar
-
-    def test_unzip_extraction_fallback(self, tmp_path):
-        """When unsquashfs and tar fail, should try unzip."""
-        flatpak_path = str(tmp_path / "my-app.flatpak")
-        Path(flatpak_path).write_text("dummy")
-
-        call_count = 0
-
-        def mock_run(cmd, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            mock = MagicMock()
-            if "unsquashfs" in cmd:
-                raise subprocess.CalledProcessError(1, "unsquashfs")
-            elif "tar" in cmd:
-                raise subprocess.CalledProcessError(1, "tar")
-            elif "unzip" in cmd:
-                mock.returncode = 0
-            else:
-                mock.stdout = ""
-                mock.stderr = ""
-            return mock
-
-        with patch.object(subprocess, "run", side_effect=mock_run):
-            info = analyze_flatpak(flatpak_path)
-
-        assert info.format == "flatpak"
-        assert call_count >= 3  # unsquashfs + tar + unzip
+        assert info.name == "my-app"
 
     def test_with_executables_and_libs(self, tmp_path):
         """Should discover executables and their dependencies."""

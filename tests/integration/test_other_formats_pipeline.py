@@ -437,7 +437,6 @@ def make_rpm_side_effect(
 
     def _run_side(cmd, **kwargs):
         if cmd[:2] == ["cpio", "-idmv"]:
-            # Create some ELF files in the tmpdir for patchelf to find
             cwd = kwargs.get("cwd")
             if cwd:
                 cwd = Path(cwd)
@@ -448,6 +447,8 @@ def make_rpm_side_effect(
         if cmd[:2] == ["patchelf", "--print-needed"]:
             libs = "\n".join(cpio_deps or ["libssl.so.3"]) + "\n"
             return _make_elf_mock(libs)
+        if cmd[:2] == ["file", "-b"]:
+            return _make_elf_mock("ELF 64-bit LSB executable")
         return _make_elf_mock("")
 
     return {"check_output": _check_output_side, "run": _run_side, "Popen": _popen_side}
@@ -503,6 +504,8 @@ class TestRpmE2E:
                     return _make_elf_mock("")
                 if cmd[:2] == ["patchelf", "--print-needed"]:
                     return _make_elf_mock("libssl.so.3\nlibz.so.1\n")
+                if cmd[:2] == ["file", "-b"]:
+                    return _make_elf_mock("ELF 64-bit LSB executable")
                 return _make_elf_mock("")
             mock_run.side_effect = _run_side
 
@@ -588,13 +591,14 @@ class TestRpmE2E:
                     return _make_elf_mock("")
                 if cmd[:2] == ["patchelf", "--print-needed"]:
                     return _make_elf_mock("libssl.so.3\n")
+                if cmd[:2] == ["file", "-b"]:
+                    return _make_elf_mock("ELF 64-bit LSB executable")
                 return _make_elf_mock("")
             mock_run.side_effect = _run_side
 
             info = analyze_rpm(str(rpm_path))
 
         assert len(tracked) >= 1
-        # TemporaryDirectory context manager should have cleaned up
         for d in tracked:
             assert not Path(d).exists(), f"Temp dir {d} was not cleaned up"
         assert info.format == "rpm"
@@ -624,7 +628,6 @@ class TestRpmE2E:
         def _run_side(cmd, **kwargs):
             nonlocal patchelf_calls
             if cmd[:2] == ["cpio", "-idmv"]:
-                # Create ELF files so patchelf will be invoked
                 cwd = Path(kwargs.get("cwd", "."))
                 (cwd / "usr").mkdir(parents=True, exist_ok=True)
                 (cwd / "usr" / "bin").mkdir(parents=True, exist_ok=True)
@@ -636,6 +639,8 @@ class TestRpmE2E:
             if cmd[:2] == ["patchelf", "--print-needed"]:
                 patchelf_calls += 1
                 raise RuntimeError("patchelf failed")
+            if cmd[:2] == ["file", "-b"]:
+                return _make_elf_mock("ELF 64-bit LSB executable")
             return _make_elf_mock("")
 
         with (

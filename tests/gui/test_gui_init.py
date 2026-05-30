@@ -6,7 +6,7 @@ from app2nix.gui import run_gui
 class TestRunGui:
     @patch("app2nix.gui.sys.exit")
     @patch("app2nix.gui.App2NixWindow")
-    @patch("app2nix.gui.QApplication")
+    @patch("PyQt6.QtWidgets.QApplication")
     def test_run_gui_creates_app_and_shows_window(self, mock_qapp_cls, mock_window_cls, mock_exit):
         """run_gui should create QApplication, show window, and exit."""
         mock_app = MagicMock()

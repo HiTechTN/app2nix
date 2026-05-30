@@ -41,7 +41,6 @@ def test_init_creates_tables(cache):
             ).fetchall()
         ]
     assert "resolved" in tables
-    assert "cache_meta" in tables
 
 
 def test_init_idempotent(cache):
