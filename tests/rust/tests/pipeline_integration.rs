@@ -21,7 +21,7 @@ use app2nix_nixgen::DefaultNixGenerator;
 fn temp_dir() -> PathBuf {
     tempfile::tempdir()
         .expect("failed to create temp dir")
-        .into_path()
+        .keep()
 }
 
 fn create_minimal_png(path: &Path) {

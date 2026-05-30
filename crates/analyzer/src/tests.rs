@@ -1,8 +1,5 @@
 use crate::DefaultAnalyzer;
-use app2nix_core::{
-    AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile, PackageFormat,
-    PackageInfo,
-};
+use app2nix_core::{AppTypeHint, ElfInfo, ExtractedFile};
 
 fn make_file(relative_path: &str, is_elf: bool, is_exec: bool) -> ExtractedFile {
     ExtractedFile {
@@ -85,11 +82,6 @@ Terminal=false
     )
     .unwrap();
 
-    let files = vec![make_file(
-        "usr/share/applications/app.desktop",
-        false,
-        false,
-    )];
     // We need to override the path to match our temp dir
     let files = vec![ExtractedFile {
         path: desktop_path.to_string_lossy().to_string(),
