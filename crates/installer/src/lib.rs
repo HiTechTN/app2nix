@@ -1,13 +1,10 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{
-    AppEntry, AppRegistry, Installer, PackageFormat,
-    Result, App2NixError,
-};
+use app2nix_core::{App2NixError, AppEntry, AppRegistry, Installer, PackageFormat, Result};
 
 pub struct DefaultInstaller {
     nix_binary: String,
@@ -37,13 +34,11 @@ impl DefaultInstaller {
     fn save_registry(&self, registry: &AppRegistry) -> Result<()> {
         let path = Path::new(&self.registry_path);
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| App2NixError::InstallFailed(e.to_string()))?;
+            fs::create_dir_all(parent).map_err(|e| App2NixError::InstallFailed(e.to_string()))?;
         }
         let json = serde_json::to_string_pretty(registry)
             .map_err(|e| App2NixError::InstallFailed(e.to_string()))?;
-        fs::write(path, json)
-            .map_err(|e| App2NixError::InstallFailed(e.to_string()))?;
+        fs::write(path, json).map_err(|e| App2NixError::InstallFailed(e.to_string()))?;
         Ok(())
     }
 }
@@ -86,13 +81,7 @@ impl Installer for DefaultInstaller {
         let profile_name = format!("app2nix-{}", name);
 
         let status = std::process::Command::new(&self.nix_binary)
-            .args([
-                "profile",
-                "install",
-                store_path,
-                "--priority",
-                "5",
-            ])
+            .args(["profile", "install", store_path, "--priority", "5"])
             .status()
             .map_err(|e| App2NixError::InstallFailed(format!("nix profile install: {}", e)))?;
 
@@ -103,7 +92,7 @@ impl Installer for DefaultInstaller {
                 .ok();
 
             match legacy_status {
-                Some(s) if s.success() => {},
+                Some(s) if s.success() => {}
                 _ => {
                     return Err(App2NixError::InstallFailed(
                         "Both nix profile install and nix-env -i failed".into(),
@@ -144,7 +133,7 @@ impl Installer for DefaultInstaller {
                 .ok();
 
             match legacy_status {
-                Some(s) if s.success() => {},
+                Some(s) if s.success() => {}
                 _ => {
                     return Err(App2NixError::InstallFailed(
                         "Both nix profile remove and nix-env -e failed".into(),

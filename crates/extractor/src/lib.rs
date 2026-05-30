@@ -1,13 +1,10 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{
-    PackageInfo, PackageFormat, ExtractedFile, Extractor,
-    App2NixError, Result,
-};
+use app2nix_core::{App2NixError, ExtractedFile, Extractor, PackageFormat, PackageInfo, Result};
 
 #[derive(Default)]
 pub struct DefaultExtractor;
@@ -50,10 +47,13 @@ impl DefaultExtractor {
 
         if has_rpm2cpio {
             let status = std::process::Command::new("sh")
-                .args(["-c", &format!(
-                    "rpm2cpio '{}' | cpio -idmv -D '{}'",
-                    package.source_path, dest
-                )])
+                .args([
+                    "-c",
+                    &format!(
+                        "rpm2cpio '{}' | cpio -idmv -D '{}'",
+                        package.source_path, dest
+                    ),
+                ])
                 .status()
                 .map_err(|e| App2NixError::ExtractionFailed(format!("rpm2cpio failed: {}", e)))?;
 
@@ -64,10 +64,19 @@ impl DefaultExtractor {
             }
         } else {
             let status = std::process::Command::new("rpm")
-                .args(["-i", "--root", dest, "--nodeps", "--noscripts", "--notriggers"])
+                .args([
+                    "-i",
+                    "--root",
+                    dest,
+                    "--nodeps",
+                    "--noscripts",
+                    "--notriggers",
+                ])
                 .arg(&package.source_path)
                 .status()
-                .map_err(|e| App2NixError::ExtractionFailed(format!("rpm extraction failed: {}", e)))?;
+                .map_err(|e| {
+                    App2NixError::ExtractionFailed(format!("rpm extraction failed: {}", e))
+                })?;
 
             if !status.success() {
                 return Err(App2NixError::ExtractionFailed(
@@ -97,10 +106,7 @@ impl DefaultExtractor {
             .current_dir(dest)
             .status()
             .map_err(|e| {
-                App2NixError::ExtractionFailed(format!(
-                    "AppImage --appimage-extract failed: {}",
-                    e
-                ))
+                App2NixError::ExtractionFailed(format!("AppImage --appimage-extract failed: {}", e))
             })?;
 
         if !status.success() {
@@ -108,10 +114,7 @@ impl DefaultExtractor {
                 .args(["-d", &extract_dir.to_string_lossy(), &package.source_path])
                 .status()
                 .map_err(|e| {
-                    App2NixError::ExtractionFailed(format!(
-                        "unsquashfs fallback failed: {}",
-                        e
-                    ))
+                    App2NixError::ExtractionFailed(format!("unsquashfs fallback failed: {}", e))
                 })?;
 
             if !status2.success() {
@@ -135,7 +138,9 @@ impl DefaultExtractor {
                     .unwrap_or(full_path)
                     .to_string_lossy()
                     .to_string();
-                let _ = fs::create_dir_all(Path::new(dest).join(Path::new(&rel).parent().unwrap_or(Path::new(""))));
+                let _ = fs::create_dir_all(
+                    Path::new(dest).join(Path::new(&rel).parent().unwrap_or(Path::new(""))),
+                );
                 if full_path != Path::new(dest).join(&rel) {
                     let _ = fs::rename(full_path, Path::new(dest).join(&rel));
                 }
@@ -261,8 +266,7 @@ impl DefaultExtractor {
 
 impl Extractor for DefaultExtractor {
     fn extract(&self, package: &PackageInfo, dest: &str) -> Result<Vec<ExtractedFile>> {
-        fs::create_dir_all(dest)
-            .map_err(|e| App2NixError::ExtractionFailed(e.to_string()))?;
+        fs::create_dir_all(dest).map_err(|e| App2NixError::ExtractionFailed(e.to_string()))?;
 
         match package.format {
             PackageFormat::Deb => DefaultExtractor::extract_deb(package, dest),
@@ -285,13 +289,10 @@ impl Extractor for DefaultExtractor {
             PackageFormat::NodeJs => Err(App2NixError::ExtractionFailed(
                 "NodeJS extraction not yet implemented".into(),
             )),
-            PackageFormat::Unknown => {
-                DefaultExtractor::extract_elf(package, dest).or_else(|_| {
-                    DefaultExtractor::extract_targz(package, dest).or_else(|_| {
-                        DefaultExtractor::extract_zip(package, dest)
-                    })
-                })
-            }
+            PackageFormat::Unknown => DefaultExtractor::extract_elf(package, dest).or_else(|_| {
+                DefaultExtractor::extract_targz(package, dest)
+                    .or_else(|_| DefaultExtractor::extract_zip(package, dest))
+            }),
         }
     }
 }

@@ -38,7 +38,12 @@ impl FhsCompat {
         self.enabled
     }
 
-    pub fn generate_fhs_env(&self, app_name: &str, deps: &[String], main_binary: &str) -> Result<String> {
+    pub fn generate_fhs_env(
+        &self,
+        app_name: &str,
+        deps: &[String],
+        main_binary: &str,
+    ) -> Result<String> {
         if !self.enabled {
             return Ok(String::new());
         }
@@ -80,11 +85,7 @@ in
         Ok(nix_code)
     }
 
-    pub fn generate_build_fhs_expression(
-        &self,
-        app_name: &str,
-        deps: &[String],
-    ) -> Result<String> {
+    pub fn generate_build_fhs_expression(&self, app_name: &str, deps: &[String]) -> Result<String> {
         if !self.enabled {
             return Ok(String::new());
         }

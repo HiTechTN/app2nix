@@ -1,5 +1,5 @@
-use crate::types::*;
 use crate::error::Result;
+use crate::types::*;
 
 pub trait Detector: Send + Sync {
     fn detect(&self, path: &str) -> Result<PackageInfo>;

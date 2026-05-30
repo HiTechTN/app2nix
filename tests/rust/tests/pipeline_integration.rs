@@ -6,20 +6,22 @@
 //! Where system tools are unavailable (patchelf, dpkg-deb, nix, etc.),
 //! we use mock implementations to verify the pipeline wiring.
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::HashMap;
 
+use app2nix_analyzer::DefaultAnalyzer;
 use app2nix_core::*;
 use app2nix_detector::DefaultDetector;
-use app2nix_analyzer::DefaultAnalyzer;
 use app2nix_nixgen::DefaultNixGenerator;
 
 // Helper functions
 
 fn temp_dir() -> PathBuf {
-    tempfile::tempdir().expect("failed to create temp dir").into_path()
+    tempfile::tempdir()
+        .expect("failed to create temp dir")
+        .into_path()
 }
 
 fn create_minimal_png(path: &Path) {
@@ -27,22 +29,24 @@ fn create_minimal_png(path: &Path) {
     std::fs::create_dir_all(path.parent().unwrap()).expect("failed to create PNG parent dir");
     // Minimal valid 1x1 red PNG
     let png_data: &[u8] = &[
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-        0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
-        0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
-        0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
-        0x00, 0x00, 0x00, 0xFF, 0x00, 0x01, 0x0D, 0x0A,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
-        0xAE, 0x42, 0x60, 0x82,
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+        0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8,
+        0xCF, 0xC0, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x01, 0x0D, 0x0A, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60,
+        0x82,
     ];
     let mut f = std::fs::File::create(path).expect("failed to create PNG");
     f.write_all(png_data).expect("failed to write PNG");
 }
 
-fn create_desktop_file(path: &Path, name: &str, exec: &str, icon: Option<&str>, categories: &[&str]) {
+fn create_desktop_file(
+    path: &Path,
+    name: &str,
+    exec: &str,
+    icon: Option<&str>,
+    categories: &[&str],
+) {
     let cat_str = categories.join(";");
     let icon_line = icon.map(|i| format!("Icon={}", i)).unwrap_or_default();
     let content = format!(
@@ -67,11 +71,9 @@ fn create_dummy_elf(path: &Path) {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
         0x00, 0x02, 0x3E, 0x00, // ET_EXEC, x86-64
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     let mut data = elf_header.to_vec();
     data.resize(128, 0x00);
@@ -87,14 +89,20 @@ fn create_tar_gz(archive_path: &Path, files: &[(&str, &[u8])]) -> bool {
     }
     Command::new("tar")
         .args(["-czf", &archive_path.to_string_lossy()])
-        .arg("-C").arg(&staging).arg(".")
+        .arg("-C")
+        .arg(&staging)
+        .arg(".")
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
 }
 
 fn command_exists(cmd: &str) -> bool {
-    Command::new("which").arg(cmd).output().ok().map_or(false, |o| o.status.success())
+    Command::new("which")
+        .arg(cmd)
+        .output()
+        .ok()
+        .map_or(false, |o| o.status.success())
 }
 
 // -- Format Detection ---------------------------------------------------
@@ -210,7 +218,13 @@ fn test_detect_file_not_found() {
 fn test_analyze_detects_desktop_entries() {
     let dir = temp_dir();
     let desktop_path = dir.join("usr/share/applications/myapp.desktop");
-    create_desktop_file(&desktop_path, "MyApp", "/usr/bin/myapp", Some("myapp"), &["Utility", "Office"]);
+    create_desktop_file(
+        &desktop_path,
+        "MyApp",
+        "/usr/bin/myapp",
+        Some("myapp"),
+        &["Utility", "Office"],
+    );
 
     let icon_dir = dir.join("usr/share/icons/hicolor/256x256/apps");
     std::fs::create_dir_all(&icon_dir).unwrap();
@@ -222,20 +236,31 @@ fn test_analyze_detects_desktop_entries() {
             path: desktop_path.to_string_lossy().to_string(),
             relative_path: "usr/share/applications/myapp.desktop".into(),
             file_type: "text/plain".into(),
-            is_elf: false, is_executable: false, size: 200,
+            is_elf: false,
+            is_executable: false,
+            size: 200,
         },
         ExtractedFile {
             path: icon_path.to_string_lossy().to_string(),
             relative_path: "usr/share/icons/hicolor/256x256/apps/myapp.png".into(),
             file_type: "image/png".into(),
-            is_elf: false, is_executable: false, size: 67,
+            is_elf: false,
+            is_executable: false,
+            size: 67,
         },
     ];
 
     let package = PackageInfo {
-        name: "myapp".into(), version: Some("1.0".into()), format: PackageFormat::TarGz,
-        description: Some("My test app".into()), source_path: "/tmp/test.tar.gz".into(),
-        size: 1000, hash: "abc".into(), architecture: None, maintainer: None, homepage: None,
+        name: "myapp".into(),
+        version: Some("1.0".into()),
+        format: PackageFormat::TarGz,
+        description: Some("My test app".into()),
+        source_path: "/tmp/test.tar.gz".into(),
+        size: 1000,
+        hash: "abc".into(),
+        architecture: None,
+        maintainer: None,
+        homepage: None,
     };
 
     let analyzer = DefaultAnalyzer::new();
@@ -259,19 +284,32 @@ fn test_analyze_detects_multiple_icons() {
         ExtractedFile {
             path: png_path.to_string_lossy().to_string(),
             relative_path: "usr/share/icons/app.png".into(),
-            file_type: "image/png".into(), is_elf: false, is_executable: false, size: 67,
+            file_type: "image/png".into(),
+            is_elf: false,
+            is_executable: false,
+            size: 67,
         },
         ExtractedFile {
             path: svg_path.to_string_lossy().to_string(),
             relative_path: "usr/share/pixmaps/app.svg".into(),
-            file_type: "image/svg+xml".into(), is_elf: false, is_executable: false, size: 10,
+            file_type: "image/svg+xml".into(),
+            is_elf: false,
+            is_executable: false,
+            size: 10,
         },
     ];
 
     let package = PackageInfo {
-        name: "icon-test".into(), version: None, format: PackageFormat::Unknown,
-        description: None, source_path: String::new(), size: 0, hash: String::new(),
-        architecture: None, maintainer: None, homepage: None,
+        name: "icon-test".into(),
+        version: None,
+        format: PackageFormat::Unknown,
+        description: None,
+        source_path: String::new(),
+        size: 0,
+        hash: String::new(),
+        architecture: None,
+        maintainer: None,
+        homepage: None,
     };
 
     let analyzer = DefaultAnalyzer::new();
@@ -292,13 +330,23 @@ fn test_analyze_finds_main_binary_in_usr_bin() {
     let files = vec![ExtractedFile {
         path: bin_path.to_string_lossy().to_string(),
         relative_path: "usr/bin/myapp".into(),
-        file_type: "text/x-shellscript".into(), is_elf: false, is_executable: true, size: 20,
+        file_type: "text/x-shellscript".into(),
+        is_elf: false,
+        is_executable: true,
+        size: 20,
     }];
 
     let package = PackageInfo {
-        name: "myapp".into(), version: None, format: PackageFormat::TarGz,
-        description: None, source_path: String::new(), size: 0, hash: String::new(),
-        architecture: None, maintainer: None, homepage: None,
+        name: "myapp".into(),
+        version: None,
+        format: PackageFormat::TarGz,
+        description: None,
+        source_path: String::new(),
+        size: 0,
+        hash: String::new(),
+        architecture: None,
+        maintainer: None,
+        homepage: None,
     };
 
     let analyzer = DefaultAnalyzer::new();
@@ -321,25 +369,44 @@ fn test_analyze_detects_app_type_hints() {
         ExtractedFile {
             path: asar_path.to_string_lossy().to_string(),
             relative_path: "resources/app.asar".into(),
-            file_type: "application/octet-stream".into(), is_elf: false, is_executable: false, size: 10,
+            file_type: "application/octet-stream".into(),
+            is_elf: false,
+            is_executable: false,
+            size: 10,
         },
         ExtractedFile {
             path: jar_path.to_string_lossy().to_string(),
             relative_path: "lib/app.jar".into(),
-            file_type: "application/zip".into(), is_elf: false, is_executable: false, size: 100,
+            file_type: "application/zip".into(),
+            is_elf: false,
+            is_executable: false,
+            size: 100,
         },
     ];
 
     let package = PackageInfo {
-        name: "app".into(), version: None, format: PackageFormat::Unknown,
-        description: None, source_path: String::new(), size: 0, hash: String::new(),
-        architecture: None, maintainer: None, homepage: None,
+        name: "app".into(),
+        version: None,
+        format: PackageFormat::Unknown,
+        description: None,
+        source_path: String::new(),
+        size: 0,
+        hash: String::new(),
+        architecture: None,
+        maintainer: None,
+        homepage: None,
     };
 
     let analyzer = DefaultAnalyzer::new();
     let result = analyzer.analyze(&package, &files).unwrap();
-    assert!(result.app_type_hints.iter().any(|h| matches!(h, AppTypeHint::Electron)));
-    assert!(result.app_type_hints.iter().any(|h| matches!(h, AppTypeHint::Java(_))));
+    assert!(result
+        .app_type_hints
+        .iter()
+        .any(|h| matches!(h, AppTypeHint::Electron)));
+    assert!(result
+        .app_type_hints
+        .iter()
+        .any(|h| matches!(h, AppTypeHint::Java(_))));
 }
 
 // -- Nix Generation -----------------------------------------------------
@@ -351,17 +418,31 @@ fn test_nix_generates_derivation_file_on_disk() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "myapp".into(), version: "1.0.0".into(), description: "My test app".into(),
-        format: PackageFormat::Deb, main_binary: Some("usr/bin/myapp".into()),
+        app_name: "myapp".into(),
+        version: "1.0.0".into(),
+        description: "My test app".into(),
+        format: PackageFormat::Deb,
+        main_binary: Some("usr/bin/myapp".into()),
         build_inputs: vec!["glibc".into(), "xorg.libX11".into()],
         native_build_inputs: vec!["autoPatchelfHook".into(), "makeWrapper".into()],
-        elf_binaries: vec![], all_files: vec![], desktop_entries: vec![], icons: vec![],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
+        desktop_entries: vec![],
+        icons: vec![],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    let derivation_path = generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
-    assert!(Path::new(&derivation_path).exists(), "derivation file missing");
+    let derivation_path = generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
+    assert!(
+        Path::new(&derivation_path).exists(),
+        "derivation file missing"
+    );
     assert!(output_dir.join("flake.nix").exists(), "flake.nix missing");
     let content = std::fs::read_to_string(&derivation_path).unwrap();
     assert!(content.contains("pname = \"myapp\";"));
@@ -378,18 +459,33 @@ fn test_nix_generates_elf_install_phase() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "myelf".into(), version: "2.0.0".into(), description: "ELF binary test".into(),
-        format: PackageFormat::ElfBinary, main_binary: Some("bin/myelf".into()),
+        app_name: "myelf".into(),
+        version: "2.0.0".into(),
+        description: "ELF binary test".into(),
+        format: PackageFormat::ElfBinary,
+        main_binary: Some("bin/myelf".into()),
         build_inputs: vec!["glibc".into()],
         native_build_inputs: vec!["autoPatchelfHook".into()],
-        elf_binaries: vec![], all_files: vec![], desktop_entries: vec![], icons: vec![],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
+        desktop_entries: vec![],
+        icons: vec![],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
     let content = std::fs::read_to_string(output_dir.join("derivation.nix")).unwrap();
-    assert!(content.contains(r#"cp "$src" $out/bin/"#), "ELF phase: {}", content);
+    assert!(
+        content.contains(r#"cp "$src" $out/bin/"#),
+        "ELF phase: {}",
+        content
+    );
     assert!(content.contains("chmod +x $out/bin/*"));
 }
 
@@ -400,16 +496,27 @@ fn test_nix_generates_flake_with_correct_inputs() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "myapp".into(), version: "1.0.0".into(), description: "My app description".into(),
-        format: PackageFormat::TarGz, main_binary: Some("bin/myapp".into()),
+        app_name: "myapp".into(),
+        version: "1.0.0".into(),
+        description: "My app description".into(),
+        format: PackageFormat::TarGz,
+        main_binary: Some("bin/myapp".into()),
         build_inputs: vec!["glibc".into()],
         native_build_inputs: vec!["autoPatchelfHook".into()],
-        elf_binaries: vec![], all_files: vec![], desktop_entries: vec![], icons: vec![],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
+        desktop_entries: vec![],
+        icons: vec![],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
     let flake = std::fs::read_to_string(output_dir.join("flake.nix")).unwrap();
     assert!(flake.contains("description = \"My app description\";"));
     assert!(flake.contains("packages.default"));
@@ -424,16 +531,27 @@ fn test_nix_generates_wrapper_script() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "myapp".into(), version: "1.0.0".into(), description: "App with wrapper".into(),
-        format: PackageFormat::AppImage, main_binary: Some("squashfs-root/usr/bin/myapp".into()),
+        app_name: "myapp".into(),
+        version: "1.0.0".into(),
+        description: "App with wrapper".into(),
+        format: PackageFormat::AppImage,
+        main_binary: Some("squashfs-root/usr/bin/myapp".into()),
         build_inputs: vec![],
         native_build_inputs: vec!["autoPatchelfHook".into(), "makeWrapper".into()],
-        elf_binaries: vec![], all_files: vec![], desktop_entries: vec![], icons: vec![],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
+        desktop_entries: vec![],
+        icons: vec![],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
     let content = std::fs::read_to_string(output_dir.join("derivation.nix")).unwrap();
     assert!(content.contains("myapp"));
 }
@@ -445,22 +563,37 @@ fn test_nix_generates_desktop_phase() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "myapp".into(), version: "1.0.0".into(), description: "App with desktop".into(),
-        format: PackageFormat::Deb, main_binary: Some("usr/bin/myapp".into()),
+        app_name: "myapp".into(),
+        version: "1.0.0".into(),
+        description: "App with desktop".into(),
+        format: PackageFormat::Deb,
+        main_binary: Some("usr/bin/myapp".into()),
         build_inputs: vec![],
         native_build_inputs: vec!["autoPatchelfHook".into()],
-        elf_binaries: vec![], all_files: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
         desktop_entries: vec![DetectedDesktopEntry {
-            path: "usr/share/applications/myapp.desktop".into(), app_name: "MyApp".into(),
-            exec_line: "myapp".into(), icon_path: Some("usr/share/icons/myapp.png".into()),
+            path: "usr/share/applications/myapp.desktop".into(),
+            app_name: "MyApp".into(),
+            exec_line: "myapp".into(),
+            icon_path: Some("usr/share/icons/myapp.png".into()),
             categories: vec!["Utility".into()],
         }],
-        icons: vec![DetectedIcon { path: "usr/share/icons/myapp.png".into(), size: Some(256), format: "png".into() }],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        icons: vec![DetectedIcon {
+            path: "usr/share/icons/myapp.png".into(),
+            size: Some(256),
+            format: "png".into(),
+        }],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
     let content = std::fs::read_to_string(output_dir.join("derivation.nix")).unwrap();
     assert!(content.contains("share/applications"));
     assert!(content.contains("share/icons"));
@@ -473,18 +606,33 @@ fn test_nix_sanitizes_name_and_version() {
     std::fs::create_dir_all(&output_dir).unwrap();
 
     let opts = GenerateOptions {
-        app_name: "My App@2.0!".into(), version: "2.0.0-beta.1".into(),
-        description: "App with special chars".into(), format: PackageFormat::TarGz,
-        main_binary: Some("bin/app".into()), build_inputs: vec![],
+        app_name: "My App@2.0!".into(),
+        version: "2.0.0-beta.1".into(),
+        description: "App with special chars".into(),
+        format: PackageFormat::TarGz,
+        main_binary: Some("bin/app".into()),
+        build_inputs: vec![],
         native_build_inputs: vec!["autoPatchelfHook".into()],
-        elf_binaries: vec![], all_files: vec![], desktop_entries: vec![], icons: vec![],
-        app_type_hints: vec![], env_vars: HashMap::new(), use_fhs: false, extra_phases: vec![],
+        elf_binaries: vec![],
+        all_files: vec![],
+        desktop_entries: vec![],
+        icons: vec![],
+        app_type_hints: vec![],
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: vec![],
     };
 
     let generator = DefaultNixGenerator::new();
-    generator.generate(&opts, &output_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&opts, &output_dir.to_string_lossy())
+        .unwrap();
     let content = std::fs::read_to_string(output_dir.join("derivation.nix")).unwrap();
-    assert!(content.contains("pname = \"my-app-2-0\";"), "sanitized name: {}", content);
+    assert!(
+        content.contains("pname = \"my-app-2-0\";"),
+        "sanitized name: {}",
+        content
+    );
     assert!(content.contains("version = \"2.0.0-beta.1\";"));
 }
 
@@ -508,10 +656,13 @@ Categories=Utility;
 Terminal=false
 "#;
 
-    if !create_tar_gz(&archive_path, &[
-        ("bin/myapp", b"#!/bin/sh\necho hello"),
-        ("usr/share/applications/myapp.desktop", desktop_content),
-    ]) {
+    if !create_tar_gz(
+        &archive_path,
+        &[
+            ("bin/myapp", b"#!/bin/sh\necho hello"),
+            ("usr/share/applications/myapp.desktop", desktop_content),
+        ],
+    ) {
         eprintln!("Skipping: tar command failed during setup");
         return;
     }
@@ -526,10 +677,16 @@ Terminal=false
     // Step 2: Extract
     let extract_dir = dir.join("extracted");
     let extractor = app2nix_extractor::DefaultExtractor::new();
-    let extracted = extractor.extract(&package, &extract_dir.to_string_lossy()).unwrap();
+    let extracted = extractor
+        .extract(&package, &extract_dir.to_string_lossy())
+        .unwrap();
     assert!(!extracted.is_empty());
-    assert!(extracted.iter().any(|f| f.relative_path.contains("bin/myapp")));
-    assert!(extracted.iter().any(|f| f.relative_path.contains("myapp.desktop")));
+    assert!(extracted
+        .iter()
+        .any(|f| f.relative_path.contains("bin/myapp")));
+    assert!(extracted
+        .iter()
+        .any(|f| f.relative_path.contains("myapp.desktop")));
 
     // Step 3: Analyze
     let analyzer = DefaultAnalyzer::new();
@@ -541,7 +698,11 @@ Terminal=false
     // Step 4: Generate Nix
     let generate_opts = GenerateOptions {
         app_name: analysis.package.name.clone(),
-        version: analysis.package.version.clone().unwrap_or_else(|| "1.0.0".into()),
+        version: analysis
+            .package
+            .version
+            .clone()
+            .unwrap_or_else(|| "1.0.0".into()),
         description: analysis.package.description.clone().unwrap_or_default(),
         format: analysis.package.format,
         main_binary: analysis.main_binary.clone(),
@@ -552,19 +713,26 @@ Terminal=false
         desktop_entries: analysis.desktop_entries.clone(),
         icons: analysis.icons.clone(),
         app_type_hints: analysis.app_type_hints.clone(),
-        env_vars: HashMap::new(), use_fhs: false, extra_phases: Vec::new(),
+        env_vars: HashMap::new(),
+        use_fhs: false,
+        extra_phases: Vec::new(),
     };
 
     let nix_dir = dir.join("nix-output");
     std::fs::create_dir_all(&nix_dir).unwrap();
     let generator = DefaultNixGenerator::new();
-    generator.generate(&generate_opts, &nix_dir.to_string_lossy()).unwrap();
+    generator
+        .generate(&generate_opts, &nix_dir.to_string_lossy())
+        .unwrap();
 
     assert!(nix_dir.join("derivation.nix").exists());
     assert!(nix_dir.join("flake.nix").exists());
     let der_content = std::fs::read_to_string(nix_dir.join("derivation.nix")).unwrap();
     assert!(der_content.contains("pname = \"myapp-v1-0-0\";"));
-    assert!(der_content.contains("cp -rfl * $out/"), "TarGz install phase");
+    assert!(
+        der_content.contains("cp -rfl * $out/"),
+        "TarGz install phase"
+    );
 }
 
 // -- Full Pipeline with Mock + Real Components -------------------------
@@ -575,10 +743,16 @@ fn test_pipeline_with_real_nix_generator() {
     impl Detector for MockDetector {
         fn detect(&self, _path: &str) -> Result<PackageInfo> {
             Ok(PackageInfo {
-                name: "test-app".into(), version: Some("2.0.0".into()),
-                format: PackageFormat::Rpm, description: Some("Test RPM app".into()),
-                source_path: _path.into(), size: 5000, hash: "mockhash".into(),
-                architecture: Some("x86_64".into()), maintainer: None, homepage: None,
+                name: "test-app".into(),
+                version: Some("2.0.0".into()),
+                format: PackageFormat::Rpm,
+                description: Some("Test RPM app".into()),
+                source_path: _path.into(),
+                size: 5000,
+                hash: "mockhash".into(),
+                architecture: Some("x86_64".into()),
+                maintainer: None,
+                homepage: None,
             })
         }
     }
@@ -590,12 +764,18 @@ fn test_pipeline_with_real_nix_generator() {
                 ExtractedFile {
                     path: format!("{}/usr/bin/test-app", _dest),
                     relative_path: "usr/bin/test-app".into(),
-                    file_type: "application/x-executable".into(), is_elf: true, is_executable: true, size: 1000,
+                    file_type: "application/x-executable".into(),
+                    is_elf: true,
+                    is_executable: true,
+                    size: 1000,
                 },
                 ExtractedFile {
                     path: format!("{}/usr/share/applications/test-app.desktop", _dest),
                     relative_path: "usr/share/applications/test-app.desktop".into(),
-                    file_type: "text/plain".into(), is_elf: false, is_executable: false, size: 200,
+                    file_type: "text/plain".into(),
+                    is_elf: false,
+                    is_executable: false,
+                    size: 200,
                 },
             ])
         }
@@ -603,22 +783,42 @@ fn test_pipeline_with_real_nix_generator() {
 
     struct MockAnalyzer;
     impl Analyzer for MockAnalyzer {
-        fn analyze(&self, package: &PackageInfo, _files: &[ExtractedFile]) -> Result<AnalysisResult> {
+        fn analyze(
+            &self,
+            package: &PackageInfo,
+            _files: &[ExtractedFile],
+        ) -> Result<AnalysisResult> {
             Ok(AnalysisResult {
                 package: PackageInfo {
-                    name: package.name.clone(), version: package.version.clone(),
-                    format: package.format.clone(), description: package.description.clone(),
-                    source_path: package.source_path.clone(), size: package.size,
-                    hash: package.hash.clone(), architecture: None, maintainer: None, homepage: None,
+                    name: package.name.clone(),
+                    version: package.version.clone(),
+                    format: package.format.clone(),
+                    description: package.description.clone(),
+                    source_path: package.source_path.clone(),
+                    size: package.size,
+                    hash: package.hash.clone(),
+                    architecture: None,
+                    maintainer: None,
+                    homepage: None,
                 },
-                extracted_files: _files.to_vec(), elf_binaries: vec![],
-                all_needed_libs: vec![], resolved_deps: vec![], unresolved_libs: vec![],
+                extracted_files: _files.to_vec(),
+                elf_binaries: vec![],
+                all_needed_libs: vec![],
+                resolved_deps: vec![],
+                unresolved_libs: vec![],
                 main_binary: Some("usr/bin/test-app".into()),
                 desktop_entries: vec![DetectedDesktopEntry {
-                    path: "usr/share/applications/test-app.desktop".into(), app_name: "TestApp".into(),
-                    exec_line: "test-app".into(), icon_path: None, categories: vec!["Utility".into()],
+                    path: "usr/share/applications/test-app.desktop".into(),
+                    app_name: "TestApp".into(),
+                    exec_line: "test-app".into(),
+                    icon_path: None,
+                    categories: vec!["Utility".into()],
                 }],
-                icons: vec![DetectedIcon { path: "usr/share/icons/test-app.png".into(), size: Some(256), format: "png".into() }],
+                icons: vec![DetectedIcon {
+                    path: "usr/share/icons/test-app.png".into(),
+                    size: Some(256),
+                    format: "png".into(),
+                }],
                 app_type_hints: vec![],
             })
         }
@@ -629,33 +829,62 @@ fn test_pipeline_with_real_nix_generator() {
 
     struct MockPatcher;
     impl Patcher for MockPatcher {
-        fn patch_binaries(&self, _target_dir: &str, _analysis: &AnalysisResult, _resolved_deps: &[ResolvedDependency]) -> Result<()> { Ok(()) }
+        fn patch_binaries(
+            &self,
+            _target_dir: &str,
+            _analysis: &AnalysisResult,
+            _resolved_deps: &[ResolvedDependency],
+        ) -> Result<()> {
+            Ok(())
+        }
     }
 
     struct MockInstaller;
     impl Installer for MockInstaller {
-        fn build(&self, _derivation_path: &str, _output_dir: &str) -> Result<String> { Ok("/nix/store/mock".into()) }
-        fn install(&self, _store_path: &str, _name: &str) -> Result<String> { Ok("profile".into()) }
-        fn uninstall(&self, _name: &str) -> Result<()> { Ok(()) }
-        fn list_installed(&self) -> Result<Vec<AppEntry>> { Ok(vec![]) }
+        fn build(&self, _derivation_path: &str, _output_dir: &str) -> Result<String> {
+            Ok("/nix/store/mock".into())
+        }
+        fn install(&self, _store_path: &str, _name: &str) -> Result<String> {
+            Ok("profile".into())
+        }
+        fn uninstall(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
+        fn list_installed(&self) -> Result<Vec<AppEntry>> {
+            Ok(vec![])
+        }
     }
 
     struct MockDesktop;
     impl DesktopIntegrator for MockDesktop {
-        fn register(&self, _app_name: &str, _exec_path: &str, _entries: &[DetectedDesktopEntry], _icons: &[DetectedIcon]) -> Result<Vec<String>> {
+        fn register(
+            &self,
+            _app_name: &str,
+            _exec_path: &str,
+            _entries: &[DetectedDesktopEntry],
+            _icons: &[DetectedIcon],
+        ) -> Result<Vec<String>> {
             Ok(vec!["/tmp/apps/test-app.desktop".into()])
         }
-        fn unregister(&self, _app_name: &str) -> Result<()> { Ok(()) }
+        fn unregister(&self, _app_name: &str) -> Result<()> {
+            Ok(())
+        }
     }
 
     let pipeline = Pipeline::new(
-        Box::new(MockDetector), Box::new(MockExtractor), Box::new(MockAnalyzer),
-        Box::new(MockPatcher), Box::new(DefaultNixGenerator::new()),
-        Box::new(MockInstaller), Box::new(MockDesktop),
+        Box::new(MockDetector),
+        Box::new(MockExtractor),
+        Box::new(MockAnalyzer),
+        Box::new(MockPatcher),
+        Box::new(DefaultNixGenerator::new()),
+        Box::new(MockInstaller),
+        Box::new(MockDesktop),
     );
 
     let work_dir = temp_dir();
-    let result = pipeline.run("/tmp/test.rpm", &work_dir.to_string_lossy()).unwrap();
+    let result = pipeline
+        .run("/tmp/test.rpm", &work_dir.to_string_lossy())
+        .unwrap();
     assert_eq!(result.app_name, "test-app");
     assert_eq!(result.version, "2.0.0");
     assert!(result.installed);
@@ -677,45 +906,87 @@ fn test_pipeline_detection_error_propagates() {
     struct FailDetector;
     impl Detector for FailDetector {
         fn detect(&self, _: &str) -> Result<PackageInfo> {
-            Err(App2NixError::DetectionFailed("unable to identify format".into()))
+            Err(App2NixError::DetectionFailed(
+                "unable to identify format".into(),
+            ))
         }
     }
     struct NoopExt;
     impl Extractor for NoopExt {
-        fn extract(&self, _: &PackageInfo, _: &str) -> Result<Vec<ExtractedFile>> { Ok(vec![]) }
+        fn extract(&self, _: &PackageInfo, _: &str) -> Result<Vec<ExtractedFile>> {
+            Ok(vec![])
+        }
     }
     struct NoopAna;
     impl Analyzer for NoopAna {
-        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> { unimplemented!() }
-        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> { unimplemented!() }
+        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> {
+            unimplemented!()
+        }
+        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> {
+            unimplemented!()
+        }
     }
     struct NoopPat;
     impl Patcher for NoopPat {
-        fn patch_binaries(&self, _: &str, _: &AnalysisResult, _: &[ResolvedDependency]) -> Result<()> { unimplemented!() }
+        fn patch_binaries(
+            &self,
+            _: &str,
+            _: &AnalysisResult,
+            _: &[ResolvedDependency],
+        ) -> Result<()> {
+            unimplemented!()
+        }
     }
     struct NoopGen;
     impl NixGenerator for NoopGen {
-        fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> { unimplemented!() }
+        fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> {
+            unimplemented!()
+        }
     }
     struct NoopInst;
     impl Installer for NoopInst {
-        fn build(&self, _: &str, _: &str) -> Result<String> { unimplemented!() }
-        fn install(&self, _: &str, _: &str) -> Result<String> { unimplemented!() }
-        fn uninstall(&self, _: &str) -> Result<()> { unimplemented!() }
-        fn list_installed(&self) -> Result<Vec<AppEntry>> { unimplemented!() }
+        fn build(&self, _: &str, _: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn install(&self, _: &str, _: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn uninstall(&self, _: &str) -> Result<()> {
+            unimplemented!()
+        }
+        fn list_installed(&self) -> Result<Vec<AppEntry>> {
+            unimplemented!()
+        }
     }
     struct NoopDesk;
     impl DesktopIntegrator for NoopDesk {
-        fn register(&self, _: &str, _: &str, _: &[DetectedDesktopEntry], _: &[DetectedIcon]) -> Result<Vec<String>> { unimplemented!() }
-        fn unregister(&self, _: &str) -> Result<()> { unimplemented!() }
+        fn register(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[DetectedDesktopEntry],
+            _: &[DetectedIcon],
+        ) -> Result<Vec<String>> {
+            unimplemented!()
+        }
+        fn unregister(&self, _: &str) -> Result<()> {
+            unimplemented!()
+        }
     }
 
     let pipeline = Pipeline::new(
-        Box::new(FailDetector), Box::new(NoopExt), Box::new(NoopAna),
-        Box::new(NoopPat), Box::new(NoopGen), Box::new(NoopInst), Box::new(NoopDesk),
+        Box::new(FailDetector),
+        Box::new(NoopExt),
+        Box::new(NoopAna),
+        Box::new(NoopPat),
+        Box::new(NoopGen),
+        Box::new(NoopInst),
+        Box::new(NoopDesk),
     );
     let err = pipeline.run("/tmp/test.deb", "/tmp/work").unwrap_err();
-    assert!(matches!(&err, App2NixError::DetectionFailed(msg) if msg == "unable to identify format"));
+    assert!(
+        matches!(&err, App2NixError::DetectionFailed(msg) if msg == "unable to identify format")
+    );
 }
 
 #[test]
@@ -724,9 +995,16 @@ fn test_pipeline_extraction_error_propagates() {
     impl Detector for OkDetector {
         fn detect(&self, _: &str) -> Result<PackageInfo> {
             Ok(PackageInfo {
-                name: "test".into(), version: None, format: PackageFormat::Deb,
-                description: None, source_path: String::new(), size: 0, hash: String::new(),
-                architecture: None, maintainer: None, homepage: None,
+                name: "test".into(),
+                version: None,
+                format: PackageFormat::Deb,
+                description: None,
+                source_path: String::new(),
+                size: 0,
+                hash: String::new(),
+                architecture: None,
+                maintainer: None,
+                homepage: None,
             })
         }
     }
@@ -738,31 +1016,69 @@ fn test_pipeline_extraction_error_propagates() {
     }
     struct PanicAna;
     impl Analyzer for PanicAna {
-        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> { unimplemented!() }
-        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> { unimplemented!() }
+        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> {
+            unimplemented!()
+        }
+        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> {
+            unimplemented!()
+        }
     }
     struct PanicPat;
     impl Patcher for PanicPat {
-        fn patch_binaries(&self, _: &str, _: &AnalysisResult, _: &[ResolvedDependency]) -> Result<()> { unimplemented!() }
+        fn patch_binaries(
+            &self,
+            _: &str,
+            _: &AnalysisResult,
+            _: &[ResolvedDependency],
+        ) -> Result<()> {
+            unimplemented!()
+        }
     }
     struct PanicGen;
-    impl NixGenerator for PanicGen { fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> { unimplemented!() } }
+    impl NixGenerator for PanicGen {
+        fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> {
+            unimplemented!()
+        }
+    }
     struct PanicInst;
     impl Installer for PanicInst {
-        fn build(&self, _: &str, _: &str) -> Result<String> { unimplemented!() }
-        fn install(&self, _: &str, _: &str) -> Result<String> { unimplemented!() }
-        fn uninstall(&self, _: &str) -> Result<()> { unimplemented!() }
-        fn list_installed(&self) -> Result<Vec<AppEntry>> { unimplemented!() }
+        fn build(&self, _: &str, _: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn install(&self, _: &str, _: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn uninstall(&self, _: &str) -> Result<()> {
+            unimplemented!()
+        }
+        fn list_installed(&self) -> Result<Vec<AppEntry>> {
+            unimplemented!()
+        }
     }
     struct PanicDesk;
     impl DesktopIntegrator for PanicDesk {
-        fn register(&self, _: &str, _: &str, _: &[DetectedDesktopEntry], _: &[DetectedIcon]) -> Result<Vec<String>> { unimplemented!() }
-        fn unregister(&self, _: &str) -> Result<()> { unimplemented!() }
+        fn register(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[DetectedDesktopEntry],
+            _: &[DetectedIcon],
+        ) -> Result<Vec<String>> {
+            unimplemented!()
+        }
+        fn unregister(&self, _: &str) -> Result<()> {
+            unimplemented!()
+        }
     }
 
     let pipeline = Pipeline::new(
-        Box::new(OkDetector), Box::new(FailExtractor), Box::new(PanicAna),
-        Box::new(PanicPat), Box::new(PanicGen), Box::new(PanicInst), Box::new(PanicDesk),
+        Box::new(OkDetector),
+        Box::new(FailExtractor),
+        Box::new(PanicAna),
+        Box::new(PanicPat),
+        Box::new(PanicGen),
+        Box::new(PanicInst),
+        Box::new(PanicDesk),
     );
     let err = pipeline.run("/tmp/test.deb", "/tmp/work").unwrap_err();
     assert!(matches!(&err, App2NixError::ExtractionFailed(msg) if msg == "corrupt archive"));
@@ -788,34 +1104,75 @@ fn test_pipeline_short_circuits_on_detection_failure() {
     }
     struct DummyAna;
     impl Analyzer for DummyAna {
-        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> { unimplemented!() }
-        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> { Ok(vec![]) }
+        fn analyze(&self, _: &PackageInfo, _: &[ExtractedFile]) -> Result<AnalysisResult> {
+            unimplemented!()
+        }
+        fn resolve_deps(&self, _: &[String]) -> Result<Vec<ResolvedDependency>> {
+            Ok(vec![])
+        }
     }
     struct DummyPat;
     impl Patcher for DummyPat {
-        fn patch_binaries(&self, _: &str, _: &AnalysisResult, _: &[ResolvedDependency]) -> Result<()> { Ok(()) }
+        fn patch_binaries(
+            &self,
+            _: &str,
+            _: &AnalysisResult,
+            _: &[ResolvedDependency],
+        ) -> Result<()> {
+            Ok(())
+        }
     }
     struct DummyGen;
-    impl NixGenerator for DummyGen { fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> { Ok(String::new()) } }
+    impl NixGenerator for DummyGen {
+        fn generate(&self, _: &GenerateOptions, _: &str) -> Result<String> {
+            Ok(String::new())
+        }
+    }
     struct DummyInst;
     impl Installer for DummyInst {
-        fn build(&self, _: &str, _: &str) -> Result<String> { Ok(String::new()) }
-        fn install(&self, _: &str, _: &str) -> Result<String> { Ok(String::new()) }
-        fn uninstall(&self, _: &str) -> Result<()> { Ok(()) }
-        fn list_installed(&self) -> Result<Vec<AppEntry>> { Ok(vec![]) }
+        fn build(&self, _: &str, _: &str) -> Result<String> {
+            Ok(String::new())
+        }
+        fn install(&self, _: &str, _: &str) -> Result<String> {
+            Ok(String::new())
+        }
+        fn uninstall(&self, _: &str) -> Result<()> {
+            Ok(())
+        }
+        fn list_installed(&self) -> Result<Vec<AppEntry>> {
+            Ok(vec![])
+        }
     }
     struct DummyDesk;
     impl DesktopIntegrator for DummyDesk {
-        fn register(&self, _: &str, _: &str, _: &[DetectedDesktopEntry], _: &[DetectedIcon]) -> Result<Vec<String>> { Ok(vec![]) }
-        fn unregister(&self, _: &str) -> Result<()> { Ok(()) }
+        fn register(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[DetectedDesktopEntry],
+            _: &[DetectedIcon],
+        ) -> Result<Vec<String>> {
+            Ok(vec![])
+        }
+        fn unregister(&self, _: &str) -> Result<()> {
+            Ok(())
+        }
     }
 
     let pipeline = Pipeline::new(
-        Box::new(FailDet), Box::new(TrackExt), Box::new(DummyAna),
-        Box::new(DummyPat), Box::new(DummyGen), Box::new(DummyInst), Box::new(DummyDesk),
+        Box::new(FailDet),
+        Box::new(TrackExt),
+        Box::new(DummyAna),
+        Box::new(DummyPat),
+        Box::new(DummyGen),
+        Box::new(DummyInst),
+        Box::new(DummyDesk),
     );
     let _err = pipeline.run("/tmp/test.deb", "/tmp/work").unwrap_err();
-    assert!(!EXTRACT_CALLED.load(Ordering::SeqCst), "extract should NOT be called on detection failure");
+    assert!(
+        !EXTRACT_CALLED.load(Ordering::SeqCst),
+        "extract should NOT be called on detection failure"
+    );
 }
 
 // -- Dependency Resolution ----------------------------------------------
@@ -834,20 +1191,34 @@ fn test_analyzer_resolves_dependencies() {
         "libunknown_xyz.so.1".to_string(),
     ];
 
-    let resolved = analyzer.resolve_deps(&needed).expect("resolve_deps should succeed");
+    let resolved = analyzer
+        .resolve_deps(&needed)
+        .expect("resolve_deps should succeed");
 
     let libc = resolved.iter().find(|d| d.library == "libc.so.6").unwrap();
     assert_eq!(libc.nix_attr.as_deref(), Some("glibc"));
 
     // Xrandr: clean name "Xrandr" (no digit at end) -> exact match
-    let xrandr = resolved.iter().find(|d| d.library == "libXrandr.so.2").unwrap();
+    let xrandr = resolved
+        .iter()
+        .find(|d| d.library == "libXrandr.so.2")
+        .unwrap();
     assert_eq!(xrandr.nix_attr.as_deref(), Some("xorg.libXrandr"));
 
-    let qt5 = resolved.iter().find(|d| d.library == "libQt5Core.so.5").unwrap();
+    let qt5 = resolved
+        .iter()
+        .find(|d| d.library == "libQt5Core.so.5")
+        .unwrap();
     assert_eq!(qt5.nix_attr.as_deref(), Some("qt5.qtbase"));
 
-    let unknown = resolved.iter().find(|d| d.library == "libunknown_xyz.so.1").unwrap();
-    assert!(unknown.nix_attr.is_none(), "unknown lib should not be resolved");
+    let unknown = resolved
+        .iter()
+        .find(|d| d.library == "libunknown_xyz.so.1")
+        .unwrap();
+    assert!(
+        unknown.nix_attr.is_none(),
+        "unknown lib should not be resolved"
+    );
     assert_eq!(unknown.confidence, 0.2);
 }
 
@@ -862,17 +1233,29 @@ fn test_extractor_scan_extracted() {
     use std::os::unix::fs::PermissionsExt;
 
     let package = PackageInfo {
-        name: "test".into(), version: None, format: PackageFormat::ElfBinary,
-        description: None, source_path: dummy_src.to_string_lossy().to_string(),
-        size: 128, hash: String::new(), architecture: None, maintainer: None, homepage: None,
+        name: "test".into(),
+        version: None,
+        format: PackageFormat::ElfBinary,
+        description: None,
+        source_path: dummy_src.to_string_lossy().to_string(),
+        size: 128,
+        hash: String::new(),
+        architecture: None,
+        maintainer: None,
+        homepage: None,
     };
 
     let extractor = app2nix_extractor::DefaultExtractor::new();
     let extract_dir = dir.join("extract-output");
-    let files = extractor.extract(&package, &extract_dir.to_string_lossy()).unwrap();
+    let files = extractor
+        .extract(&package, &extract_dir.to_string_lossy())
+        .unwrap();
 
     assert!(!files.is_empty(), "should have extracted files");
-    assert!(files.iter().any(|f| f.relative_path.contains("dummy-elf") ||
-                                f.relative_path == "dummy-elf"),
-            "should contain the ELF file");
+    assert!(
+        files
+            .iter()
+            .any(|f| f.relative_path.contains("dummy-elf") || f.relative_path == "dummy-elf"),
+        "should contain the ELF file"
+    );
 }

@@ -5,9 +5,8 @@ use std::fs;
 mod tests;
 
 use app2nix_core::{
-    PackageInfo, ExtractedFile, ElfInfo, AnalysisResult,
-    ResolvedDependency, DetectedDesktopEntry, DetectedIcon, AppTypeHint,
-    Analyzer, Result,
+    AnalysisResult, Analyzer, AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo,
+    ExtractedFile, PackageInfo, ResolvedDependency, Result,
 };
 
 #[derive(Default)]
@@ -42,10 +41,7 @@ impl DefaultAnalyzer {
             if let Some(val) = line.strip_prefix("interpreter: ") {
                 interpreter = Some(val.to_string());
             } else if let Some(val) = line.strip_prefix("rpath: ") {
-                rpath = val
-                    .split(':')
-                    .map(|s| s.to_string())
-                    .collect();
+                rpath = val.split(':').map(|s| s.to_string()).collect();
             } else if let Some(val) = line.strip_prefix("needed: ") {
                 needed_libs.push(val.to_string());
             }
@@ -87,9 +83,9 @@ impl DefaultAnalyzer {
             return Some(f.path.clone());
         }
 
-        let any_bin = files.iter().find(|f| {
-            f.relative_path.starts_with("bin/") || f.relative_path.starts_with("opt/")
-        });
+        let any_bin = files
+            .iter()
+            .find(|f| f.relative_path.starts_with("bin/") || f.relative_path.starts_with("opt/"));
         if let Some(f) = any_bin {
             return Some(f.path.clone());
         }
@@ -100,7 +96,9 @@ impl DefaultAnalyzer {
     fn detect_desktop_entries(files: &[ExtractedFile]) -> Vec<DetectedDesktopEntry> {
         let mut entries = Vec::new();
         for f in files {
-            if !f.relative_path.starts_with("usr/share/applications/") && !f.relative_path.ends_with(".desktop") {
+            if !f.relative_path.starts_with("usr/share/applications/")
+                && !f.relative_path.ends_with(".desktop")
+            {
                 continue;
             }
             let content = match fs::read_to_string(&f.path) {
@@ -121,7 +119,11 @@ impl DefaultAnalyzer {
                 } else if let Some(v) = line.strip_prefix("Icon=") {
                     icon = Some(v.to_string());
                 } else if let Some(v) = line.strip_prefix("Categories=") {
-                    categories = v.split(';').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
+                    categories = v
+                        .split(';')
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.to_string())
+                        .collect();
                 }
             }
 
@@ -176,7 +178,10 @@ impl DefaultAnalyzer {
         let mut hints = Vec::new();
         let paths: Vec<&str> = files.iter().map(|f| f.relative_path.as_str()).collect();
 
-        if paths.iter().any(|p| p.contains("electron") || p.ends_with("resources/app.asar")) {
+        if paths
+            .iter()
+            .any(|p| p.contains("electron") || p.ends_with("resources/app.asar"))
+        {
             hints.push(AppTypeHint::Electron);
         }
         if paths.iter().any(|p| p.ends_with(".jar")) {
@@ -191,7 +196,10 @@ impl DefaultAnalyzer {
                 jvm_version: None,
             }));
         }
-        if paths.iter().any(|p| p.contains("node_modules") || p.ends_with("package.json")) {
+        if paths
+            .iter()
+            .any(|p| p.contains("node_modules") || p.ends_with("package.json"))
+        {
             hints.push(AppTypeHint::NodeJs(app2nix_core::NodeInfo {
                 entry_point: None,
                 has_node_modules: true,
@@ -202,10 +210,7 @@ impl DefaultAnalyzer {
     }
 
     fn _resolve_ldd(path: &str) -> Vec<String> {
-        let output = match std::process::Command::new("ldd")
-            .arg(path)
-            .output()
-        {
+        let output = match std::process::Command::new("ldd").arg(path).output() {
             Ok(o) => o,
             Err(_) => return Vec::new(),
         };
@@ -222,7 +227,9 @@ impl DefaultAnalyzer {
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     if parts.len() >= 2 {
                         let lib = parts[0].to_string();
-                        if parts.get(1) == Some(&"=>") && parts.get(2).map(|p| p.starts_with('/')) == Some(true) {
+                        if parts.get(1) == Some(&"=>")
+                            && parts.get(2).map(|p| p.starts_with('/')) == Some(true)
+                        {
                             None
                         } else if parts.get(1) == Some(&"=>") {
                             Some(lib)
@@ -244,7 +251,10 @@ impl DefaultAnalyzer {
 
         let mut resolved = Vec::new();
         for lib in needed {
-            let lib_clean = lib.trim_start_matches("lib").trim_end_matches(".so*").trim_end_matches(".so");
+            let lib_clean = lib
+                .trim_start_matches("lib")
+                .trim_end_matches(".so*")
+                .trim_end_matches(".so");
             let lib_clean = lib_clean.split('.').next().unwrap_or(lib_clean);
             let lib_clean = lib_clean.trim_end_matches(|c: char| c.is_ascii_digit());
 
@@ -273,7 +283,10 @@ impl DefaultAnalyzer {
     }
 }
 
-fn fuzzy_match(lib: &str, map: &std::collections::HashMap<String, (String, String)>) -> Option<(String, String)> {
+fn fuzzy_match(
+    lib: &str,
+    map: &std::collections::HashMap<String, (String, String)>,
+) -> Option<(String, String)> {
     for (key, val) in map {
         if key.len() < 2 {
             continue;

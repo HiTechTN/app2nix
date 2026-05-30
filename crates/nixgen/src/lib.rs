@@ -1,13 +1,10 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{
-    GenerateOptions, PackageFormat, NixGenerator,
-    Result, App2NixError,
-};
+use app2nix_core::{App2NixError, GenerateOptions, NixGenerator, PackageFormat, Result};
 
 #[derive(Default)]
 pub struct DefaultNixGenerator;
@@ -28,7 +25,7 @@ impl DefaultNixGenerator {
         let main_bin_relative = if bin_path.contains('/') {
             let parts: Vec<&str> = bin_path.split('/').collect();
             if parts.len() > 2 {
-                format!("$out/{}", parts[parts.len()-2..].join("/"))
+                format!("$out/{}", parts[parts.len() - 2..].join("/"))
             } else {
                 format!("$out/{}", bin_path)
             }
@@ -107,7 +104,9 @@ stdenv.mkDerivation {{
             name = sanitize_name(&opts.app_name),
             version = sanitize_version(&opts.version),
             description = opts.description.replace('"', r#"\""#),
-            inputs = opts.build_inputs.iter()
+            inputs = opts
+                .build_inputs
+                .iter()
                 .filter(|i| i.contains('.'))
                 .map(|i| {
                     let (ns, attr) = i.split_once('.').unwrap_or(("pkgs", i));
@@ -165,21 +164,18 @@ stdenv.mkDerivation {{
 
     fn generate_install_phase(&self, opts: &GenerateOptions) -> String {
         match opts.format {
-            PackageFormat::Deb => {
-                r#"dpkg-deb -x "$src" $out
+            PackageFormat::Deb => r#"dpkg-deb -x "$src" $out
 # Move files from usr/ to proper locations
 if [ -d "$out/usr" ]; then
     cp -rfl $out/usr/* $out/ 2>/dev/null || cp -r $out/usr/* $out/
     rm -rf $out/usr
 fi
-"#.to_string()
-            }
-            PackageFormat::Rpm => {
-                r#"rpm2cpio "$src" | cpio -idmv -D $out
-"#.to_string()
-            }
-            PackageFormat::AppImage => {
-                r#"chmod +x "$src"
+"#
+            .to_string(),
+            PackageFormat::Rpm => r#"rpm2cpio "$src" | cpio -idmv -D $out
+"#
+            .to_string(),
+            PackageFormat::AppImage => r#"chmod +x "$src"
 # Try --appimage-extract first
 "$src" --appimage-extract --dest=$out/appimage-extracted 2>/dev/null || \
     unsquashfs -d $out/appimage-extracted "$src" 2>/dev/null || true
@@ -190,18 +186,17 @@ if [ -d "$out/appimage-extracted" ]; then
 fi
 # Find and copy the AppRun or main binary
 find $out -name "AppRun" -type f -exec cp {} $out/bin/ \; 2>/dev/null || true
-"#.to_string()
-            }
+"#
+            .to_string(),
             PackageFormat::TarGz | PackageFormat::Zip => {
                 "cp -rfl * $out/ 2>/dev/null || cp -r * $out/\n".to_string()
             }
             PackageFormat::ElfBinary | PackageFormat::Electron => {
                 "cp \"$src\" $out/bin/\nchmod +x $out/bin/*\n".to_string()
             }
-            _ => {
-                r#"cp -r * $out/ 2>/dev/null || true
-"#.to_string()
-            }
+            _ => r#"cp -r * $out/ 2>/dev/null || true
+"#
+            .to_string(),
         }
     }
 
@@ -213,7 +208,10 @@ find $out -name "AppRun" -type f -exec cp {} $out/bin/ \; 2>/dev/null || true
         let mut phase = String::from("\n    # Install desktop integration files\n");
 
         for entry in &opts.desktop_entries {
-            let desktop_path = entry.path.trim_start_matches("/build/").trim_start_matches("/tmp/");
+            let desktop_path = entry
+                .path
+                .trim_start_matches("/build/")
+                .trim_start_matches("/tmp/");
             phase.push_str("mkdir -p $out/share/applications\n");
             phase.push_str(&format!(
                 "cp -f {} $out/share/applications/ 2>/dev/null || true\n",
@@ -222,7 +220,10 @@ find $out -name "AppRun" -type f -exec cp {} $out/bin/ \; 2>/dev/null || true
         }
 
         for icon in &opts.icons {
-            let icon_path = icon.path.trim_start_matches("/build/").trim_start_matches("/tmp/");
+            let icon_path = icon
+                .path
+                .trim_start_matches("/build/")
+                .trim_start_matches("/tmp/");
             phase.push_str("mkdir -p $out/share/icons/hicolor/48x48/apps\n");
             phase.push_str(&format!(
                 "cp -f {} $out/share/icons/hicolor/48x48/apps/ 2>/dev/null || true\n",
@@ -338,7 +339,13 @@ impl NixGenerator for DefaultNixGenerator {
 pub fn sanitize_name(name: &str) -> String {
     name.to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim_matches('-')
         .to_string()

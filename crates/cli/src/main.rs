@@ -2,17 +2,17 @@ use std::path::Path;
 
 use clap::{Parser, Subcommand};
 
+use app2nix_analyzer::DefaultAnalyzer;
 use app2nix_core::{
-    App2NixConfig, Pipeline, Result, App2NixError,
-    Detector, Extractor, Analyzer, Installer, DesktopIntegrator,
+    Analyzer, App2NixConfig, App2NixError, DesktopIntegrator, Detector, Extractor, Installer,
+    Pipeline, Result,
 };
+use app2nix_desktop::DefaultDesktopIntegrator;
 use app2nix_detector::DefaultDetector;
 use app2nix_extractor::DefaultExtractor;
-use app2nix_analyzer::DefaultAnalyzer;
-use app2nix_patcher::DefaultPatcher;
-use app2nix_nixgen::DefaultNixGenerator;
 use app2nix_installer::DefaultInstaller;
-use app2nix_desktop::DefaultDesktopIntegrator;
+use app2nix_nixgen::DefaultNixGenerator;
+use app2nix_patcher::DefaultPatcher;
 
 #[derive(Parser)]
 #[command(name = "app2nix")]
@@ -145,13 +145,22 @@ fn main() {
     }
 
     let result = match &cli.command {
-        Commands::Install { file, name: _name, build_only: _build_only, fhs: _fhs, no_desktop: _no_desktop } => {
-            cmd_install(&config, file)
-        }
+        Commands::Install {
+            file,
+            name: _name,
+            build_only: _build_only,
+            fhs: _fhs,
+            no_desktop: _no_desktop,
+        } => cmd_install(&config, file),
         Commands::Uninstall { app } => cmd_uninstall(&config, app),
         Commands::List => cmd_list(&config),
         Commands::Inspect { file, format } => cmd_inspect(&config, file, format),
-        Commands::Build { file, output, name, fhs } => cmd_build(&config, file, output, name.as_deref(), *fhs),
+        Commands::Build {
+            file,
+            output,
+            name,
+            fhs,
+        } => cmd_build(&config, file, output, name.as_deref(), *fhs),
         Commands::Doctor => cmd_doctor(&config),
         Commands::Cache { action } => cmd_cache(&config, action),
         Commands::Clean { all } => cmd_clean(&config, *all),
@@ -176,13 +185,12 @@ fn build_pipeline(config: &App2NixConfig) -> Pipeline {
     ));
     let desktop = Box::new(DefaultDesktopIntegrator::new());
 
-    Pipeline::new(detector, extractor, analyzer, patcher, generator, installer, desktop)
+    Pipeline::new(
+        detector, extractor, analyzer, patcher, generator, installer, desktop,
+    )
 }
 
-fn cmd_install(
-    config: &App2NixConfig,
-    file: &str,
-) -> Result<()> {
+fn cmd_install(config: &App2NixConfig, file: &str) -> Result<()> {
     eprintln!("🔍 app2nix v{}", env!("CARGO_PKG_VERSION"));
     eprintln!("──────────────────────────────────────");
 
@@ -192,23 +200,36 @@ fn cmd_install(
 
     let pipeline = build_pipeline(config);
 
-    let work_dir = config.builds_dir()
+    let work_dir = config
+        .builds_dir()
         .join("install")
         .join(chrono::Utc::now().format("%Y%m%d%H%M%S").to_string());
 
     eprintln!("📦 Detecting package type...");
     let result = pipeline.run(file, &work_dir.to_string_lossy())?;
 
-    eprintln!("✅ {} v{} installed successfully!", result.app_name, result.version);
-    eprintln!("   Store path: {}", result.store_paths.first().unwrap_or(&String::new()));
-    eprintln!("   Profile: {}", result.profile_name.as_deref().unwrap_or("unknown"));
+    eprintln!(
+        "✅ {} v{} installed successfully!",
+        result.app_name, result.version
+    );
+    eprintln!(
+        "   Store path: {}",
+        result.store_paths.first().unwrap_or(&String::new())
+    );
+    eprintln!(
+        "   Profile: {}",
+        result.profile_name.as_deref().unwrap_or("unknown")
+    );
 
     for desktop in &result.desktop_files {
         eprintln!("   Desktop: {}", desktop);
     }
 
     eprintln!();
-    eprintln!("   You can now run '{}' from your application menu or terminal.", result.app_name);
+    eprintln!(
+        "   You can now run '{}' from your application menu or terminal.",
+        result.app_name
+    );
 
     if !config.keep_build {
         let _ = std::fs::remove_dir_all(&work_dir);
@@ -286,9 +307,15 @@ fn cmd_inspect(config: &App2NixConfig, file: &str, format: &str) -> Result<()> {
     let analysis = analyzer.analyze(&package_info, &files)?;
 
     if format == "json" {
-        println!("{}", serde_json::to_string_pretty(&analysis).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&analysis).unwrap_or_default()
+        );
     } else {
-        eprintln!(" Package: {} ({})", analysis.package.name, analysis.package.format);
+        eprintln!(
+            " Package: {} ({})",
+            analysis.package.name, analysis.package.format
+        );
         eprintln!(" Path: {}", analysis.package.source_path);
         eprintln!(" Size: {} bytes", analysis.package.size);
         eprintln!(" Hash: {}", analysis.package.hash);
@@ -354,21 +381,29 @@ fn cmd_build(
 
     let pipeline = build_pipeline(config);
 
-    let work_dir = config.builds_dir()
+    let work_dir = config
+        .builds_dir()
         .join("build")
         .join(chrono::Utc::now().format("%Y%m%d%H%M%S").to_string());
 
     let package_info = pipeline.detector.detect(file)?;
-    let extracted = pipeline.extractor.extract(&package_info, &work_dir.to_string_lossy())?;
+    let extracted = pipeline
+        .extractor
+        .extract(&package_info, &work_dir.to_string_lossy())?;
     let analysis = pipeline.analyzer.analyze(&package_info, &extracted)?;
 
     let opts = app2nix_core::GenerateOptions {
         app_name: name.unwrap_or(&package_info.name).to_string(),
-        version: package_info.version.clone().unwrap_or_else(|| "1.0.0".into()),
+        version: package_info
+            .version
+            .clone()
+            .unwrap_or_else(|| "1.0.0".into()),
         description: package_info.description.clone().unwrap_or_default(),
         format: package_info.format,
         main_binary: analysis.main_binary.clone(),
-        build_inputs: analysis.resolved_deps.iter()
+        build_inputs: analysis
+            .resolved_deps
+            .iter()
             .filter_map(|d| d.nix_attr.clone())
             .collect(),
         native_build_inputs: vec!["autoPatchelfHook".into()],
@@ -382,7 +417,9 @@ fn cmd_build(
         extra_phases: Vec::new(),
     };
 
-    let derivation_path = pipeline.generator.generate(&opts, &work_dir.to_string_lossy())?;
+    let derivation_path = pipeline
+        .generator
+        .generate(&opts, &work_dir.to_string_lossy())?;
     let store_path = pipeline.installer.build(&derivation_path, output)?;
 
     eprintln!("✅ Build complete!");
@@ -409,13 +446,20 @@ fn cmd_doctor(_config: &App2NixConfig) -> Result<()> {
         ("unzip", || which("unzip")),
         ("rpm2cpio", || which("rpm2cpio")),
         ("unsquashfs", || which("unsquashfs")),
-        ("update-desktop-database", || which("update-desktop-database")),
+        ("update-desktop-database", || {
+            which("update-desktop-database")
+        }),
     ];
 
     for (name, check_fn) in &checks {
         let found = check_fn();
         let status = if found { "✓" } else { "✗" };
-        eprintln!(" {} {} {}", status, name, if found { "found" } else { "not found" });
+        eprintln!(
+            " {} {} {}",
+            status,
+            name,
+            if found { "found" } else { "not found" }
+        );
     }
 
     eprintln!();
@@ -426,7 +470,10 @@ fn cmd_doctor(_config: &App2NixConfig) -> Result<()> {
             .output()
             .ok();
         if let Some(output) = version_output {
-            eprintln!(" nix version: {}", String::from_utf8_lossy(&output.stdout).trim());
+            eprintln!(
+                " nix version: {}",
+                String::from_utf8_lossy(&output.stdout).trim()
+            );
         }
 
         if let Ok(nixos_output) = std::process::Command::new("nixos-version")

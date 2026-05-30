@@ -1,11 +1,11 @@
-use std::path::Path;
+use sha2::{Digest, Sha256};
 use std::fs;
-use sha2::{Sha256, Digest};
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{PackageInfo, PackageFormat, Detector, App2NixError, Result};
+use app2nix_core::{App2NixError, Detector, PackageFormat, PackageInfo, Result};
 
 #[derive(Default)]
 pub struct DefaultDetector;
@@ -53,13 +53,16 @@ impl DefaultDetector {
             return None;
         }
 
-        if (data.starts_with(b"!<arch>\n") || data.starts_with(b"!<arch>\xde")) && data.len() > 60 && &data[..8] == b"!<arch>\n" {
-                let name = std::str::from_utf8(&data[16..60]).ok()?;
-                let deb_check = name.split_whitespace().next()?;
-                if deb_check.contains("debian") || deb_check.contains("deb") {
-                    return Some(PackageFormat::Deb);
-                }
+        if (data.starts_with(b"!<arch>\n") || data.starts_with(b"!<arch>\xde"))
+            && data.len() > 60
+            && &data[..8] == b"!<arch>\n"
+        {
+            let name = std::str::from_utf8(&data[16..60]).ok()?;
+            let deb_check = name.split_whitespace().next()?;
+            if deb_check.contains("debian") || deb_check.contains("deb") {
+                return Some(PackageFormat::Deb);
             }
+        }
 
         if &data[..4] == b"\x7fELF" {
             return Some(PackageFormat::ElfBinary);
@@ -176,8 +179,7 @@ impl Detector for DefaultDetector {
             return Err(App2NixError::FileNotFound(path.into()));
         }
 
-        let metadata = fs::metadata(path)
-            .map_err(App2NixError::Io)?;
+        let metadata = fs::metadata(path).map_err(App2NixError::Io)?;
         let size = metadata.len();
         let hash = Self::compute_hash(path);
 

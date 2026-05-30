@@ -1,5 +1,5 @@
 use crate::DefaultDetector;
-use app2nix_core::{PackageFormat, Detector};
+use app2nix_core::{Detector, PackageFormat};
 
 #[test]
 fn test_detect_by_extension_deb() {
@@ -118,7 +118,10 @@ fn test_compute_hash_empty_file() {
     std::fs::write(&path, b"").unwrap();
     let hash = DefaultDetector::compute_hash(&path.to_string_lossy());
     assert_eq!(hash.len(), 64, "SHA256 should be 64 hex chars");
-    assert_eq!(hash, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert_eq!(
+        hash,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -130,7 +133,10 @@ fn test_compute_hash_known_content() {
     let path = dir.join("hello.bin");
     std::fs::write(&path, b"hello").unwrap();
     let hash = DefaultDetector::compute_hash(&path.to_string_lossy());
-    assert_eq!(hash, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    assert_eq!(
+        hash,
+        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

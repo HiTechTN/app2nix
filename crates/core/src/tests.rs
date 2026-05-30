@@ -1,8 +1,8 @@
-use crate::types::*;
-use crate::error::*;
 use crate::config::App2NixConfig;
-use crate::progress::*;
+use crate::error::*;
 use crate::pipeline::*;
+use crate::progress::*;
+use crate::types::*;
 use std::collections::HashMap;
 
 // ── PackageFormat ──────────────────────────────────────────────────────
@@ -581,8 +581,14 @@ fn test_config_builder_chaining() {
 #[test]
 fn test_config_paths() {
     let cfg = App2NixConfig::default();
-    assert!(cfg.cache_db_path().to_string_lossy().ends_with("resolver.db"));
-    assert!(cfg.registry_path().to_string_lossy().ends_with("registry.json"));
+    assert!(cfg
+        .cache_db_path()
+        .to_string_lossy()
+        .ends_with("resolver.db"));
+    assert!(cfg
+        .registry_path()
+        .to_string_lossy()
+        .ends_with("registry.json"));
     assert!(cfg.builds_dir().to_string_lossy().contains("app2nix-build"));
 }
 
@@ -593,7 +599,12 @@ fn test_progress_construction() {
     let tracker = ProgressTracker::new(vec!["Detect", "Extract", "Analyze", "Generate"]);
     assert_eq!(tracker.total_steps, 4);
     assert_eq!(tracker.steps.len(), 4);
-    assert_eq!(tracker.current_step.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert_eq!(
+        tracker
+            .current_step
+            .load(std::sync::atomic::Ordering::SeqCst),
+        0
+    );
 }
 
 #[test]
@@ -621,7 +632,9 @@ fn test_progress_fail_step() {
     let mut tracker = ProgressTracker::new(vec!["Step1"]);
     let idx = tracker.advance();
     tracker.fail_step(idx, "Something went wrong".into());
-    assert!(matches!(&tracker.steps[idx].status, StepStatus::Failed(msg) if msg == "Something went wrong"));
+    assert!(
+        matches!(&tracker.steps[idx].status, StepStatus::Failed(msg) if msg == "Something went wrong")
+    );
 }
 
 #[test]

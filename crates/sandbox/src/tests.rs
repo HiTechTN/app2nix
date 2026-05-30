@@ -15,17 +15,32 @@ fn test_sandbox_enabled_creates_directories() {
     let sandbox = Sandbox::new(true);
     assert!(sandbox.is_enabled());
     let path = sandbox.create_sandbox("test-dir").unwrap();
-    assert!(path.contains("app2nix-sandbox"), "Should create sandbox dir");
-    
+    assert!(
+        path.contains("app2nix-sandbox"),
+        "Should create sandbox dir"
+    );
+
     // Verify subdirectories exist
     let sandbox_path = std::path::Path::new(&path);
-    assert!(sandbox_path.join("build").exists(), "build dir should exist");
-    assert!(sandbox_path.join("cache").exists(), "cache dir should exist");
-    assert!(sandbox_path.join("output").exists(), "output dir should exist");
+    assert!(
+        sandbox_path.join("build").exists(),
+        "build dir should exist"
+    );
+    assert!(
+        sandbox_path.join("cache").exists(),
+        "cache dir should exist"
+    );
+    assert!(
+        sandbox_path.join("output").exists(),
+        "output dir should exist"
+    );
 
     // Cleanup
     assert!(sandbox.cleanup(&path).is_ok());
-    assert!(!sandbox_path.exists(), "Sandbox dir should be removed after cleanup");
+    assert!(
+        !sandbox_path.exists(),
+        "Sandbox dir should be removed after cleanup"
+    );
 }
 
 #[test]

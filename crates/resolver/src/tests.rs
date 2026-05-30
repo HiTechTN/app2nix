@@ -1,4 +1,4 @@
-use crate::{DependencyResolver, levenshtein_distance};
+use crate::{levenshtein_distance, DependencyResolver};
 
 #[test]
 fn test_levenshtein_identical() {
@@ -78,9 +78,18 @@ fn test_resolve_known_lib() {
 #[test]
 fn test_resolve_glibc_lib() {
     let resolver = DependencyResolver::new();
-    assert_eq!(resolver.resolve("libpthread.so.0"), Some(("glibc".to_string(), "glibc".to_string())));
-    assert_eq!(resolver.resolve("libm.so.6"), Some(("glibc".to_string(), "glibc".to_string())));
-    assert_eq!(resolver.resolve("libdl.so.2"), Some(("glibc".to_string(), "glibc".to_string())));
+    assert_eq!(
+        resolver.resolve("libpthread.so.0"),
+        Some(("glibc".to_string(), "glibc".to_string()))
+    );
+    assert_eq!(
+        resolver.resolve("libm.so.6"),
+        Some(("glibc".to_string(), "glibc".to_string()))
+    );
+    assert_eq!(
+        resolver.resolve("libdl.so.2"),
+        Some(("glibc".to_string(), "glibc".to_string()))
+    );
 }
 
 #[test]
@@ -93,25 +102,38 @@ fn test_resolve_unknown_lib() {
 #[test]
 fn test_resolve_x11() {
     let resolver = DependencyResolver::new();
-    assert_eq!(resolver.resolve("libX11.so.6"), Some(("xorg.libX11".to_string(), "libX11".to_string())));
+    assert_eq!(
+        resolver.resolve("libX11.so.6"),
+        Some(("xorg.libX11".to_string(), "libX11".to_string()))
+    );
 }
 
 #[test]
 fn test_resolve_qt5() {
     let resolver = DependencyResolver::new();
-    assert_eq!(resolver.resolve("libQt5Core.so.5"), Some(("qt5.qtbase".to_string(), "qt5".to_string())));
+    assert_eq!(
+        resolver.resolve("libQt5Core.so.5"),
+        Some(("qt5.qtbase".to_string(), "qt5".to_string()))
+    );
 }
 
 #[test]
 fn test_resolve_qt6() {
     let resolver = DependencyResolver::new();
-    assert_eq!(resolver.resolve("libQt6Widgets.so.6"), Some(("qt6.qtbase".to_string(), "qt6".to_string())));
+    assert_eq!(
+        resolver.resolve("libQt6Widgets.so.6"),
+        Some(("qt6.qtbase".to_string(), "qt6".to_string()))
+    );
 }
 
 #[test]
 fn test_resolve_all_mixed() {
     let resolver = DependencyResolver::new();
-    let libs = vec!["libz.so.1".to_string(), "libQt5Core.so.5".to_string(), "libunknown_xyz.so".to_string()];
+    let libs = vec![
+        "libz.so.1".to_string(),
+        "libQt5Core.so.5".to_string(),
+        "libunknown_xyz.so".to_string(),
+    ];
     let results = resolver.resolve_all(&libs);
     assert_eq!(results.len(), 3);
     assert!(results[0].system_lib);
@@ -126,7 +148,10 @@ fn test_resolve_caches_fuzzy_result() {
     let resolver = DependencyResolver::new();
     let _ = resolver.resolve("libsndfille.so.1"); // close to "sndfile"
     let result = resolver.resolve("libsndfille.so.1");
-    assert_eq!(result, Some(("libsndfile".to_string(), "libsndfile".to_string())));
+    assert_eq!(
+        result,
+        Some(("libsndfile".to_string(), "libsndfile".to_string()))
+    );
 }
 
 #[test]
@@ -139,13 +164,22 @@ fn test_build_dep_map_has_essential_entries() {
     assert!(m.contains_key("ssl"));
     assert!(m.contains_key("pthread"));
     assert!(m.contains_key("gtk"));
-    assert_eq!(m.get("c").unwrap(), &("glibc".to_string(), "glibc".to_string()));
-    assert_eq!(m.get("z").unwrap(), &("zlib".to_string(), "zlib".to_string()));
+    assert_eq!(
+        m.get("c").unwrap(),
+        &("glibc".to_string(), "glibc".to_string())
+    );
+    assert_eq!(
+        m.get("z").unwrap(),
+        &("zlib".to_string(), "zlib".to_string())
+    );
 }
 
 #[test]
 fn test_dep_map_size_is_reasonable() {
     let m = crate::build_dep_map();
-    assert!(m.len() > 50, "Should have at least 50 known library mappings");
+    assert!(
+        m.len() > 50,
+        "Should have at least 50 known library mappings"
+    );
     assert!(m.len() < 200, "Should not have more than 200 entries");
 }

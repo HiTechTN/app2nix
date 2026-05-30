@@ -1,13 +1,8 @@
 """Main window for the app2nix graphical interface."""
 
-import json
 from pathlib import Path
-from typing import Optional
-
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -20,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app2nix.gui.i18n import tr
-from app2nix.gui.theme import ALL as THEMES, get as get_theme, set as set_theme
+from app2nix.gui.theme import get as get_theme, set as set_theme
 
 # Required keys for theme dictionaries (validated on every theme apply)
 _REQUIRED_THEME_KEYS = {
@@ -38,7 +33,7 @@ SUPPORTED_EXTENSIONS = {
 }
 
 
-def _detect_format(path: str) -> Optional[str]:
+def _detect_format(path: str) -> str | None:
     """Return the extension key for a supported format, or None."""
     name = path.lower()
     if name.endswith(".tar.gz") or name.endswith(".tgz"):
@@ -92,9 +87,9 @@ class App2NixWindow(QWidget):
         self.setObjectName("mainWidget")
 
         # State
-        self.current_file: Optional[str] = None
+        self.current_file: str | None = None
         self._analysis_result = None
-        self._worker: Optional[AnalyzeWorker] = None
+        self._worker: AnalyzeWorker | None = None
         self._theme_mode = "light"
 
         self._build_ui()
@@ -280,8 +275,8 @@ class App2NixWindow(QWidget):
         # Validate required theme keys — fallback to LIGHT defaults for any missing
         missing = _REQUIRED_THEME_KEYS - t.keys()
         if missing:
-            from app2nix.gui.theme import LIGHT as _default_theme
-            t = {**_default_theme, **t}
+            from app2nix.gui.theme import LIGHT as default_theme
+            t = {**default_theme, **t}
 
         h = t["header_start"]
         he = t["header_end"]

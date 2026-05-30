@@ -2,8 +2,8 @@
 mod tests;
 
 use app2nix_core::{
-    PackageFormat, AnalysisResult, Plugin, Detector, Extractor, Analyzer,
-    Patcher, NixGenerator, Installer, DesktopIntegrator, Result, App2NixError,
+    AnalysisResult, Analyzer, App2NixError, DesktopIntegrator, Detector, Extractor, Installer,
+    NixGenerator, PackageFormat, Patcher, Plugin, Result,
 };
 
 #[derive(Default)]
@@ -155,13 +155,20 @@ impl PipelineBuilder {
 
     pub fn build(self) -> Result<Pipeline> {
         Ok(Pipeline::new(
-            self.detector.ok_or_else(|| App2NixError::PluginError("Detector not set".into()))?,
-            self.extractor.ok_or_else(|| App2NixError::PluginError("Extractor not set".into()))?,
-            self.analyzer.ok_or_else(|| App2NixError::PluginError("Analyzer not set".into()))?,
-            self.patcher.ok_or_else(|| App2NixError::PluginError("Patcher not set".into()))?,
-            self.generator.ok_or_else(|| App2NixError::PluginError("Generator not set".into()))?,
-            self.installer.ok_or_else(|| App2NixError::PluginError("Installer not set".into()))?,
-            self.desktop.ok_or_else(|| App2NixError::PluginError("Desktop integrator not set".into()))?,
+            self.detector
+                .ok_or_else(|| App2NixError::PluginError("Detector not set".into()))?,
+            self.extractor
+                .ok_or_else(|| App2NixError::PluginError("Extractor not set".into()))?,
+            self.analyzer
+                .ok_or_else(|| App2NixError::PluginError("Analyzer not set".into()))?,
+            self.patcher
+                .ok_or_else(|| App2NixError::PluginError("Patcher not set".into()))?,
+            self.generator
+                .ok_or_else(|| App2NixError::PluginError("Generator not set".into()))?,
+            self.installer
+                .ok_or_else(|| App2NixError::PluginError("Installer not set".into()))?,
+            self.desktop
+                .ok_or_else(|| App2NixError::PluginError("Desktop integrator not set".into()))?,
         ))
     }
 }

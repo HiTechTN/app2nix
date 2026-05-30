@@ -1,14 +1,18 @@
 use crate::DefaultAnalyzer;
 use app2nix_core::{
-    ExtractedFile, ElfInfo, PackageInfo, PackageFormat,
-    DetectedDesktopEntry, DetectedIcon, AppTypeHint,
+    AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile, PackageFormat,
+    PackageInfo,
 };
 
 fn make_file(relative_path: &str, is_elf: bool, is_exec: bool) -> ExtractedFile {
     ExtractedFile {
         path: format!("/tmp/test/{}", relative_path),
         relative_path: relative_path.to_string(),
-        file_type: if is_elf { "application/x-executable".into() } else { "text/plain".into() },
+        file_type: if is_elf {
+            "application/x-executable".into()
+        } else {
+            "text/plain".into()
+        },
         is_elf,
         is_executable: is_exec,
         size: 1024,
@@ -69,15 +73,23 @@ fn test_detect_desktop_entries_parses_content() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("usr/share/applications")).unwrap();
     let desktop_path = dir.join("usr/share/applications/app.desktop");
-    std::fs::write(&desktop_path, r#"[Desktop Entry]
+    std::fs::write(
+        &desktop_path,
+        r#"[Desktop Entry]
 Name=TestApp
 Exec=/usr/bin/testapp
 Icon=testapp
 Categories=Utility;Development;
 Terminal=false
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
-    let files = vec![make_file("usr/share/applications/app.desktop", false, false)];
+    let files = vec![make_file(
+        "usr/share/applications/app.desktop",
+        false,
+        false,
+    )];
     // We need to override the path to match our temp dir
     let files = vec![ExtractedFile {
         path: desktop_path.to_string_lossy().to_string(),
@@ -93,7 +105,10 @@ Terminal=false
     assert_eq!(entries[0].app_name, "TestApp");
     assert_eq!(entries[0].exec_line, "/usr/bin/testapp");
     assert_eq!(entries[0].icon_path, Some("testapp".to_string()));
-    assert_eq!(entries[0].categories, vec!["Utility".to_string(), "Development".to_string()]);
+    assert_eq!(
+        entries[0].categories,
+        vec!["Utility".to_string(), "Development".to_string()]
+    );
 
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -122,7 +137,11 @@ fn test_detect_desktop_entries_skips_invalid() {
 
 #[test]
 fn test_detect_icons_png() {
-    let files = vec![make_file("usr/share/icons/hicolor/48x48/apps/app.png", false, false)];
+    let files = vec![make_file(
+        "usr/share/icons/hicolor/48x48/apps/app.png",
+        false,
+        false,
+    )];
     let icons = DefaultAnalyzer::detect_icons(&files);
     assert_eq!(icons.len(), 1);
     assert_eq!(icons[0].format, "png");
@@ -130,7 +149,11 @@ fn test_detect_icons_png() {
 
 #[test]
 fn test_detect_icons_svg() {
-    let files = vec![make_file("usr/share/icons/hicolor/scalable/apps/app.svg", false, false)];
+    let files = vec![make_file(
+        "usr/share/icons/hicolor/scalable/apps/app.svg",
+        false,
+        false,
+    )];
     let icons = DefaultAnalyzer::detect_icons(&files);
     assert_eq!(icons.len(), 1);
     assert_eq!(icons[0].format, "svg");
@@ -160,7 +183,11 @@ fn test_detect_icons_skips_non_icons() {
 
 #[test]
 fn test_detect_app_type_electron() {
-    let files = vec![make_file("usr/share/electron/resources/app.asar", false, false)];
+    let files = vec![make_file(
+        "usr/share/electron/resources/app.asar",
+        false,
+        false,
+    )];
     let hints = DefaultAnalyzer::detect_app_type(&files);
     assert!(hints.iter().any(|h| matches!(h, AppTypeHint::Electron)));
 }
@@ -229,33 +256,57 @@ fn test_dependency_map_size() {
 fn test_dependency_map_dedup() {
     let map = crate::dependency_map();
     // pthread appears twice in the macro - last value wins
-    assert_eq!(map.get("pthread"), Some(&("glibc".to_string(), "glibc".to_string())));
-    // xcb appears as "xorg.libxcb" 
-    assert_eq!(map.get("xcb"), Some(&("xorg.libxcb".to_string(), "libxcb".to_string())));
+    assert_eq!(
+        map.get("pthread"),
+        Some(&("glibc".to_string(), "glibc".to_string()))
+    );
+    // xcb appears as "xorg.libxcb"
+    assert_eq!(
+        map.get("xcb"),
+        Some(&("xorg.libxcb".to_string(), "libxcb".to_string()))
+    );
 }
 
 #[test]
 fn test_fuzzy_match_exact_contains() {
     let mut map = std::collections::HashMap::new();
-    map.insert("sndfile".to_string(), ("libsndfile".to_string(), "libsndfile".to_string()));
+    map.insert(
+        "sndfile".to_string(),
+        ("libsndfile".to_string(), "libsndfile".to_string()),
+    );
     let result = crate::fuzzy_match("sndfile", &map);
-    assert_eq!(result, Some(("libsndfile".to_string(), "libsndfile".to_string())));
+    assert_eq!(
+        result,
+        Some(("libsndfile".to_string(), "libsndfile".to_string()))
+    );
 }
 
 #[test]
 fn test_fuzzy_match_substring_key_contains_lib() {
     let mut map = std::collections::HashMap::new();
-    map.insert("sndfile".to_string(), ("libsndfile".to_string(), "libsndfile".to_string()));
+    map.insert(
+        "sndfile".to_string(),
+        ("libsndfile".to_string(), "libsndfile".to_string()),
+    );
     let result = crate::fuzzy_match("file", &map);
-    assert_eq!(result, Some(("libsndfile".to_string(), "libsndfile".to_string())));
+    assert_eq!(
+        result,
+        Some(("libsndfile".to_string(), "libsndfile".to_string()))
+    );
 }
 
 #[test]
 fn test_fuzzy_match_substring_lib_contains_key() {
     let mut map = std::collections::HashMap::new();
-    map.insert("sndfile".to_string(), ("libsndfile".to_string(), "libsndfile".to_string()));
+    map.insert(
+        "sndfile".to_string(),
+        ("libsndfile".to_string(), "libsndfile".to_string()),
+    );
     let result = crate::fuzzy_match("libsndfile-extra", &map);
-    assert_eq!(result, Some(("libsndfile".to_string(), "libsndfile".to_string())));
+    assert_eq!(
+        result,
+        Some(("libsndfile".to_string(), "libsndfile".to_string()))
+    );
 }
 
 #[test]
@@ -268,10 +319,19 @@ fn test_fuzzy_match_no_match() {
 #[test]
 fn test_fuzzy_match_multiple_map() {
     let mut map = std::collections::HashMap::new();
-    map.insert("sndfile".to_string(), ("libsndfile".to_string(), "libsndfile".to_string()));
-    map.insert("uuid".to_string(), ("util-linux".to_string(), "util-linux".to_string()));
+    map.insert(
+        "sndfile".to_string(),
+        ("libsndfile".to_string(), "libsndfile".to_string()),
+    );
+    map.insert(
+        "uuid".to_string(),
+        ("util-linux".to_string(), "util-linux".to_string()),
+    );
     let result = crate::fuzzy_match("uuid", &map);
-    assert_eq!(result, Some(("util-linux".to_string(), "util-linux".to_string())));
+    assert_eq!(
+        result,
+        Some(("util-linux".to_string(), "util-linux".to_string()))
+    );
 }
 
 #[test]

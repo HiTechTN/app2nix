@@ -12,7 +12,7 @@ def analyze_flatpak(flatpak_path: str) -> PackageInfo:
     name = path.stem
     version = "1.0"
     arch = "x86_64"
-    deps: list[str] = []
+    deps: list[str] = []  # noqa: F841
 
     try:
         # Flatpak bundles are squashfs images or OCI archives

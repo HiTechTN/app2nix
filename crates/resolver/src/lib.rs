@@ -1,10 +1,10 @@
-use std::sync::Mutex;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{ResolvedDependency, Analyzer, Result, App2NixError};
+use app2nix_core::{Analyzer, App2NixError, ResolvedDependency, Result};
 
 #[derive(Default)]
 pub struct DependencyResolver {
@@ -99,8 +99,7 @@ impl DependencyResolver {
     /// assert!(results[1].nix_attr.is_some());
     /// ```
     pub fn resolve_all(&self, libs: &[String]) -> Vec<ResolvedDependency> {
-        libs
-            .iter()
+        libs.iter()
             .map(|lib| {
                 let resolved = self.resolve(lib);
                 ResolvedDependency {
@@ -150,8 +149,12 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
     let a_len = a.len();
     let b_len = b.len();
 
-    if a_len == 0 { return b_len; }
-    if b_len == 0 { return a_len; }
+    if a_len == 0 {
+        return b_len;
+    }
+    if b_len == 0 {
+        return a_len;
+    }
 
     let mut prev_row: Vec<usize> = (0..=b_len).collect();
     let mut curr_row: Vec<usize> = vec![0; b_len + 1];
@@ -193,7 +196,10 @@ fn build_dep_map() -> HashMap<String, (String, String)> {
     let mut m = HashMap::new();
     macro_rules! dep {
         ($lib:expr, $attr:expr, $name:expr) => {
-            m.insert($lib.to_string().to_lowercase(), ($attr.to_string(), $name.to_string()));
+            m.insert(
+                $lib.to_string().to_lowercase(),
+                ($attr.to_string(), $name.to_string()),
+            );
         };
     }
 

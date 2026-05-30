@@ -1,14 +1,14 @@
-pub mod types;
+pub mod config;
 pub mod error;
 pub mod pipeline;
-pub mod config;
 pub mod progress;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
 
-pub use types::*;
+pub use config::*;
 pub use error::*;
 pub use pipeline::*;
-pub use config::*;
 pub use progress::*;
+pub use types::*;

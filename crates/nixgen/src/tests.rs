@@ -1,7 +1,7 @@
 use crate::{sanitize_name, sanitize_version};
 use app2nix_core::{
-    GenerateOptions, PackageFormat, ExtractedFile, ElfInfo,
-    DetectedDesktopEntry, DetectedIcon, AppTypeHint,
+    AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile, GenerateOptions,
+    PackageFormat,
 };
 use std::collections::HashMap;
 
@@ -132,7 +132,10 @@ fn test_generate_install_phase_deb() {
     let gen = crate::DefaultNixGenerator::new();
     let opts = make_opts();
     let phase = gen.generate_install_phase(&opts);
-    assert!(phase.contains("dpkg-deb"), "Deb install phase should use dpkg-deb");
+    assert!(
+        phase.contains("dpkg-deb"),
+        "Deb install phase should use dpkg-deb"
+    );
 }
 
 #[test]
@@ -141,7 +144,10 @@ fn test_generate_install_phase_rpm() {
     let mut opts = make_opts();
     opts.format = PackageFormat::Rpm;
     let phase = gen.generate_install_phase(&opts);
-    assert!(phase.contains("rpm2cpio"), "RPM install phase should use rpm2cpio");
+    assert!(
+        phase.contains("rpm2cpio"),
+        "RPM install phase should use rpm2cpio"
+    );
 }
 
 #[test]
@@ -150,7 +156,10 @@ fn test_generate_install_phase_appimage() {
     let mut opts = make_opts();
     opts.format = PackageFormat::AppImage;
     let phase = gen.generate_install_phase(&opts);
-    assert!(phase.contains("--appimage-extract"), "AppImage phase should use --appimage-extract");
+    assert!(
+        phase.contains("--appimage-extract"),
+        "AppImage phase should use --appimage-extract"
+    );
 }
 
 #[test]
@@ -176,8 +185,14 @@ fn test_generate_desktop_phase_with_entries() {
     let gen = crate::DefaultNixGenerator::new();
     let opts = make_opts();
     let phase = gen.generate_desktop_phase(&opts);
-    assert!(phase.contains("share/applications"), "Desktop phase should install .desktop files");
-    assert!(phase.contains("share/icons"), "Desktop phase should install icons");
+    assert!(
+        phase.contains("share/applications"),
+        "Desktop phase should install .desktop files"
+    );
+    assert!(
+        phase.contains("share/icons"),
+        "Desktop phase should install icons"
+    );
 }
 
 #[test]
@@ -214,8 +229,14 @@ fn test_generate_wrapper_script_contains_bin_name() {
     let gen = crate::DefaultNixGenerator::new();
     let opts = make_opts();
     let script = gen.generate_wrapper_script(&opts);
-    assert!(script.contains("test-app"), "Wrapper should contain app name");
-    assert!(script.contains("#!/usr/bin/env bash"), "Wrapper should be bash script");
+    assert!(
+        script.contains("test-app"),
+        "Wrapper should contain app name"
+    );
+    assert!(
+        script.contains("#!/usr/bin/env bash"),
+        "Wrapper should be bash script"
+    );
 }
 
 #[test]
@@ -223,10 +244,22 @@ fn test_generate_derivation_creates_valid_nix() {
     let gen = crate::DefaultNixGenerator::new();
     let opts = make_opts();
     let derivation = gen.generate_derivation(&opts).unwrap();
-    assert!(derivation.contains("stdenv.mkDerivation"), "Should be a mkDerivation");
-    assert!(derivation.contains("pname = \"test-app\""), "Should have app name");
-    assert!(derivation.contains("version = \"1.0.0\""), "Should have version");
-    assert!(derivation.contains("autoPatchelfHook"), "Should have autoPatchelfHook");
+    assert!(
+        derivation.contains("stdenv.mkDerivation"),
+        "Should be a mkDerivation"
+    );
+    assert!(
+        derivation.contains("pname = \"test-app\""),
+        "Should have app name"
+    );
+    assert!(
+        derivation.contains("version = \"1.0.0\""),
+        "Should have version"
+    );
+    assert!(
+        derivation.contains("autoPatchelfHook"),
+        "Should have autoPatchelfHook"
+    );
 }
 
 #[test]
@@ -235,6 +268,9 @@ fn test_generate_flake_contains_app_name() {
     let opts = make_opts();
     let flake = gen.generate_flake(&opts).unwrap();
     assert!(flake.contains("test-app"), "Should contain app name");
-    assert!(flake.contains("nixos-unstable"), "Should use nixos-unstable");
+    assert!(
+        flake.contains("nixos-unstable"),
+        "Should use nixos-unstable"
+    );
     assert!(flake.contains("flake-utils"), "Should use flake-utils");
 }

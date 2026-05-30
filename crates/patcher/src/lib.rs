@@ -1,11 +1,11 @@
-use std::path::Path;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{AnalysisResult, ResolvedDependency, Patcher, Result, App2NixError};
+use app2nix_core::{AnalysisResult, App2NixError, Patcher, ResolvedDependency, Result};
 
 #[derive(Default)]
 pub struct DefaultPatcher;
@@ -31,9 +31,7 @@ impl DefaultPatcher {
         let status = std::process::Command::new("patchelf")
             .args(["--set-rpath", &rpath, elf_path])
             .status()
-            .map_err(|e| {
-                App2NixError::PatchingFailed(format!("patchelf rpath failed: {}", e))
-            })?;
+            .map_err(|e| App2NixError::PatchingFailed(format!("patchelf rpath failed: {}", e)))?;
 
         if !status.success() {
             return Err(App2NixError::PatchingFailed(format!(
@@ -62,8 +60,8 @@ impl DefaultPatcher {
     }
 
     fn make_executable(&self, path: &str) -> Result<()> {
-        let metadata = fs::metadata(path)
-            .map_err(|e| App2NixError::PatchingFailed(e.to_string()))?;
+        let metadata =
+            fs::metadata(path).map_err(|e| App2NixError::PatchingFailed(e.to_string()))?;
         let mut perms = metadata.permissions();
         let mode = perms.mode();
         if mode & 0o111 == 0 {
@@ -92,7 +90,10 @@ export APP2NIX_APP="{app_name}"
 
 exec "{}" "$@"
 "#,
-            Path::new(binary_path).parent().unwrap_or(Path::new(".")).to_string_lossy(),
+            Path::new(binary_path)
+                .parent()
+                .unwrap_or(Path::new("."))
+                .to_string_lossy(),
             binary_path,
         );
 

@@ -127,9 +127,9 @@ def gui():
     try:
         from app2nix.gui import run_gui
         run_gui()
-    except ImportError as e:
-        console.print(f"[red]PyQt6 not installed.[/red] Install with: pip install 'app2nix[gui]'")
-        raise typer.Exit(1)
+    except ImportError:
+        console.print("[red]PyQt6 not installed.[/red] Install with: pip install 'app2nix[gui]'")
+        raise typer.Exit(1) from None
 
 
 if __name__ == "__main__":

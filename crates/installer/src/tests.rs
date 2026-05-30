@@ -1,5 +1,5 @@
 use crate::DefaultInstaller;
-use app2nix_core::{AppRegistry, AppEntry, PackageFormat, Installer};
+use app2nix_core::{AppEntry, AppRegistry, Installer, PackageFormat};
 use std::fs;
 
 #[test]
@@ -57,7 +57,10 @@ fn test_save_registry_creates_parent_dirs() {
     let installer = DefaultInstaller::new("nix", true, &reg_path.to_string_lossy());
     let registry = AppRegistry { apps: vec![] };
     installer.save_registry(&registry).unwrap();
-    assert!(reg_path.exists(), "Registry file should be created with parent dirs");
+    assert!(
+        reg_path.exists(),
+        "Registry file should be created with parent dirs"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 
@@ -83,7 +86,10 @@ fn test_load_registry_invalid_json() {
     fs::write(&reg_path, "not valid json").unwrap();
     let installer = DefaultInstaller::new("nix", true, &reg_path.to_string_lossy());
     let registry = installer.load_registry();
-    assert!(registry.apps.is_empty(), "Should return empty registry on parse error");
+    assert!(
+        registry.apps.is_empty(),
+        "Should return empty registry on parse error"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 

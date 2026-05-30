@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{Result, App2NixError};
+use app2nix_core::{App2NixError, Result};
 
 pub struct Sandbox {
     enabled: bool,
@@ -58,8 +58,7 @@ impl Sandbox {
         if !self.enabled {
             return Ok(());
         }
-        std::fs::remove_dir_all(path)
-            .map_err(|e| App2NixError::SandboxError(e.to_string()))
+        std::fs::remove_dir_all(path).map_err(|e| App2NixError::SandboxError(e.to_string()))
     }
 
     /// Check whether the sandbox is enabled.

@@ -1,9 +1,12 @@
 use crate::DefaultPatcher;
 use app2nix_core::Patcher;
+use app2nix_core::{
+    AnalysisResult, AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile,
+    PackageFormat, PackageInfo, ResolvedDependency,
+};
+use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use app2nix_core::{AnalysisResult, PackageInfo, PackageFormat, ExtractedFile, ElfInfo, ResolvedDependency, DetectedDesktopEntry, DetectedIcon, AppTypeHint};
-use std::collections::HashMap;
 
 fn make_analysis() -> AnalysisResult {
     AnalysisResult {
@@ -47,7 +50,10 @@ fn test_make_executable_already_executable() {
     assert!(result.is_ok());
 
     let meta = fs::metadata(&path).unwrap();
-    assert!(meta.permissions().mode() & 0o111 != 0, "File should remain executable");
+    assert!(
+        meta.permissions().mode() & 0o111 != 0,
+        "File should remain executable"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 
@@ -67,7 +73,10 @@ fn test_make_executable_non_executable() {
     assert!(result.is_ok());
 
     let meta = fs::metadata(&path).unwrap();
-    assert!(meta.permissions().mode() & 0o111 != 0, "File should now be executable");
+    assert!(
+        meta.permissions().mode() & 0o111 != 0,
+        "File should now be executable"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 
@@ -102,7 +111,10 @@ fn test_generate_wrapper_creates_file() {
     assert!(result.is_ok());
 
     let wrapper_path = result.unwrap();
-    assert!(wrapper_path.contains(".test-app_wrapper"), "Wrapper file should have correct name");
+    assert!(
+        wrapper_path.contains(".test-app_wrapper"),
+        "Wrapper file should have correct name"
+    );
 
     let content = fs::read_to_string(&wrapper_path).unwrap();
     assert!(content.contains("#!/usr/bin/env bash"));
@@ -110,7 +122,10 @@ fn test_generate_wrapper_creates_file() {
     assert!(content.contains("exec"));
 
     let meta = fs::metadata(&wrapper_path).unwrap();
-    assert!(meta.permissions().mode() & 0o111 != 0, "Wrapper should be executable");
+    assert!(
+        meta.permissions().mode() & 0o111 != 0,
+        "Wrapper should be executable"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -125,11 +140,13 @@ fn test_generate_wrapper_includes_path_and_env() {
     fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
 
     let patcher = DefaultPatcher::new();
-    let result = patcher.generate_wrapper(
-        &bin_path.to_string_lossy(),
-        &dir.to_string_lossy(),
-        "my-app",
-    ).unwrap();
+    let result = patcher
+        .generate_wrapper(
+            &bin_path.to_string_lossy(),
+            &dir.to_string_lossy(),
+            "my-app",
+        )
+        .unwrap();
 
     let content = fs::read_to_string(&result).unwrap();
     assert!(content.contains("PATH="));

@@ -1,13 +1,10 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests;
 
-use app2nix_core::{
-    DetectedDesktopEntry, DetectedIcon, DesktopIntegrator,
-    Result, App2NixError,
-};
+use app2nix_core::{App2NixError, DesktopIntegrator, DetectedDesktopEntry, DetectedIcon, Result};
 
 #[derive(Default)]
 pub struct DefaultDesktopIntegrator;
@@ -21,17 +18,19 @@ impl DefaultDesktopIntegrator {
         let base = dirs::data_dir()
             .ok_or_else(|| App2NixError::DesktopFailed("Cannot find XDG data dir".into()))?;
         let dir = base.join("applications");
-        fs::create_dir_all(&dir)
-            .map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
+        fs::create_dir_all(&dir).map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
         Ok(dir.to_string_lossy().to_string())
     }
 
     fn icons_dir() -> Result<String> {
         let base = dirs::data_dir()
             .ok_or_else(|| App2NixError::DesktopFailed("Cannot find XDG data dir".into()))?;
-        let dir = base.join("icons").join("hicolor").join("48x48").join("apps");
-        fs::create_dir_all(&dir)
-            .map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
+        let dir = base
+            .join("icons")
+            .join("hicolor")
+            .join("48x48")
+            .join("apps");
+        fs::create_dir_all(&dir).map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
         Ok(dir.to_string_lossy().to_string())
     }
 
@@ -43,8 +42,8 @@ impl DefaultDesktopIntegrator {
         icons: &[DetectedIcon],
     ) -> Result<String> {
         let sanitized_name = sanitize_desktop_name(app_name);
-        let dest_path = Path::new(&Self::applications_dir()?)
-            .join(format!("{}.desktop", sanitized_name));
+        let dest_path =
+            Path::new(&Self::applications_dir()?).join(format!("{}.desktop", sanitized_name));
 
         let exec_line = if entry.exec_line.is_empty() {
             format!("{} \"$@\"", exec_path)
@@ -114,8 +113,7 @@ StartupNotify=true
             categories = categories,
         );
 
-        fs::write(&dest_path, &content)
-            .map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
+        fs::write(&dest_path, &content).map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
 
         Ok(dest_path.to_string_lossy().to_string())
     }
@@ -124,7 +122,13 @@ StartupNotify=true
 fn sanitize_desktop_name(name: &str) -> String {
     name.to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim_matches('-')
         .to_string()
@@ -141,7 +145,11 @@ impl DesktopIntegrator for DefaultDesktopIntegrator {
         let mut created = Vec::new();
 
         let exec_binary = if exec_path.starts_with("/nix/store/") {
-            format!("{}/bin/{}", exec_path.trim_end_matches('/'), sanitize_desktop_name(app_name))
+            format!(
+                "{}/bin/{}",
+                exec_path.trim_end_matches('/'),
+                sanitize_desktop_name(app_name)
+            )
         } else {
             exec_path.to_string()
         };
@@ -172,16 +180,15 @@ impl DesktopIntegrator for DefaultDesktopIntegrator {
 
     fn unregister(&self, app_name: &str) -> Result<()> {
         let sanitized = sanitize_desktop_name(app_name);
-        let desktop_path = Path::new(&Self::applications_dir()?)
-            .join(format!("{}.desktop", sanitized));
+        let desktop_path =
+            Path::new(&Self::applications_dir()?).join(format!("{}.desktop", sanitized));
 
         if desktop_path.exists() {
             fs::remove_file(&desktop_path)
                 .map_err(|e| App2NixError::DesktopFailed(e.to_string()))?;
         }
 
-        let icon_path = Path::new(&Self::icons_dir()?)
-            .join(format!("{}.png", sanitized));
+        let icon_path = Path::new(&Self::icons_dir()?).join(format!("{}.png", sanitized));
         if icon_path.exists() {
             let _ = fs::remove_file(&icon_path);
         }
