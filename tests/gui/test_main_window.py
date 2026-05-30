@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFrame
 
-from lib.theme import DARK, LIGHT
+from app2nix.gui.theme import DARK, LIGHT
 
 
 @pytest.fixture

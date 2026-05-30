@@ -6,7 +6,7 @@ state management (set/get/name), and ensure all required keys exist.
 """
 
 
-import lib.theme as theme
+import app2nix.gui.theme as theme
 
 
 class TestThemeDictionaries:

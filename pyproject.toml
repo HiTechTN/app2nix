@@ -6,11 +6,11 @@ build-backend = "hatchling.build"
 packages = ["src/app2nix"]
 
 [tool.hatch.build]
-include = ["src/app2nix/gui/templates/**"]
+include = ["src/app2nix/gui/templates/**", "src/app2nix/gui/translations/**"]
 
 [project]
 name = "app2nix"
-version = "3.0.0"
+version = "3.0.1"
 description = "Convert any Linux package (.deb, .rpm, AppImage, Flatpak, Snap) to NixOS native applications"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -21,8 +21,6 @@ WORKDIR /app
 COPY --from=builder /build/.venv /app/.venv
 COPY src/ /app/src/
 COPY static/ /app/static/
-COPY templates/ /app/templates/
-COPY lib/ /app/lib/
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV APP2NIX_SECRET_KEY=""

@@ -76,16 +76,25 @@ jobs:
 
   rust-check:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, 1.80.0]
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
-          components: clippy, rustfmt
-      - run: cargo fmt --check
+          toolchain: ${{ matrix.rust }}
+          components: ${{ matrix.rust == 'stable' && 'clippy, rustfmt' || '' }}
       - run: cargo check --workspace
       - run: cargo test --workspace
+      - run: cargo fmt --check
+        if: matrix.rust == 'stable'
       - run: cargo clippy --workspace
+        if: matrix.rust == 'stable'
+      - run: cargo doc --no-deps --workspace
+        if: matrix.rust == 'stable'
+        env:
+          RUSTDOCFLAGS: "-D warnings"
 
   docker:
     needs: test

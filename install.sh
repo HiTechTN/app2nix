@@ -21,7 +21,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="3.0.1"
 REPO="HiTechTN/app2nix"
 RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
@@ -248,7 +248,7 @@ install_user() {
     
     $PYTHON -m venv .venv 2>/dev/null || $PYTHON -m venv --system-site-packages .venv
     .venv/bin/pip install --upgrade pip -q
-    .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
+    .venv/bin/pip install -e '.[gui]' -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
 
     if [ ! -f .env ]; then
         local secret_key; secret_key=$($PYTHON -c "import secrets; print(secrets.token_hex(32))")
@@ -373,7 +373,7 @@ upgrade() {
         cd "$INSTALL_DIR"
         git fetch origin -q
         git checkout -f -B master origin/master -q
-        .venv/bin/pip install -e . -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
+        .venv/bin/pip install -e '.[gui]' -q 2>/dev/null || .venv/bin/pip install -r requirements.txt -q
         if [ ! -f .env ]; then
             local secret_key; secret_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null || echo "$(date +%s%N | sha256sum | head -c64)")
             cat > .env << ENVFILE
@@ -412,7 +412,7 @@ main() {
             if check_docker; then
                 start_docker
             else
-                cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python server.py &>/dev/null &
+                cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python -m app2nix serve &>/dev/null &
                 ok "Server started at http://localhost:8000"
             fi
             ;;
@@ -420,7 +420,7 @@ main() {
             if check_docker; then
                 stop_docker
             else
-                pkill -f "python.*server.py" 2>/dev/null
+                pkill -f "app2nix.*serve" 2>/dev/null
                 ok "Server stopped"
             fi
             ;;

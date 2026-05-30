@@ -9,9 +9,9 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import lib.i18n as i18n
+import app2nix.gui.i18n as i18n
 
-TRANSLATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "translations"
+TRANSLATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "app2nix" / "gui" / "translations"
 
 
 # ---------------------------------------------------------------------------

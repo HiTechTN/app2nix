@@ -141,7 +141,7 @@ class TestApiRoot:
             r = await client.get("/api")
         data = r.json()
         assert data["message"] == "app2nix API"
-        assert data["version"] == "3.0.0"
+        assert data["version"] == "3.0.1"
         assert isinstance(data["formats"], list)
         assert ".deb" in data["formats"]
         assert ".AppImage" in data["formats"]
@@ -368,7 +368,7 @@ class TestGenerateErrors:
 class TestGenerateSuccess:
     FAKE_INFO = PackageInfo(
         name="my-app",
-        version="3.0.0",
+        version="3.0.1",
         architecture="arm64",
         format="rpm",
         dependencies=["ssl"],
@@ -418,7 +418,7 @@ class TestGenerateSuccess:
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "my-app"
-        assert data["version"] == "3.0.0"
+        assert data["version"] == "3.0.1"
         assert data["architecture"] == "arm64"
         assert "mkDerivation" in data["content"]
         assert data["install_guide"] == "Install guide text"

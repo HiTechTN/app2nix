@@ -16,7 +16,7 @@ use app2nix_desktop::DefaultDesktopIntegrator;
 
 #[derive(Parser)]
 #[command(name = "app2nix")]
-#[command(version = "3.0.0")]
+#[command(version = "3.0.1")]
 #[command(about = "Universal Linux application installer for NixOS")]
 #[command(long_about = r#"
 app2nix - Universal Linux Application Installer for NixOS

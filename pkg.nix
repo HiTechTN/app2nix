@@ -6,30 +6,50 @@ let
     starlette
     uvicorn
     python-multipart
+    httpx
     pydantic
+    pydantic-settings
+    jinja2
+    typer
+    rich
+    aiosqlite
     itsdangerous
   ]);
 in
 pkgs.stdenv.mkDerivation {
   pname = "app2nix-gui";
-  version = "1.0.0";
+  version = "3.0.1";
   src = ./.;
   dontUnpack = true;
   buildInputs = [ python-with-packages pkgs.makeWrapper pkgs.squashfsTools pkgs.rpm pkgs.cpio pkgs.dpkg pkgs.patchelf pkgs.file ];
   installPhase = ''
-    mkdir -p $out/bin $out/lib/app2nix
-    cp $src/*.py $out/lib/app2nix/
-    cp $src/lib $out/lib/app2nix/ -r
-    cp $src/translations $out/lib/app2nix/ -r
+    mkdir -p $out/bin $out/lib/python3/site-packages
+    cp -r $src/src/app2nix $out/lib/python3/site-packages/app2nix
+
     makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix-gui \
-      --add-flags "$out/lib/app2nix/app2nix_gui.py" \
-      --chdir "$out/lib/app2nix" \
+      --add-flags "-m" \
+      --add-flags "app2nix.gui" \
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
       --prefix PATH : ${pkgs.squashfsTools}/bin \
       --prefix PATH : ${pkgs.rpm}/bin \
       --prefix PATH : ${pkgs.cpio}/bin \
       --prefix PATH : ${pkgs.dpkg}/bin \
       --prefix PATH : ${pkgs.patchelf}/bin \
       --prefix PATH : ${pkgs.file}/bin
+
+    makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix \
+      --add-flags "-m" \
+      --add-flags "app2nix" \
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.dpkg}/bin \
+      --prefix PATH : ${pkgs.patchelf}/bin \
+      --prefix PATH : ${pkgs.file}/bin
+
+    makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix-server \
+      --add-flags "-m" \
+      --add-flags "app2nix" \
+      --add-flags "serve" \
+      --set PYTHONPATH "$out/lib/python3/site-packages"
   '';
   meta = {
     description = "Universal Package to NixOS Converter";

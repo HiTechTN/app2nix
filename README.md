@@ -6,6 +6,7 @@
 [![Forks](https://img.shields.io/github/forks/HiTechTN/app2nix)](https://github.com/HiTechTN/app2nix/network/members)
 [![License](https://img.shields.io/github/license/HiTechTN/app2nix)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/HiTechTN/app2nix/total?label=downloads&logo=rust)](https://github.com/HiTechTN/app2nix/releases)
+[![Rust API](https://img.shields.io/badge/rust%20api-rustdoc-orange?logo=rust)](https://app2nix.dev/rustdoc/app2nix/index.html)
 
 </p>
 
@@ -23,6 +24,9 @@
 [![Docker Build](https://github.com/HiTechTN/app2nix/actions/workflows/docker.yml/badge.svg)](https://github.com/HiTechTN/app2nix/actions)
 [![Release](https://img.shields.io/github/v/release/HiTechTN/app2nix?label=version&include_prereleases&sort=semver&logo=github)](https://github.com/HiTechTN/app2nix/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/app2nix?label=pypi&logo=pypi)](https://pypi.org/project/app2nix)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/app2nix?label=downloads&logo=pypi&color=blue)](https://pypi.org/project/app2nix)
+[![Python versions](https://img.shields.io/pypi/pyversions/app2nix?label=python&logo=python)](https://pypi.org/project/app2nix)
+[![PyPI License](https://img.shields.io/pypi/l/app2nix?label=license&logo=pypi)](https://pypi.org/project/app2nix)
 
 [Documentation](https://github.com/HiTechTN/app2nix/blob/master/docs/index.html) · [Report Bug](https://github.com/HiTechTN/app2nix/issues) · [Request Feature](https://github.com/HiTechTN/app2nix/issues)
 
@@ -213,9 +217,11 @@ The conversion pipeline is powered by a **Rust workspace** of **13 crates** (12 
 | Badge | Description |
 |-------|-------------|
 | [![Docs](https://img.shields.io/badge/docs-app2nix.dev-blue?style=flat)](https://app2nix.dev) | API & user documentation |
+| [![Rust API](https://img.shields.io/badge/rust%20api-rustdoc-orange?logo=rust)](https://app2nix.dev/rustdoc/app2nix/index.html) | Generated rustdoc for all 13 crates |
 | [![Rust](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/tests.yml?label=tests&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/tests.yml) | 245+ tests pass on CI |
 | [![Clippy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/ci.yml?label=clippy&logo=rust)](https://github.com/HiTechTN/app2nix/actions/workflows/ci.yml) | Zero warnings |
 | [![Doctests](https://img.shields.io/badge/doctests-12-passing?logo=rust)](https://github.com/HiTechTN/app2nix/tree/master/crates) | 12 doc-tests across 5 crates |
+| [![MSRV](https://img.shields.io/badge/rustc-1.80+-blue?logo=rust)](https://github.com/HiTechTN/app2nix/blob/master/rust-toolchain.toml) | Minimum supported Rust version (rust-toolchain.toml) |
 
 ### Crate Architecture
 
@@ -284,6 +290,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 | 📝 Mypy | [![Mypy](https://img.shields.io/github/actions/workflow/status/HiTechTN/app2nix/mypy.yml?label=mypy&logo=python)](https://github.com/HiTechTN/app2nix/actions/workflows/mypy.yml) |
 | 📦 Version | [![Version](https://img.shields.io/github/v/release/HiTechTN/app2nix?label=version&include_prereleases&sort=semver&logo=github)](https://github.com/HiTechTN/app2nix/releases/latest) |
 | 🐍 PyPI | [![PyPI](https://img.shields.io/pypi/v/app2nix?label=pypi&logo=pypi)](https://pypi.org/project/app2nix) |
+| ⬇️ PyPI Downloads | [![PyPI Downloads](https://img.shields.io/pypi/dm/app2nix?label=downloads&logo=pypi&color=blue)](https://pypi.org/project/app2nix) |
+| 🐍 Python | [![Python versions](https://img.shields.io/pypi/pyversions/app2nix?label=python&logo=python)](https://pypi.org/project/app2nix) |
+| 📜 License | [![PyPI License](https://img.shields.io/pypi/l/app2nix?label=license&logo=pypi)](https://pypi.org/project/app2nix) |
 
 ---
 
@@ -298,7 +307,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [NixOS](https://nixos.org/) - For the amazing package manager
 - [Nixpkgs](https://github.com/NixOS/nixpkgs) - For the extensive package collection
 - [dpkg](https://wiki.debian.org/dpkg) - For .deb package handling
-- Contributors and users of app2nix
+- All [contributors](AUTHORS.md) and users of app2nix
 
 ---
 

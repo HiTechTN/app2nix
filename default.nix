@@ -1,51 +1,56 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  app2nix = pkgs.stdenv.mkDerivation {
-    pname = "app2nix";
-    version = "1.0.0";
-    
-    src = pkgs.fetchFromGitHub {
-      owner = "HiTechTN";
-      repo = "app2nix";
-      rev = "master";
-      sha256 = "sha256-...";
-    };
-    
-    nativeBuildInputs = with pkgs; [
-      python3
-      python3Packages.pip
-      dpkg
-      patchelf
-      file
-    ];
-    
-    buildInputs = with pkgs; [
-      python3Packages.fastapi
-      python3Packages.uvicorn
-      python3Packages.pydantic
-      python3Packages.python-multipart
-    ];
-    
-    installPhase = ''
-      mkdir -p $out/bin
-      mkdir -p $out/lib/python3.11/site-packages
-      
-      cp -r * $out/lib/python3.11/site-packages/
-      
-      makeWrapper $out/bin/app2nix $out/bin/app2nix \
-        --set PYTHONPATH "$out/lib/python3.11/site-packages"
-      
-      makeWrapper $out/bin/app2nix-server $out/bin/app2nix-server \
-        --set PYTHONPATH "$out/lib/python3.11/site-packages"
-    '';
-    
-    meta = with pkgs; {
-      description = "Convert Linux packages to NixOS expressions";
-      homepage = "https://github.com/HiTechTN/app2nix";
-      license = licenses.mit;
-      platforms = platforms.linux;
-    };
-  };
+  python-with-packages = pkgs.python3.withPackages (p: with p; [
+    starlette
+    uvicorn
+    python-multipart
+    httpx
+    pydantic
+    pydantic-settings
+    jinja2
+    typer
+    rich
+    aiosqlite
+    itsdangerous
+  ]);
 in
-  app2nix
+pkgs.stdenv.mkDerivation {
+  pname = "app2nix";
+  version = "3.0.1";
+
+  src = ./.;
+
+  nativeBuildInputs = [ python-with-packages pkgs.makeWrapper pkgs.dpkg pkgs.patchelf pkgs.file ];
+
+  installPhase = ''
+    mkdir -p $out/bin $out/lib/python3/site-packages
+    cp -r $src/src/app2nix $out/lib/python3/site-packages/app2nix
+
+    makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix \
+      --add-flags "-m" \
+      --add-flags "app2nix" \
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.dpkg}/bin \
+      --prefix PATH : ${pkgs.patchelf}/bin \
+      --prefix PATH : ${pkgs.file}/bin
+
+    makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix-server \
+      --add-flags "-m" \
+      --add-flags "app2nix" \
+      --add-flags "serve" \
+      --set PYTHONPATH "$out/lib/python3/site-packages"
+
+    makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix-gui \
+      --add-flags "-m" \
+      --add-flags "app2nix.gui" \
+      --set PYTHONPATH "$out/lib/python3/site-packages"
+  '';
+
+  meta = with pkgs.lib; {
+    description = "Convert Linux packages to NixOS expressions";
+    homepage = "https://github.com/HiTechTN/app2nix";
+    license = licenses.mit;
+    platforms = platforms.linux;
+  };
+}

@@ -55,7 +55,7 @@
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "app2nix";
-          version = "3.0.0";
+          version = "3.0.1";
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;

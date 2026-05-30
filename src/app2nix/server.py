@@ -35,7 +35,7 @@ async def homepage(request):
 async def api_root(request):
     return JSONResponse({
         "message": "app2nix API",
-        "version": "3.0.0",
+        "version": "3.0.1",
         "formats": SUPPORTED_FORMATS,
     })
 
