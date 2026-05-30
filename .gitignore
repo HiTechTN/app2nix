@@ -30,7 +30,7 @@ ENV/
 *.orig
 
 # Generated test directory
-app2nix/
+/app2nix/
 
 # IDE
 .idea/
