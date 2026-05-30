@@ -1,9 +1,6 @@
 use crate::DefaultPatcher;
 use app2nix_core::Patcher;
-use app2nix_core::{
-    AnalysisResult, AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile,
-    PackageFormat, PackageInfo, ResolvedDependency,
-};
+use app2nix_core::{AnalysisResult, ElfInfo, ExtractedFile, PackageFormat, PackageInfo};
 use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;

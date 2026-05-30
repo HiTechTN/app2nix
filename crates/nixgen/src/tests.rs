@@ -1,7 +1,6 @@
 use crate::{sanitize_name, sanitize_version};
 use app2nix_core::{
-    AppTypeHint, DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile, GenerateOptions,
-    PackageFormat,
+    DetectedDesktopEntry, DetectedIcon, ElfInfo, ExtractedFile, GenerateOptions, PackageFormat,
 };
 use std::collections::HashMap;
 
