@@ -19,7 +19,6 @@ app2nix-nixgen = { path = "../nixgen" }
 app2nix-installer = { path = "../installer" }
 app2nix-desktop = { path = "../desktop" }
 app2nix-sandbox = { path = "../sandbox" }
-app2nix-fhs = { path = "../fhs" }
 app2nix-plugins = { path = "../plugins" }
 clap.workspace = true
 serde.workspace = true

@@ -1,8 +1,11 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "unknown"]
+
+_SANITIZE_RE = re.compile(r"[^a-zA-Z0-9._-]")
 
 class PackageInfo(BaseModel):
     name: str
@@ -16,8 +19,7 @@ class PackageInfo(BaseModel):
     @field_validator("name")
     @classmethod
     def sanitize_name(cls, v: str) -> str:
-        import re
-        return re.sub(r"[^a-zA-Z0-9._-]", "-", v).lower()
+        return _SANITIZE_RE.sub("-", v).lower()
 
 class ResolvedDependency(BaseModel):
     original: str

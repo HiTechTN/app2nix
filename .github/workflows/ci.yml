@@ -2,32 +2,71 @@ name: CI
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master]
   pull_request:
     branches: [master]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  test:
+  lint:
+    name: Lint (Ruff + Mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install ruff mypy
+      - run: ruff check src/ tests/
+      - run: mypy src/app2nix --ignore-missing-imports
+
+  rust-check:
+    name: Rust (${{ matrix.rust }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        rust: [stable, 1.85.0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: ${{ matrix.rust == 'stable' && 'clippy, rustfmt' || '' }}
+          cache: "true"
+      - run: cargo check --workspace
+      - run: cargo test --workspace
+      - run: cargo fmt --check
+        if: matrix.rust == 'stable'
+      - run: cargo clippy --workspace
+        if: matrix.rust == 'stable'
+      - run: cargo doc --no-deps --workspace
+        if: matrix.rust == 'stable'
+        env:
+          RUSTDOCFLAGS: "-D warnings"
 
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install uv
-        run: pip install uv
+          cache: "pip"
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            dpkg patchelf file \
             xvfb libnss3 \
             libgl1 libglib2.0-0 libegl1 \
             libxkbcommon-x11-0 \
@@ -36,23 +75,28 @@ jobs:
             libxcb-xfixes0 libxcb-cursor0
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra gui
+        run: pip install -e ".[dev,gui]"
 
       - name: Run tests
-        run: |
-          uv run pytest tests/ -v
+        run: python -m pytest tests/ -v --cov-report=term-missing --cov-fail-under=95
         env:
           APP2NIX_SECRET_KEY: test-secret-key-for-ci
           QT_QPA_PLATFORM: offscreen
 
+      - name: Upload coverage to Coveralls
+        if: matrix.python-version == '3.11'
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
   nix-validate:
+    name: Nix Validate
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v26
+      - uses: cachix/install-nix-action@v26
         with:
           nix_path: nixpkgs=channel:nixos-24.05
 
@@ -70,55 +114,21 @@ jobs:
           mkdir -p /tmp/nix_output
           uv run app2nix convert /tmp/test-app_1.0_amd64.deb --output-dir /tmp/nix_output
           nix-instantiate --parse /tmp/nix_output/default.nix
-          echo "✅ Nix expression is syntactically valid"
+          echo "Nix expression is syntactically valid"
         env:
           APP2NIX_SECRET_KEY: test-ci-key
 
-  rust-check:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [stable, 1.85.0]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: ${{ matrix.rust == 'stable' && 'clippy, rustfmt' || '' }}
-      - run: cargo check --workspace
-      - run: cargo test --workspace
-      - run: cargo fmt --check
-        if: matrix.rust == 'stable'
-      - run: cargo clippy --workspace
-        if: matrix.rust == 'stable'
-      - run: cargo doc --no-deps --workspace
-        if: matrix.rust == 'stable'
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-
   docker:
-    needs: test
+    name: Docker Build
     runs-on: ubuntu-latest
+    needs: [test, rust-check]
     if: github.ref == 'refs/heads/master'
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Lowercase image name
-        id: img
-        run: |
-          echo "name=ghcr.io/hitechtn/app2nix" >> $GITHUB_OUTPUT
-
       - uses: docker/build-push-action@v5
         with:
-          push: true
-          tags: ${{ steps.img.outputs.name }}:latest
-          cache-from: type=registry,ref=ghcr.io/hitechtn/app2nix:cache
-          cache-to: type=registry,ref=ghcr.io/hitechtn/app2nix:cache,mode=max
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

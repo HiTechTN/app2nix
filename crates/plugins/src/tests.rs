@@ -1,11 +1,10 @@
 use crate::{PipelineBuilder, PluginManager};
 use app2nix_core::{
-    pipeline::Pipeline, AnalysisResult, Analyzer, App2NixError, AppTypeHint, DesktopIntegrator,
-    DetectedDesktopEntry, DetectedIcon, Detector, ElfInfo, ExtractedFile, Extractor,
+    AnalysisResult, Analyzer, DesktopIntegrator,
+    DetectedDesktopEntry, DetectedIcon, Detector, ExtractedFile, Extractor,
     GenerateOptions, Installer, NixGenerator, PackageFormat, PackageInfo, Patcher, Plugin,
     ResolvedDependency, Result,
 };
-use std::collections::HashMap;
 
 /// A mock Plugin for testing
 struct MockPlugin;
@@ -210,7 +209,7 @@ fn test_plugin_manager_analyze_returns_none() {
 
 #[test]
 fn test_pipeline_builder_new() {
-    let builder = PipelineBuilder::new();
+    let _builder = PipelineBuilder::new();
     // Just verify it constructs
 }
 

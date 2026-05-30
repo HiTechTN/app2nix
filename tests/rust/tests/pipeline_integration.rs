@@ -1230,8 +1230,6 @@ fn test_extractor_scan_extracted() {
     let dummy_src = dir.join("dummy-elf");
     create_dummy_elf(&dummy_src);
 
-    use std::os::unix::fs::PermissionsExt;
-
     let package = PackageInfo {
         name: "test".into(),
         version: None,

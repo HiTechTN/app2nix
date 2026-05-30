@@ -16,7 +16,8 @@ from PyQt6.QtWidgets import (
 )
 
 from app2nix.gui.i18n import tr
-from app2nix.gui.theme import get as get_theme, set as set_theme
+from app2nix.gui.theme import get as get_theme
+from app2nix.gui.theme import set as set_theme
 
 # Required keys for theme dictionaries (validated on every theme apply)
 _REQUIRED_THEME_KEYS = {

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app2nix.core.analyzer import SUPPORTED_FORMATS, UniversalAnalyzer
+from app2nix.core.analyzers._elf_utils import extract_lib_name, find_elf, get_libs_patchelf
 from app2nix.core.analyzers.appimage import (
     _appimage_offset,
     _extract_fuse,
@@ -13,13 +14,7 @@ from app2nix.core.analyzers.appimage import (
     _find_elf_deps,
     analyze_appimage,
 )
-from app2nix.core.analyzers.deb import (
-    _extract_lib_name,
-    _find_elf,
-    _get_libs_ldd,
-    _get_libs_patchelf,
-    analyze_deb,
-)
+from app2nix.core.analyzers.deb import _get_libs_ldd, analyze_deb
 from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
@@ -28,38 +23,38 @@ from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
 
 # =============================================================================
-# deb.py — _extract_lib_name (pure function)
+# deb.py — extract_lib_name (pure function)
 # =============================================================================
 
 
 class TestExtractLibName:
     def test_typical_soname(self):
-        assert _extract_lib_name("libssl.so.3") == "ssl"
+        assert extract_lib_name("libssl.so.3") == "ssl"
 
     def test_with_path(self):
-        assert _extract_lib_name("/usr/lib/x86_64-linux-gnu/libc.so.6") == "c"
+        assert extract_lib_name("/usr/lib/x86_64-linux-gnu/libc.so.6") == "c"
 
     def test_no_lib_prefix(self):
-        assert _extract_lib_name("foo.so") is None
+        assert extract_lib_name("foo.so") is None
 
     def test_no_dot_so(self):
-        assert _extract_lib_name("libfoo") is None
+        assert extract_lib_name("libfoo") is None
 
     def test_empty_after_strip(self):
-        assert _extract_lib_name("lib.so") is None
+        assert extract_lib_name("lib.so") is None
 
     def test_multi_dot_so(self):
-        assert _extract_lib_name("libssl3.so.1.1") == "ssl3"
+        assert extract_lib_name("libssl3.so.1.1") == "ssl3"
 
 
 # =============================================================================
-# deb.py — _find_elf with mocked subprocess
+# deb.py — find_elf with mocked subprocess
 # =============================================================================
 
 
 class TestFindElf:
     def test_finds_elf_file(self, tmp_path):
-        """_find_elf should return files identified as ELF executables."""
+        """find_elf should return files identified as ELF executables."""
         good = tmp_path / "bin"
         good.mkdir()
         elf_file = good / "myapp"
@@ -81,22 +76,22 @@ class TestFindElf:
                 return mock
 
             mock_run.side_effect = side_effect
-            found = _find_elf(tmp_path)
+            found = find_elf(tmp_path)
 
         assert any("myapp" in str(f) for f in found)
         assert not any("data.txt" in str(f) for f in found)
 
     def test_handles_exception_gracefully(self, tmp_path):
-        """_find_elf should not crash if 'file' command fails."""
+        """find_elf should not crash if 'file' command fails."""
         f = tmp_path / "weird"
         f.write_text("data")
         with patch.object(subprocess, "run", side_effect=Exception("boom")):
-            found = _find_elf(tmp_path)
+            found = find_elf(tmp_path)
         assert found == []
 
 
 # =============================================================================
-# deb.py — _get_libs_ldd and _get_libs_patchelf
+# deb.py — _get_libs_ldd and get_libs_patchelf
 # =============================================================================
 
 
@@ -131,14 +126,14 @@ class TestGetLibsPatchelf:
         with patch.object(subprocess, "run") as mock_run:
             mock_run.return_value.stdout = patchelf_output
             mock_run.return_value.stderr = ""
-            libs = _get_libs_patchelf(binary)
+            libs = get_libs_patchelf(binary)
         assert libs == {"z", "ssl3"}
 
     def test_empty_on_exception(self, tmp_path):
         binary = tmp_path / "bin"
         binary.write_text("dummy")
         with patch.object(subprocess, "run", side_effect=Exception("patchelf not found")):
-            libs = _get_libs_patchelf(binary)
+            libs = get_libs_patchelf(binary)
         assert libs == set()
 
 
@@ -568,6 +563,147 @@ class TestAnalyzeSnap:
         assert info.name == "broken"
         assert info.format == "snap"
 
+    def test_squashfs_offset_extraction(self, tmp_path):
+        """When first unsquashfs fails, should try with offset."""
+        snap_path = str(tmp_path / "my-snap.snap")
+        # Write snap with hsqs magic at offset 100
+        data = b"x" * 100 + b"hsqs" + b"x" * 50
+        Path(snap_path).write_bytes(data)
+
+        call_count = 0
+
+        def mock_run(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if call_count == 1:
+                # First unsquashfs fails
+                raise subprocess.CalledProcessError(1, "unsquashfs")
+            elif call_count == 2:
+                # Second unsquashfs with offset succeeds
+                sq = Path(cmd[cmd.index("-d") + 1])
+                sq.mkdir(parents=True, exist_ok=True)
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_snap(snap_path)
+
+        assert info.format == "snap"
+        assert call_count >= 2
+
+    def test_snap_yaml_parsing(self, tmp_path):
+        """Should parse meta/snap.yaml for name and version."""
+        snap_path = str(tmp_path / "my-snap.snap")
+        Path(snap_path).write_text("dummy")
+
+        def mock_run(cmd, **kwargs):
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                sq = Path(cmd[cmd.index("-d") + 1])
+                sq.mkdir(parents=True, exist_ok=True)
+                # Create snap.yaml
+                meta = sq / "meta"
+                meta.mkdir(exist_ok=True)
+                yaml = meta / "snap.yaml"
+                yaml.write_text('name: my-app\nversion: "2.5"\n')
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_snap(snap_path)
+
+        assert info.name == "my-app"
+        assert info.version == "2.5"
+
+    def test_with_executables_and_libs(self, tmp_path):
+        """Should discover executables and their dependencies."""
+        snap_path = str(tmp_path / "my-snap.snap")
+        Path(snap_path).write_text("dummy")
+
+        def mock_run(cmd, **kwargs):
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                sq = Path(cmd[cmd.index("-d") + 1])
+                sq.mkdir(parents=True, exist_ok=True)
+                mock.returncode = 0
+            elif "file" in cmd:
+                mock.stdout = "ELF 64-bit LSB executable"
+            elif "patchelf" in cmd:
+                mock.stdout = "libz.so.1\nlibssl3.so\n"
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_snap(snap_path)
+
+        assert info.format == "snap"
+
+    def test_find_squashfs_offset(self, tmp_path):
+        """Test _find_squashfs_offset helper."""
+        from app2nix.core.analyzers.snap import _find_squashfs_offset
+
+        # File with hsqs magic at offset 100
+        snap = tmp_path / "test.snap"
+        data = b"x" * 100 + b"hsqs" + b"x" * 50
+        snap.write_bytes(data)
+
+        assert _find_squashfs_offset(snap) == 100
+
+    def test_find_squashfs_offset_not_found(self, tmp_path):
+        """Should return 0 when no hsqs magic found."""
+        from app2nix.core.analyzers.snap import _find_squashfs_offset
+
+        snap = tmp_path / "test.snap"
+        snap.write_bytes(b"x" * 100)
+
+        assert _find_squashfs_offset(snap) == 0
+
+    def test_extract_lib_name(self):
+        """Test extract_lib_name helper."""
+        from app2nix.core.analyzers._elf_utils import extract_lib_name
+
+        assert extract_lib_name("libssl.so.3") == "ssl"
+        assert extract_lib_name("/usr/lib/libc.so.6") == "c"
+        assert extract_lib_name("foo.so") is None
+        assert extract_lib_name("libfoo") is None
+        assert extract_lib_name("lib.so") is None
+
+    def test_find_elf(self, tmp_path):
+        """Test find_elf helper."""
+        from app2nix.core.analyzers._elf_utils import find_elf
+
+        elf_file = tmp_path / "myapp"
+        elf_file.write_text("dummy")
+
+        with patch.object(subprocess, "run") as mock_run:
+            mock_run.return_value.stdout = "ELF 64-bit LSB executable"
+            found = find_elf(tmp_path)
+
+        assert len(found) == 1
+        assert found[0] == elf_file
+
+    def test_get_libs_patchelf(self, tmp_path):
+        """Test get_libs_patchelf helper."""
+        from app2nix.core.analyzers._elf_utils import get_libs_patchelf
+
+        binary = tmp_path / "bin"
+        binary.write_text("dummy")
+
+        with patch.object(subprocess, "run") as mock_run:
+            mock_run.return_value.stdout = "libz.so.1\nlibssl3.so\n"
+            libs = get_libs_patchelf(binary)
+
+        assert libs == {"z", "ssl3"}
+
 
 # =============================================================================
 # rpm.py — analyze_rpm with mocked subprocess
@@ -703,6 +839,164 @@ class TestAnalyzeFlatpak:
         assert info.name == "org.foo.bar"
         assert info.version == "2.0"
         assert info.format == "flatpak"
+
+    def test_tar_extraction_fallback(self, tmp_path):
+        """When unsquashfs fails, should try tar extraction."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+
+        call_count = 0
+
+        def mock_run(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                raise subprocess.CalledProcessError(1, "unsquashfs")
+            elif "tar" in cmd:
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.format == "flatpak"
+        assert call_count >= 2  # unsquashfs + tar
+
+    def test_unzip_extraction_fallback(self, tmp_path):
+        """When unsquashfs and tar fail, should try unzip."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+
+        call_count = 0
+
+        def mock_run(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                raise subprocess.CalledProcessError(1, "unsquashfs")
+            elif "tar" in cmd:
+                raise subprocess.CalledProcessError(1, "tar")
+            elif "unzip" in cmd:
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.format == "flatpak"
+        assert call_count >= 3  # unsquashfs + tar + unzip
+
+    def test_with_executables_and_libs(self, tmp_path):
+        """Should discover executables and their dependencies."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+
+        call_count = 0
+
+        def mock_run(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                # Create the squashfs-root directory
+                sq = Path(cmd[-2]) if len(cmd) > 2 else tmp_path / "squashfs-root"
+                sq.mkdir(parents=True, exist_ok=True)
+                mock.returncode = 0
+            elif "file" in cmd:
+                mock.stdout = "ELF 64-bit LSB executable"
+            elif "patchelf" in cmd:
+                mock.stdout = "libssl.so.3\nlibc.so.6\n"
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.format == "flatpak"
+
+    def test_parse_metadata_from_squashfs_root(self, tmp_path):
+        """Should parse metadata from squashfs-root/metadata."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+
+        def mock_run(cmd, **kwargs):
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                sq = Path(cmd[-2]) if len(cmd) > 2 else tmp_path / "squashfs-root"
+                sq.mkdir(parents=True, exist_ok=True)
+                # Create metadata file
+                metadata = sq / "metadata"
+                metadata.write_text("[Application]\nname=org.example.MyApp\n")
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.format == "flatpak"
+
+    def test_manifest_yaml_parsing(self, tmp_path):
+        """Should parse YAML-like manifest files."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+        manifest = tmp_path / "app.yml"
+        manifest.write_text('app-id: org.yaml.App\nversion: "3.0"\n')
+
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.name == "org.yaml.app"
+        assert info.version == "3.0"
+
+    def test_extract_lib_name(self):
+        """Test extract_lib_name helper."""
+        from app2nix.core.analyzers._elf_utils import extract_lib_name
+
+        assert extract_lib_name("libssl.so.3") == "ssl"
+        assert extract_lib_name("/usr/lib/libc.so.6") == "c"
+        assert extract_lib_name("foo.so") is None
+        assert extract_lib_name("libfoo") is None
+        assert extract_lib_name("lib.so") is None
+
+    def test_find_elf(self, tmp_path):
+        """Test find_elf helper."""
+        from app2nix.core.analyzers._elf_utils import find_elf
+
+        elf_file = tmp_path / "myapp"
+        elf_file.write_text("dummy")
+
+        with patch.object(subprocess, "run") as mock_run:
+            mock_run.return_value.stdout = "ELF 64-bit LSB executable"
+            found = find_elf(tmp_path)
+
+        assert len(found) == 1
+        assert found[0] == elf_file
+
+    def test_get_libs_patchelf(self, tmp_path):
+        """Test get_libs_patchelf helper."""
+        from app2nix.core.analyzers._elf_utils import get_libs_patchelf
+
+        binary = tmp_path / "bin"
+        binary.write_text("dummy")
+
+        with patch.object(subprocess, "run") as mock_run:
+            mock_run.return_value.stdout = "libz.so.1\nlibssl3.so\n"
+            libs = get_libs_patchelf(binary)
+
+        assert libs == {"z", "ssl3"}
 
 
 # =============================================================================

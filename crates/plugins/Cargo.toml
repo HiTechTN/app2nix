@@ -15,7 +15,6 @@ app2nix-nixgen = { path = "../nixgen" }
 app2nix-installer = { path = "../installer" }
 app2nix-desktop = { path = "../desktop" }
 app2nix-sandbox = { path = "../sandbox" }
-app2nix-fhs = { path = "../fhs" }
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

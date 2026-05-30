@@ -16,6 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: "true"
       - run: cargo build --release -p app2nix
       - uses: actions/upload-artifact@v4
         with:
@@ -43,11 +45,6 @@ jobs:
 
       - name: Make binary executable
         run: chmod +x ./release-artifacts/app2nix
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
 
       - name: Get tag version
         id: get_version

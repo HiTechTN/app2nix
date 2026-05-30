@@ -20,12 +20,6 @@ class DepCache:
                     cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS cache_meta (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            """)
 
     def get(self, lib_name: str) -> tuple[str, str, float] | None:
         with sqlite3.connect(self.db_path) as db:

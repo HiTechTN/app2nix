@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from app2nix.core.analyzers._elf_utils import extract_lib_name, find_elf, get_libs_patchelf
 from app2nix.models import PackageInfo
 
 
@@ -28,10 +29,9 @@ def analyze_rpm(rpm_path: str) -> PackageInfo:
         )
         for line in req_out.splitlines():
             lib = line.strip().split()[0]
-            if lib.startswith("lib") and ".so" in lib:
-                name_only = lib[3:].split(".so")[0]
-                if name_only:
-                    deps.append(name_only)
+            name_only = extract_lib_name(lib)
+            if name_only:
+                deps.append(name_only)
     except (subprocess.CalledProcessError, FileNotFoundError):
         deps = _extract_deps_via_cpio(rpm_path)
 
@@ -46,7 +46,7 @@ def analyze_rpm(rpm_path: str) -> PackageInfo:
 
 
 def _extract_deps_via_cpio(rpm_path: str) -> list[str]:
-    deps: list[str] = []
+    deps: set[str] = set()
     with tempfile.TemporaryDirectory(prefix="app2nix_rpm_") as tmpdir:
         try:
             cpio_proc = subprocess.Popen(
@@ -59,21 +59,8 @@ def _extract_deps_via_cpio(rpm_path: str) -> list[str]:
                 cwd=tmpdir, capture_output=True,
             )
             cpio_proc.wait()
-            for f in Path(tmpdir).rglob("*"):
-                if f.is_file() and not f.is_symlink():
-                    try:
-                        r = subprocess.run(
-                            ["patchelf", "--print-needed", str(f)],
-                            capture_output=True, text=True, timeout=5,
-                        )
-                        for lib in r.stdout.splitlines():
-                            lib = lib.strip()
-                            if lib.startswith("lib") and ".so" in lib:
-                                name_only = lib[3:].split(".so")[0]
-                                if name_only:
-                                    deps.append(name_only)
-                    except Exception:
-                        pass
+            for elf in find_elf(Path(tmpdir)):
+                deps.update(get_libs_patchelf(elf))
         except FileNotFoundError:
             pass
-    return deps
+    return sorted(deps)
