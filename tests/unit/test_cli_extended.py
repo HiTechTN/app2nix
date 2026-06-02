@@ -388,3 +388,86 @@ class TestServeCommand:
             port=8000,
             reload=True,
         )
+
+
+# =============================================================================
+# --flake flag
+# =============================================================================
+
+
+class TestFlakeFlag:
+    """``app2nix convert pkg.deb --flake`` generates both default.nix and flake.nix."""
+
+    def test_flake_generates_flake_nix(self, tmp_path):
+        """With ``--flake``, a flake.nix file should also be written."""
+        deb_file = tmp_path / "flake-test_1.0_amd64.deb"
+        deb_file.write_text("fake deb")
+        out_dir = tmp_path / "flake-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path, pkg_name="flake-test")
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb_file), "--output-dir", str(out_dir), "--flake"],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert (out_dir / "default.nix").exists()
+        assert (out_dir / "flake.nix").exists()
+        # Rich may wrap the filename — check the file exists instead of output text
+        assert "Generated" in result.output
+
+    def test_no_flake_by_default(self, tmp_path):
+        """Without ``--flake``, only default.nix is generated."""
+        deb_file = tmp_path / "no-flake_1.0_amd64.deb"
+        deb_file.write_text("fake deb")
+        out_dir = tmp_path / "no-flake-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path, pkg_name="no-flake")
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb_file), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0
+        assert (out_dir / "default.nix").exists()
+        assert not (out_dir / "flake.nix").exists()
+
+
+# =============================================================================
+# convert — full successful flow
+# =============================================================================
+
+
+class TestConvertFullFlow:
+    """Full convert command with all defaults."""
+
+    def test_convert_creates_default_nix(self, tmp_path):
+        """Basic convert should produce a valid default.nix."""
+        deb_file = tmp_path / "basic_1.0_amd64.deb"
+        deb_file.write_text("fake deb")
+        out_dir = tmp_path / "basic-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path, pkg_name="basic")
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb_file), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0
+        nix_file = out_dir / "default.nix"
+        assert nix_file.exists()
+        content = nix_file.read_text()
+        assert "mkDerivation" in content
+        assert "basic" in content.lower()
