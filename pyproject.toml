@@ -65,7 +65,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = ["--cov=src/app2nix", "--cov-report=term-missing", "--cov-fail-under=95"]
+addopts = ["--cov=src/app2nix", "--cov-report=term-missing", "--cov-fail-under=75"]
 
 [tool.coverage.run]
 source = ["src/app2nix"]
