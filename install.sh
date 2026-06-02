@@ -341,18 +341,41 @@ fi
 SERVER
     chmod +x "$BIN_DIR/app2nix-server"
 
-    cat > "$BIN_DIR/app2nix-gui" << SERVER
+    # Create launch_gui.py for NixOS compatibility
+    cat > "$INSTALL_DIR/launch_gui.py" << 'LAUNCHGUI'
+#!/usr/bin/env python3
+"""Launcher for app2nix GUI on NixOS — adds source to path before importing."""
+import sys
+from pathlib import Path
+
+src = Path(__file__).resolve().parent / "src"
+if src.is_dir():
+    sys.path.insert(0, str(src))
+
+from app2nix.gui import run_gui
+
+run_gui()
+LAUNCHGUI
+
+    cat > "$BIN_DIR/app2nix-gui" << 'GUIWRAP'
 #!/usr/bin/env bash
 # app2nix-gui - Graphical interface for app2nix
-INSTALL_DIR="\$HOME/.local/app2nix"
-PYTHON_VENV="\$INSTALL_DIR/.venv/bin/python"
-if [ -f "\$PYTHON_VENV" ]; then
-    exec "\$PYTHON_VENV" -m app2nix gui "\$@"
-else
-    echo "Error: Python venv not found at \$INSTALL_DIR" >&2
+INSTALL_DIR="$HOME/.local/app2nix"
+if [ ! -f "$INSTALL_DIR/launch_gui.py" ]; then
+    echo "Error: app2nix not found at $INSTALL_DIR" >&2
     exit 1
 fi
-SERVER
+# On NixOS, PyQt6 from pip lacks patched shared libraries — use nix-shell
+if command -v nix-shell >/dev/null 2>&1 && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null; then
+    exec nix-shell -p python3Packages.pyqt6 python3Packages.starlette python3Packages.uvicorn \
+         python3Packages.python-multipart python3Packages.httpx python3Packages.pydantic \
+         python3Packages.pydantic-settings python3Packages.jinja2 python3Packages.typer \
+         python3Packages.rich python3Packages.itsdangerous stdenv.cc.cc.lib \
+         --run "exec python3 $INSTALL_DIR/launch_gui.py $*"
+else
+    exec "$INSTALL_DIR/.venv/bin/python" -m app2nix gui "$@"
+fi
+GUIWRAP
     chmod +x "$BIN_DIR/app2nix-gui"
 }
 
@@ -429,9 +452,16 @@ main() {
             fi
             ;;
         restart)
-            stop
-            sleep 1
-            start
+            if check_docker; then
+                stop_docker
+                sleep 1
+                start_docker
+            else
+                pkill -f "app2nix.*serve" 2>/dev/null
+                sleep 1
+                cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python -m app2nix serve &>/dev/null &
+                ok "Server restarted at http://localhost:8000"
+            fi
             ;;
         logs|l)
             if check_docker; then

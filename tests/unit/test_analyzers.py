@@ -11,7 +11,6 @@ from app2nix.core.analyzers.appimage import (
     _appimage_offset,
     _extract_fuse,
     _extract_unsquashfs,
-    _find_elf_deps,
     analyze_appimage,
 )
 from app2nix.core.analyzers.deb import _get_libs_ldd, analyze_deb
@@ -412,7 +411,7 @@ class TestExtractUnsquashfs:
 
 
 # =============================================================================
-# appimage.py — _find_elf_deps (unit)
+# _elf_utils — find_elf + get_libs_patchelf (unit)
 # =============================================================================
 
 
@@ -447,7 +446,10 @@ class TestFindElfDeps:
             return m
 
         with patch.object(subprocess, "run", side_effect=_run_side):
-            deps = _find_elf_deps(tmp_path / "bin")
+            executables = find_elf(tmp_path / "bin")
+            deps = []
+            for elf in executables:
+                deps.extend(get_libs_patchelf(elf))
 
         # good_app was processed successfully, bad_app exception was caught
         assert "ssl" in deps
@@ -499,11 +501,12 @@ class TestAnalyzeAppimage:
 
     @patch("app2nix.core.analyzers.appimage.shutil.which")
     @patch("app2nix.core.analyzers.appimage._extract_fuse")
-    @patch("app2nix.core.analyzers.appimage._find_elf_deps")
+    @patch("app2nix.core.analyzers.appimage.find_elf")
+    @patch("app2nix.core.analyzers.appimage.get_libs_patchelf")
     @patch("app2nix.core.analyzers.appimage.tempfile.mkdtemp")
     @patch("app2nix.core.analyzers.appimage.shutil.rmtree")
     def test_successful_analysis(
-        self, mock_rmtree, mock_mkdtemp, mock_elf_deps, mock_fuse, mock_which, tmp_path
+        self, mock_rmtree, mock_mkdtemp, mock_patchelf, mock_find_elf, mock_fuse, mock_which, tmp_path
     ):
         """Should return a PackageInfo with correct fields on success."""
         mock_which.return_value = "/usr/bin/unsquashfs"
@@ -515,7 +518,8 @@ class TestAnalyzeAppimage:
         exe = tmp_path / "squashfs-root" / "usr" / "bin" / "myapp"
         exe.write_text("#!/bin/bash")
         exe.chmod(0o755)
-        mock_elf_deps.return_value = ["ssl", "c", "z"]
+        mock_find_elf.return_value = [exe]
+        mock_patchelf.return_value = ["ssl", "c", "z"]
 
         appimage_path = str(tmp_path / "test-app.AppImage")
         Path(appimage_path).write_text("dummy")
@@ -1138,5 +1142,5 @@ class TestUniversalAnalyzerAnalyze:
         assert result.format == "tarball"
 
     def test_supported_formats_has_all_expected_keys(self):
-        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar"}
+        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz"}
         assert set(SUPPORTED_FORMATS.keys()) == expected

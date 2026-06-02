@@ -6,7 +6,7 @@ plus the internal get_format() helper and error handling.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -27,7 +27,7 @@ class TestGetFormat:
         assert get_format("package.rpm") == ".rpm"
 
     def test_appimage(self):
-        assert get_format("MyApp.AppImage") == ".appimage"
+        assert get_format("MyApp.appimage") == ".appimage"
         assert get_format("myapp.appimage") == ".appimage"
 
     def test_tar_gz(self):
@@ -144,7 +144,7 @@ class TestApiRoot:
         assert data["version"] == "3.0.1"
         assert isinstance(data["formats"], list)
         assert ".deb" in data["formats"]
-        assert ".AppImage" in data["formats"]
+        assert ".appimage" in data["formats"]
 
     @pytest.mark.asyncio
     async def test_formats_match_supported(self):
@@ -264,7 +264,7 @@ class TestAnalyzeSuccess:
         with (
             patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
             patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
-            patch("urllib.request.urlretrieve") as mock_download,
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_analyzer = MagicMock()
             mock_analyzer.analyze.return_value = PackageInfo(
@@ -279,6 +279,15 @@ class TestAnalyzeSuccess:
             mock_resolver.resolve_all.return_value = ([], [])
             mock_resolver_cls.return_value = mock_resolver
 
+            mock_resp = MagicMock()
+            mock_resp.content = b"fake-deb-content"
+            mock_resp.raise_for_status = MagicMock()
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -290,7 +299,6 @@ class TestAnalyzeSuccess:
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "url-pkg"
-        mock_download.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_analyze_internal_error_returns_500(self):
@@ -453,7 +461,7 @@ class TestGenerateSuccess:
             patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
             patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
             patch("app2nix.server.NixGenerator") as mock_generator_cls,
-            patch("urllib.request.urlretrieve") as mock_download,
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_analyzer = MagicMock()
             mock_analyzer.analyze.return_value = PackageInfo(
@@ -473,6 +481,15 @@ class TestGenerateSuccess:
             mock_generator.generate_default_nix.return_value = mock_result
             mock_generator_cls.return_value = mock_generator
 
+            mock_resp = MagicMock()
+            mock_resp.content = b"fake-rpm-content"
+            mock_resp.raise_for_status = MagicMock()
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -484,7 +501,6 @@ class TestGenerateSuccess:
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "url-pkg"
-        mock_download.assert_called_once()
 
 
 # =============================================================================

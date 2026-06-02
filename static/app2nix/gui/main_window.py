@@ -1,19 +1,14 @@
 """Main window for the app2nix graphical interface."""
 
-import shutil
-import subprocess
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox,
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -37,22 +32,14 @@ _REQUIRED_THEME_KEYS = {
 SUPPORTED_EXTENSIONS = {
     ".deb", ".rpm", ".appimage", ".flatpak",
     ".snap", ".tar.gz", ".tgz", ".tar",
-    ".tar.xz", ".tar.bz2",
 }
 
 
 def _detect_format(path: str) -> str | None:
     """Return the extension key for a supported format, or None."""
     name = path.lower()
-    for ext in (".tar.gz", ".tar.bz2", ".tar.xz"):
-        if name.endswith(ext):
-            return ext
-    if name.endswith(".tgz"):
+    if name.endswith(".tar.gz") or name.endswith(".tgz"):
         return ".tar.gz"
-    if name.endswith(".txz"):
-        return ".tar.xz"
-    if name.endswith(".tbz2"):
-        return ".tar.bz2"
     ext = Path(name).suffix
     return ext if ext in SUPPORTED_EXTENSIONS else None
 
@@ -89,169 +76,13 @@ class AnalyzeWorker(QThread):
 
 
 # ---------------------------------------------------------------------------
-# Worker thread for installation (prevents UI freeze)
-# ---------------------------------------------------------------------------
-
-class InstallWorker(QThread):
-    """Runs nix-build and install in a background thread."""
-
-    progress = pyqtSignal(str)
-    finished = pyqtSignal(str)
-    error = pyqtSignal(str)
-
-    def __init__(self, package_path: str, nix_content: str,
-                 pkg_name: str, version: str,
-                 system_install: bool = False,
-                 sudo_password: str | None = None,
-                 parent=None):
-        super().__init__(parent)
-        self._package_path = package_path
-        self._nix_content = nix_content
-        self._pkg_name = pkg_name
-        self._version = version
-        self._system_install = system_install
-        self._sudo_password = sudo_password
-
-    def run(self):
-        try:
-            pkg_dir = Path.home() / "nix-packages" / self._pkg_name
-
-            # Step 1: Create directory
-            self.progress.emit(f"Creating {pkg_dir}...")
-            pkg_dir.mkdir(parents=True, exist_ok=True)
-
-            # Step 2: Copy package file
-            src = Path(self._package_path)
-            dest = pkg_dir / src.name
-            if not dest.exists():
-                self.progress.emit(f"Copying {src.name}...")
-                shutil.copy2(src, dest)
-
-            # Step 3: Write default.nix
-            nix_file = pkg_dir / "default.nix"
-            self.progress.emit("Writing default.nix...")
-            nix_file.write_text(self._nix_content, encoding="utf-8")
-
-            # Step 4: Check root permissions
-            root_stat = Path("/").stat()
-            if root_stat.st_mode & 0o002:  # world-writable
-                if self._sudo_password:
-                    self.progress.emit("Fixing root permissions (chmod 755 /)...")
-                    self._run_cmd(
-                        ["sudo", "-S", "chmod", "755", "/"],
-                        stdin_data=self._sudo_password + "\n",
-                    )
-                else:
-                    self.error.emit(
-                        "Root directory is world-writable (777). Nix sandbox cannot work.\n"
-                        "Please run: sudo chmod 755 /\n"
-                        "Or enable 'System install' and enter your sudo password."
-                    )
-                    return
-
-            # Step 5: Build and install
-            env = {"NIXPKGS_ALLOW_UNFREE": "1"}
-
-            if self._system_install:
-                self.progress.emit("Building and installing (system)...")
-                cmd = [
-                    "sudo", "-S",
-                    "nix-env", "-f", str(nix_file), "-i",
-                ]
-                self._run_cmd(cmd, stdin_data=self._sudo_password + "\n", env=env)
-            else:
-                self.progress.emit("Building and installing (user)...")
-                cmd = ["nix-env", "-f", str(nix_file), "-i"]
-                self._run_cmd(cmd, env=env)
-
-            self.finished.emit(
-                f"{self._pkg_name} v{self._version} installed successfully!\n"
-                f"Location: {pkg_dir}"
-            )
-
-        except subprocess.CalledProcessError as exc:
-            self.error.emit(
-                f"Installation failed (exit code {exc.returncode}):\n"
-                f"{exc.stderr or exc.stdout or str(exc)}"
-            )
-        except Exception as exc:
-            self.error.emit(f"Installation failed: {exc}")
-
-    def _run_cmd(self, cmd: list[str], stdin_data: str | None = None,
-                 env: dict | None = None):
-        """Run a command, optionally piping stdin_data."""
-        import os
-        full_env = {**os.environ, **(env or {})}
-        proc = subprocess.run(
-            cmd,
-            input=stdin_data,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            env=full_env,
-        )
-        if proc.returncode != 0:
-            raise subprocess.CalledProcessError(
-                proc.returncode, cmd,
-                output=proc.stdout, stderr=proc.stderr,
-            )
-        return proc
-
-
-# ---------------------------------------------------------------------------
-# Sudo password dialog
-# ---------------------------------------------------------------------------
-
-class SudoPasswordDialog(QDialog):
-    """Simple dialog to ask for the sudo password."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Sudo Password Required")
-        self.setFixedSize(400, 160)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.setContentsMargins(20, 20, 20, 20)
-
-        label = QLabel(
-            "System installation requires administrator privileges.\n"
-            "Enter your sudo password to continue:"
-        )
-        layout.addWidget(label)
-
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setPlaceholderText("Password")
-        self.password_input.returnPressed.connect(self.accept)
-        layout.addWidget(self.password_input)
-
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        btn_row.addWidget(cancel_btn)
-        ok_btn = QPushButton("Install")
-        ok_btn.setDefault(True)
-        ok_btn.clicked.connect(self.accept)
-        btn_row.addWidget(ok_btn)
-        layout.addLayout(btn_row)
-
-    def get_password(self) -> str | None:
-        if self.exec() == QDialog.DialogCode.Accepted:
-            return self.password_input.text()
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Main application window
 # ---------------------------------------------------------------------------
 
 class App2NixWindow(QWidget):
     """Main window for converting Linux packages to NixOS expressions."""
 
-    # -- Constructor -------------------------------------------------------
+    # ── Constructor ──────────────────────────────────────────────────────
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -261,25 +92,24 @@ class App2NixWindow(QWidget):
         self.current_file: str | None = None
         self._analysis_result = None
         self._worker: AnalyzeWorker | None = None
-        self._install_worker: InstallWorker | None = None
         self._theme_mode = "light"
 
         self._build_ui()
         self._apply_theme("light")
         self._connect_signals()
 
-    # -- UI construction ---------------------------------------------------
+    # ── UI construction ──────────────────────────────────────────────────
 
     def _build_ui(self):
         self.setWindowTitle("app2nix — Package to NixOS Converter")
-        self.setMinimumSize(720, 700)
-        self.setBaseSize(780, 760)
+        self.setMinimumSize(720, 620)
+        self.setBaseSize(780, 680)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # -- Header --------------------------------------------------------
+        # ── Header ──────────────────────────────────────────────────────
         header = QWidget()
         header.setObjectName("headerWidget")
         header.setFixedHeight(90)
@@ -290,7 +120,7 @@ class App2NixWindow(QWidget):
         title_row = QHBoxLayout()
         title_row.setSpacing(10)
 
-        icon = QLabel("\U0001f6e0\ufe0f")
+        icon = QLabel("🛠️")
         icon.setStyleSheet("font-size: 24px;")
         title_row.addWidget(icon)
 
@@ -308,7 +138,7 @@ class App2NixWindow(QWidget):
         title_row.addStretch()
 
         # Theme toggle
-        self.theme_btn = QPushButton("\U0001f319" if self._theme_mode == "light" else "\u2600\ufe0f")
+        self.theme_btn = QPushButton("🌙" if self._theme_mode == "light" else "☀️")
         self.theme_btn.setObjectName("themeBtn")
         self.theme_btn.setFixedSize(36, 36)
         self.theme_btn.setToolTip("Toggle dark/light theme")
@@ -317,32 +147,32 @@ class App2NixWindow(QWidget):
         hdr.addLayout(title_row)
         layout.addWidget(header)
 
-        # -- Content area --------------------------------------------------
+        # ── Content area ─────────────────────────────────────────────────
         content = QWidget()
         content.setObjectName("contentWidget")
         cont = QVBoxLayout(content)
         cont.setContentsMargins(28, 16, 28, 20)
         cont.setSpacing(14)
 
-        # -- File selection ------------------------------------------------
-        cont.addWidget(QLabel("\U0001f4e6  PACKAGE FILE"))
+        # ── File selection ───────────────────────────────────────────────
+        cont.addWidget(QLabel("📦  PACKAGE FILE"), )
         self.section_file = QLabel("PACKAGE FILE")
         self.section_file.setObjectName("sectionLabel")
 
         file_row = QHBoxLayout()
         file_row.setSpacing(8)
         self.file_path = QLineEdit()
-        self.file_path.setPlaceholderText("Select a .deb, .rpm, .AppImage, .flatpak, .snap or archive\u2026")
+        self.file_path.setPlaceholderText("Select a .deb, .rpm, .AppImage, .flatpak, .snap or archive…")
         self.file_path.setObjectName("filePathInput")
         file_row.addWidget(self.file_path, 1)
 
-        self.browse_btn = QPushButton("Browse\u2026")
+        self.browse_btn = QPushButton("Browse…")
         self.browse_btn.setObjectName("browseBtn")
         file_row.addWidget(self.browse_btn)
 
         cont.addLayout(file_row)
 
-        # -- Package info (auto-populated) ---------------------------------
+        # ── Package info (auto-populated) ────────────────────────────────
         self.section_info = QLabel("PACKAGE INFO")
         self.section_info.setObjectName("sectionLabel")
         cont.addWidget(self.section_info)
@@ -376,23 +206,23 @@ class App2NixWindow(QWidget):
 
         cont.addLayout(info_grid)
 
-        # -- Action buttons ------------------------------------------------
+        # ── Action buttons ───────────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        self.analyze_btn = QPushButton("\U0001f50d  Analyze")
+        self.analyze_btn = QPushButton("🔍  Analyze")
         self.analyze_btn.setObjectName("analyzeBtn")
         self.analyze_btn.setEnabled(True)
         btn_row.addWidget(self.analyze_btn)
 
-        self.clear_btn = QPushButton("\U0001f5d1\ufe0f  Clear")
+        self.clear_btn = QPushButton("🗑️  Clear")
         self.clear_btn.setObjectName("clearBtn")
         btn_row.addWidget(self.clear_btn)
 
         btn_row.addStretch()
         cont.addLayout(btn_row)
 
-        # -- Separator -----------------------------------------------------
+        # ── Separator ───────────────────────────────────────────────────
         sep = QFrame()
         sep.setObjectName("separator")
         sep.setFrameShape(QFrame.Shape.HLine)
@@ -400,7 +230,7 @@ class App2NixWindow(QWidget):
         sep.setFixedHeight(1)
         cont.addWidget(sep)
 
-        # -- Output area ---------------------------------------------------
+        # ── Output area ─────────────────────────────────────────────────
         self.section_output = QLabel("NIX EXPRESSION")
         self.section_output.setObjectName("sectionLabel")
         cont.addWidget(self.section_output)
@@ -408,22 +238,22 @@ class App2NixWindow(QWidget):
         self.output_area = QTextEdit()
         self.output_area.setReadOnly(True)
         self.output_area.setPlaceholderText(
-            "Analysis results will appear here\u2026\n"
+            "Analysis results will appear here…\n"
             "Select a package file and click Analyze."
         )
         self.output_area.setMinimumHeight(160)
         cont.addWidget(self.output_area, 1)
 
-        # -- Generate + Install buttons ------------------------------------
+        # ── Generate buttons ─────────────────────────────────────────────
         gen_row = QHBoxLayout()
         gen_row.setSpacing(10)
 
-        self.gen_default_btn = QPushButton("\U0001f4c4  Generate default.nix")
+        self.gen_default_btn = QPushButton("📄  Generate default.nix")
         self.gen_default_btn.setObjectName("genBtn")
         self.gen_default_btn.setEnabled(False)
         gen_row.addWidget(self.gen_default_btn)
 
-        self.gen_flake_btn = QPushButton("\u2744\ufe0f  Generate flake.nix")
+        self.gen_flake_btn = QPushButton("❄️  Generate flake.nix")
         self.gen_flake_btn.setObjectName("genBtn")
         self.gen_flake_btn.setEnabled(False)
         gen_row.addWidget(self.gen_flake_btn)
@@ -431,47 +261,20 @@ class App2NixWindow(QWidget):
         gen_row.addStretch()
         cont.addLayout(gen_row)
 
-        # -- Install row ---------------------------------------------------
-        install_row = QHBoxLayout()
-        install_row.setSpacing(10)
-
-        self.system_install_cb = QCheckBox("System install (sudo)")
-        self.system_install_cb.setToolTip(
-            "Install system-wide using sudo.\n"
-            "Unchecked = user install (nix-env -i)."
-        )
-        install_row.addWidget(self.system_install_cb)
-
-        self.install_btn = QPushButton("\u2b07\ufe0f  Install on NixOS")
-        self.install_btn.setObjectName("installBtn")
-        self.install_btn.setEnabled(False)
-        install_row.addWidget(self.install_btn)
-
-        install_row.addStretch()
-        cont.addLayout(install_row)
-
-        # -- Progress bar --------------------------------------------------
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setObjectName("progressBar")
-        self.progress_bar.setRange(0, 0)  # indeterminate
-        self.progress_bar.setFixedHeight(4)
-        self.progress_bar.setVisible(False)
-        cont.addWidget(self.progress_bar)
-
-        # -- Status bar ----------------------------------------------------
+        # ── Status bar ───────────────────────────────────────────────────
         self.status_bar = QLabel("Ready")
         self.status_bar.setObjectName("statusBar")
         cont.addWidget(self.status_bar)
 
         layout.addWidget(content, 1)
 
-    # -- Styling -----------------------------------------------------------
+    # ── Styling ─────────────────────────────────────────────────────────
 
     def _apply_theme(self, mode: str):
         set_theme(mode)
         t = get_theme()
 
-        # Validate required theme keys -- fallback to LIGHT defaults for any missing
+        # Validate required theme keys — fallback to LIGHT defaults for any missing
         missing = _REQUIRED_THEME_KEYS - t.keys()
         if missing:
             from app2nix.gui.theme import LIGHT
@@ -587,19 +390,6 @@ class App2NixWindow(QWidget):
             background: {t["progress_bg"]};
             color: {t["text_muted"]};
         }}
-        QPushButton#installBtn {{
-            background: #e67e22;
-            color: #ffffff;
-            border: none;
-            padding: 8px 22px;
-        }}
-        QPushButton#installBtn:hover {{
-            background: #d35400;
-        }}
-        QPushButton#installBtn:disabled {{
-            background: {t["progress_bg"]};
-            color: {t["text_muted"]};
-        }}
         QFrame#separator {{
             max-height: 1px;
             border: none;
@@ -621,23 +411,10 @@ class App2NixWindow(QWidget):
             color: {t["text_muted"]};
             padding: 4px 0;
         }}
-        QProgressBar#progressBar {{
-            border: none;
-            background: {t["progress_bg"]};
-            border-radius: 2px;
-        }}
-        QProgressBar#progressBar::chunk {{
-            background: {t["accent"]};
-            border-radius: 2px;
-        }}
-        QCheckBox {{
-            font-size: 13px;
-            color: {t["text_primary"]};
-        }}
         """
         self.setStyleSheet(style)
 
-    # -- Signal connections ------------------------------------------------
+    # ── Signal connections ──────────────────────────────────────────────
 
     def _connect_signals(self):
         self.browse_btn.clicked.connect(self._browse_file)
@@ -646,9 +423,8 @@ class App2NixWindow(QWidget):
         self.theme_btn.clicked.connect(self._toggle_theme)
         self.gen_default_btn.clicked.connect(self._save_default_nix)
         self.gen_flake_btn.clicked.connect(self._save_flake_nix)
-        self.install_btn.clicked.connect(self._on_install_clicked)
 
-    # -- Slots -------------------------------------------------------------
+    # ── Slots ────────────────────────────────────────────────────────────
 
     def _browse_file(self):
         from PyQt6.QtWidgets import QFileDialog
@@ -659,7 +435,7 @@ class App2NixWindow(QWidget):
             str(Path.home()),
             (
                 "Packages (*.deb *.rpm *.AppImage *.appimage *.flatpak *.snap"
-                " *.tar.gz *.tgz *.tar *.tar.xz *.tar.bz2);;All files (*)"
+                " *.tar.gz *.tgz *.tar);;All files (*)"
             ),
         )
         if path:
@@ -697,17 +473,16 @@ class App2NixWindow(QWidget):
         self.analyze_btn.setEnabled(False)
         self.gen_default_btn.setEnabled(False)
         self.gen_flake_btn.setEnabled(False)
-        self.install_btn.setEnabled(False)
         self.output_area.clear()
-        self.status_bar.setText(f"\u23f3 Analyzing {Path(package_path).name}\u2026")
+        self.status_bar.setText(f"⏳ Analyzing {Path(package_path).name}…")
 
         # Update info labels with file name as placeholder
         p = Path(package_path)
         self.lbl_name.setText(p.stem)
         ext = _detect_format(package_path)
         self.lbl_format.setText(ext or "-")
-        self.lbl_version.setText("\u2026")
-        self.lbl_arch.setText("\u2026")
+        self.lbl_version.setText("…")
+        self.lbl_arch.setText("…")
 
         self._worker = AnalyzeWorker(package_path)
         self._worker.finished.connect(self._on_analysis_finished)
@@ -726,14 +501,13 @@ class App2NixWindow(QWidget):
         self.analyze_btn.setEnabled(True)
         self.gen_default_btn.setEnabled(True)
         self.gen_flake_btn.setEnabled(True)
-        self.install_btn.setEnabled(True)
         self.status_bar.setText(
-            f"\u2705 Analysis complete \u2014 {info.name} {info.version}"
+            f"✅ Analysis complete — {info.name} {info.version}"
         )
 
     def _on_analysis_error(self, error_msg: str):
         self.analyze_btn.setEnabled(True)
-        self.status_bar.setText("\u274c Analysis failed")
+        self.status_bar.setText("❌ Analysis failed")
         QMessageBox.critical(
             self,
             tr("window.error", "Analysis Error"),
@@ -752,15 +526,6 @@ class App2NixWindow(QWidget):
                 pass
             self._worker = None
 
-        if self._install_worker is not None:
-            try:
-                self._install_worker.progress.disconnect()
-                self._install_worker.finished.disconnect()
-                self._install_worker.error.disconnect()
-            except TypeError:
-                pass
-            self._install_worker = None
-
         self.file_path.setText("")
         self.lbl_name.setText("-")
         self.lbl_version.setText("-")
@@ -772,14 +537,12 @@ class App2NixWindow(QWidget):
         self.analyze_btn.setEnabled(True)
         self.gen_default_btn.setEnabled(False)
         self.gen_flake_btn.setEnabled(False)
-        self.install_btn.setEnabled(False)
-        self.progress_bar.setVisible(False)
         self.status_bar.setText("Ready")
 
     def _toggle_theme(self):
         self._theme_mode = "dark" if self._theme_mode == "light" else "light"
         self._apply_theme(self._theme_mode)
-        self.theme_btn.setText("\u2600\ufe0f" if self._theme_mode == "dark" else "\U0001f319")
+        self.theme_btn.setText("☀️" if self._theme_mode == "dark" else "🌙")
 
     def _save_default_nix(self):
         if self._analysis_result:
@@ -812,75 +575,10 @@ class App2NixWindow(QWidget):
         if path:
             try:
                 Path(path).write_text(content, encoding="utf-8")
-                self.status_bar.setText(f"\U0001f4be Saved to {path}")
+                self.status_bar.setText(f"💾 Saved to {path}")
             except OSError as exc:
                 QMessageBox.critical(
                     self,
                     tr("window.error", "Save Error"),
                     f"Failed to save {filename}:\n{exc}",
                 )
-
-    # -- Install -----------------------------------------------------------
-
-    def _on_install_clicked(self):
-        if not self._analysis_result or not self.current_file:
-            return
-
-        system_install = self.system_install_cb.isChecked()
-        sudo_password = None
-
-        if system_install:
-            dlg = SudoPasswordDialog(self)
-            sudo_password = dlg.get_password()
-            if sudo_password is None:
-                return  # user cancelled
-
-        # Disable buttons during install
-        self.install_btn.setEnabled(False)
-        self.analyze_btn.setEnabled(False)
-        self.gen_default_btn.setEnabled(False)
-        self.gen_flake_btn.setEnabled(False)
-        self.progress_bar.setVisible(True)
-
-        info = self._analysis_result.package
-        self._install_worker = InstallWorker(
-            package_path=self.current_file,
-            nix_content=self._analysis_result.nix_content,
-            pkg_name=info.name,
-            version=info.version,
-            system_install=system_install,
-            sudo_password=sudo_password,
-        )
-        self._install_worker.progress.connect(self._on_install_progress)
-        self._install_worker.finished.connect(self._on_install_finished)
-        self._install_worker.error.connect(self._on_install_error)
-        self._install_worker.start()
-
-    def _on_install_progress(self, msg: str):
-        self.status_bar.setText(f"\u23f3 {msg}")
-
-    def _on_install_finished(self, msg: str):
-        self.progress_bar.setVisible(False)
-        self.install_btn.setEnabled(True)
-        self.analyze_btn.setEnabled(True)
-        self.gen_default_btn.setEnabled(True)
-        self.gen_flake_btn.setEnabled(True)
-        self.status_bar.setText(f"\u2705 {msg}")
-        QMessageBox.information(
-            self,
-            "Installation Complete",
-            msg,
-        )
-
-    def _on_install_error(self, msg: str):
-        self.progress_bar.setVisible(False)
-        self.install_btn.setEnabled(True)
-        self.analyze_btn.setEnabled(True)
-        self.gen_default_btn.setEnabled(True)
-        self.gen_flake_btn.setEnabled(True)
-        self.status_bar.setText(f"\u274c Install failed")
-        QMessageBox.critical(
-            self,
-            "Installation Failed",
-            msg,
-        )
