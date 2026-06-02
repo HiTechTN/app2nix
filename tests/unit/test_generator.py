@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app2nix.core.generator import NixGenerator
+from app2nix.core.generator import NixGenerator, _arch_to_nix_platform
 from app2nix.models import PackageInfo
 
 
@@ -80,3 +80,57 @@ def test_validate_failure(generator):
 
     assert validated is False
     assert err == "syntax error at line 1"
+
+
+# =============================================================================
+# _arch_to_nix_platform (pure function)
+# =============================================================================
+
+
+class TestArchToNixPlatform:
+    def test_amd64(self):
+        assert _arch_to_nix_platform("amd64") == "x86_64-linux"
+
+    def test_x86_64(self):
+        assert _arch_to_nix_platform("x86_64") == "x86_64-linux"
+
+    def test_arm64(self):
+        assert _arch_to_nix_platform("arm64") == "aarch64-linux"
+
+    def test_aarch64(self):
+        assert _arch_to_nix_platform("aarch64") == "aarch64-linux"
+
+    def test_armhf(self):
+        assert _arch_to_nix_platform("armhf") == "armv7l-linux"
+
+    def test_armv7l(self):
+        assert _arch_to_nix_platform("armv7l") == "armv7l-linux"
+
+    def test_i386(self):
+        assert _arch_to_nix_platform("i386") == "i686-linux"
+
+    def test_i686(self):
+        assert _arch_to_nix_platform("i686") == "i686-linux"
+
+    def test_none_defaults_to_x86_64(self):
+        assert _arch_to_nix_platform(None) == "x86_64-linux"
+
+    def test_empty_string_defaults_to_x86_64(self):
+        assert _arch_to_nix_platform("") == "x86_64-linux"
+
+    def test_unknown_arch_defaults_to_x86_64(self):
+        assert _arch_to_nix_platform("sparc64") == "x86_64-linux"
+
+    def test_case_insensitive(self):
+        assert _arch_to_nix_platform("AMD64") == "x86_64-linux"
+        assert _arch_to_nix_platform("ARM64") == "aarch64-linux"
+        assert _arch_to_nix_platform("Arm64") == "aarch64-linux"
+
+    def test_all_known_architectures(self):
+        """Every key in ARCH_TO_NIX_PLATFORM should map correctly."""
+        from app2nix.core.generator import ARCH_TO_NIX_PLATFORM
+
+        for arch, expected in ARCH_TO_NIX_PLATFORM.items():
+            assert _arch_to_nix_platform(arch) == expected, f"{arch} -> {expected}"
+            # Also verify case-insensitive
+            assert _arch_to_nix_platform(arch.upper()) == expected, f"{arch.upper()} -> {expected}"

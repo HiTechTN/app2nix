@@ -1078,6 +1078,36 @@ class TestUniversalAnalyzerDetectFormat:
         """Should match .tar.gz before falling through to .gz suffix."""
         assert self.analyzer.detect_format("file.tar.gz") == ".tar.gz"
 
+    def test_dot_tar_bz2(self):
+        assert self.analyzer.detect_format("archive.tar.bz2") == ".tar.bz2"
+
+    def test_dot_tar_xz(self):
+        assert self.analyzer.detect_format("archive.tar.xz") == ".tar.xz"
+
+    def test_dot_txz_alias(self):
+        """'.txz' is an alias for '.tar.xz'."""
+        assert self.analyzer.detect_format("archive.txz") == ".tar.xz"
+
+    def test_dot_tbz2_alias(self):
+        """'.tbz2' is an alias for '.tar.bz2'."""
+        assert self.analyzer.detect_format("archive.tbz2") == ".tar.bz2"
+
+    def test_tar_bz2_case_insensitive(self):
+        assert self.analyzer.detect_format("ARCHIVE.TAR.BZ2") == ".tar.bz2"
+
+    def test_tar_xz_case_insensitive(self):
+        assert self.analyzer.detect_format("ARCHIVE.TAR.XZ") == ".tar.xz"
+
+    def test_detect_format_module_level(self):
+        """The module-level detect_format function should also work."""
+        from app2nix.core.analyzer import detect_format
+
+        assert detect_format("archive.tar.bz2") == ".tar.bz2"
+        assert detect_format("archive.tar.xz") == ".tar.xz"
+        assert detect_format("archive.txz") == ".tar.xz"
+        assert detect_format("archive.tbz2") == ".tar.bz2"
+        assert detect_format("archive.zip") is None
+
 
 class TestUniversalAnalyzerAnalyze:
     def setup_method(self):
