@@ -124,15 +124,23 @@ src/app2nix/
   cli.py              # Typer CLI (convert, serve, gui)
   server.py           # Starlette web API
   models.py           # PackageInfo, ConversionResult
+  config.py           # Settings (env-based)
+  logging.py          # Rich logging setup
+  exceptions.py       # Error hierarchy
   core/
     analyzer.py       # UniversalAnalyzer (format dispatch)
-    analyzers/        # deb, rpm, appimage, flatpak, snap, tarball
-    _elf_utils.py     # Shared ELF helpers
+    analyzers/
+      _elf_utils.py   # Shared ELF helpers (find_elf, get_libs_patchelf)
+      deb.py          # Debian package analysis
+      rpm.py          # RPM package analysis
+      appimage.py     # AppImage extraction + analysis
+      flatpak.py      # Flatpak metadata parsing
+      snap.py         # Snap package analysis
+      tarball.py      # Tarball extraction + analysis
     resolver.py       # DependencyResolver (DEP_MAP)
-    generator.py      # NixGenerator (Jinja2)
-    validator.py      # nix-instantiate check
+    generator.py      # NixGenerator (Jinja2) + inline validation
   gui/
-    main_window.py    # PyQt6 GUI
+    main_window.py    # PyQt6 GUI + InstallWorker + SudoDialog
     i18n.py           # en, fr, ar
     theme.py          # light / dark
 ```
