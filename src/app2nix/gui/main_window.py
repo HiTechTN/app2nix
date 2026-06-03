@@ -212,8 +212,166 @@ class InstallWorker(QThread):
         except Exception as exc:
             self.error.emit(f"Installation failed: {exc}")
 
+
+    # -- Manifest tracking for .desktop/icon cleanup on uninstall -------
+
+    @staticmethod
+    def _manifest_path() -> Path:
+        """Path to the manifest file that tracks installed desktop entries and icons."""
+        return Path.home() / ".local" / "share" / "app2nix" / "manifest.json"
+
+    @staticmethod
+    def _load_manifest() -> dict:
+        """Load the install manifest from disk."""
+        p = InstallWorker._manifest_path()
+        if p.exists():
+            import json
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {"packages": {}}
+
+    @staticmethod
+    def _save_manifest(data: dict):
+        """Save the install manifest to disk."""
+        import json
+        p = InstallWorker._manifest_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @classmethod
+    def _record_install(cls, pkg_name: str, desktop_files: list[str],
+                        icon_files: list[str]):
+        """Record installed desktop files and icons for a package."""
+        data = cls._load_manifest()
+        safe_name = pkg_name.lower().replace(" ", "-")
+        data["packages"][safe_name] = {
+            "desktop_files": desktop_files,
+            "icon_files": icon_files,
+            "nix_profile_key": safe_name,
+        }
+        cls._save_manifest(data)
+
+    @classmethod
+    def _cleanup_orphaned_entries(cls):
+        """Remove .desktop files and icons for packages no longer in nix profile.
+
+        Returns the number of packages cleaned up.
+        """
+        data = cls._load_manifest()
+        tracked = data.get("packages", {})
+        if not tracked:
+            return 0
+
+        # Get currently installed packages from nix profile
+        installed = set()
+        try:
+            result = subprocess.run(
+                ["nix", "profile", "list", "--json"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                import json
+                profile = json.loads(result.stdout)
+                for key in profile.get("elements", {}):
+                    installed.add(key.lower().split(".")[-1])
+                    # Also add the full key
+                    installed.add(key.lower())
+        except Exception:
+            pass
+
+        # Also try nix-env -q for legacy
+        try:
+            result = subprocess.run(
+                ["nix-env", "-q"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    name = line.strip().split("-")[0].lower()
+                    installed.add(name)
+        except Exception:
+            pass
+
+        cleaned = 0
+        remaining = {}
+        desktop_dir = Path.home() / ".local" / "share" / "applications"
+        icons_dir = Path.home() / ".local" / "share" / "icons"
+
+        for pkg_name, info in tracked.items():
+            # Check if the package name matches any installed package
+            # Use the stored nix_profile_key if available, otherwise fuzzy match
+            profile_key = info.get("nix_profile_key", "")
+            is_installed = profile_key in installed if profile_key else False
+            if not is_installed:
+                for inst in installed:
+                    # Check for exact match or common patterns
+                    # e.g., "firefox" matches "firefox" but not "firefox-developer"
+                    inst_base = inst.split("-")[0] if "-" in inst else inst
+                    pkg_base = pkg_name.split("-")[0] if "-" in pkg_name else pkg_name
+                    if inst == pkg_name or inst_base == pkg_base:
+                        is_installed = True
+                        break
+
+            if is_installed:
+                remaining[pkg_name] = info
+                continue
+
+            # Package not in profile — remove its desktop files and icons
+            for df_name in info.get("desktop_files", []):
+                df_path = desktop_dir / df_name
+                if df_path.exists():
+                    df_path.unlink()
+
+            for icon_name in info.get("icon_files", []):
+                # icon_files now stores icon names (not paths)
+                # Search for matching icon files via glob
+                for size_dir in ["scalable", "16x16", "32x32", "48x48", "64x64", "128x128", "256x256"]:
+                    for ext in [".png", ".svg", ".xpm", ".ico"]:
+                        icon_path = icons_dir / "hicolor" / size_dir / "apps" / f"{icon_name}{ext}"
+                        if icon_path.exists():
+                            icon_path.unlink()
+                # Also remove legacy glob-pattern entries from older manifests
+                if ".*" in icon_name:
+                    base = icon_name.replace(".*", "")
+                    for size_dir in ["scalable", "16x16", "32x32", "48x48", "64x64", "128x128", "256x256"]:
+                        apps_dir = icons_dir / "hicolor" / size_dir / "apps"
+                        if apps_dir.is_dir():
+                            for f in apps_dir.glob(f"{base}.*"):
+                                f.unlink()
+
+
+            cleaned += 1
+
+        if cleaned > 0:
+            # Refresh caches
+            try:
+                subprocess.run(
+                    ["update-desktop-database", str(desktop_dir)],
+                    capture_output=True, timeout=10,
+                )
+            except Exception:
+                pass
+            try:
+                subprocess.run(
+                    ["gtk-update-icon-cache", "-f", "-t", str(icons_dir / "hicolor")],
+                    capture_output=True, timeout=10,
+                )
+            except Exception:
+                pass
+
+            data["packages"] = remaining
+            cls._save_manifest(data)
+
+        return cleaned
+
     def _install_desktop_files(self):
         """Find .desktop files and icons in the Nix store and install them."""
+        try:
+            self._cleanup_orphaned_entries()
+        except Exception as exc:
+            self.progress.emit(f"Warning: cleanup failed: {exc}")
         desktop_dir = Path.home() / ".local" / "share" / "applications"
         desktop_dir.mkdir(parents=True, exist_ok=True)
 
@@ -221,25 +379,32 @@ class InstallWorker(QThread):
         if not store_path:
             self.progress.emit("Could not find Nix store path, generating .desktop file...")
             self._generate_fallback_desktop(desktop_dir)
+            self._record_install(self._pkg_name, [f"{self._pkg_name.lower().replace(' ', '-')}.desktop"], [])
             self._refresh_desktop_database(desktop_dir)
             return
 
         # Install icons from Nix store
         icon_name = None
+        installed_icon_names: list[str] = []
         self.progress.emit("Searching for icons in package...")
         try:
             icon_name = self._install_icons(store_path)
             if icon_name:
+                installed_icon_names.append(icon_name)
                 self._refresh_icon_cache()
         except Exception as exc:
             self.progress.emit(f"Warning: icon install failed: {exc}")
 
+        # Find and install desktop files
         self.progress.emit(f"Searching .desktop files in {store_path}...")
         desktop_files = self._find_desktop_files_in_store(store_path)
+        installed_desktop_names: list[str] = []
 
         if not desktop_files:
             self.progress.emit("No .desktop files found in package, generating...")
             self._generate_fallback_desktop(desktop_dir, icon_name=icon_name)
+            safe_name = self._pkg_name.lower().replace(" ", "-")
+            installed_desktop_names.append(f"{safe_name}.desktop")
         else:
             for df in desktop_files:
                 content = df.read_text(encoding="utf-8", errors="replace")
@@ -248,9 +413,13 @@ class InstallWorker(QThread):
                     content = self._patch_desktop_icon(content, icon_name)
                 dest = desktop_dir / df.name
                 dest.write_text(content, encoding="utf-8")
+                installed_desktop_names.append(df.name)
                 self.progress.emit(f"Installed desktop entry: {df.name}")
 
+        # Record for cleanup on uninstall
+        self._record_install(self._pkg_name, installed_desktop_names, installed_icon_names)
         self._refresh_desktop_database(desktop_dir)
+
     def _find_nix_store_path(self) -> Path | None:
         safe_name = self._pkg_name.lower().replace(" ", "-")
         try:
