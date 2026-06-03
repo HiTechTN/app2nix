@@ -464,22 +464,24 @@ class InstallWorker(QThread):
         return desktop_files
 
 
-    def _find_icons_in_store(self, store_path: Path) -> list[Path]:
-        """Find icon files (png/svg) in a Nix store path's share/icons/ directory."""
-        icon_files: list[Path] = []
+    @staticmethod
+    def _find_icons_in_store(store_path: Path) -> list[Path]:
+        """Find icon files (.png, .svg, .xpm, .ico) in a Nix store path."""
+        icon_exts = {".png", ".svg", ".xpm", ".ico"}
+        icons: list[Path] = []
         icons_dir = store_path / "share" / "icons"
         if icons_dir.is_dir():
             for f in icons_dir.rglob("*"):
-                if f.is_file() and f.suffix.lower() in (".png", ".svg", ".xpm", ".ico"):
-                    icon_files.append(f)
+                if f.is_file() and f.suffix.lower() in icon_exts:
+                    icons.append(f)
         # Broader fallback: search share/icons in nested store paths
-        if not icon_files:
-            for nested_icons in store_path.glob("*/share/icons"):
-                if nested_icons.is_dir():
-                    for f in nested_icons.rglob("*"):
-                        if f.is_file() and f.suffix.lower() in (".png", ".svg", ".xpm", ".ico"):
-                            icon_files.append(f)
-        return icon_files
+        if not icons:
+            for share_icons in store_path.glob("**/share/icons"):
+                if share_icons.is_dir():
+                    for f in share_icons.rglob("*"):
+                        if f.is_file() and f.suffix.lower() in icon_exts:
+                            icons.append(f)
+        return icons
 
     def _install_icons(self, store_path: Path) -> str | None:
         """Copy icons from Nix store to ~/.local/share/icons/ and return the icon name."""
@@ -567,16 +569,20 @@ class InstallWorker(QThread):
         return "".join(patched)
 
 
-    def _patch_desktop_icon(self, content: str, icon_name: str) -> str:
-        """Update the Icon= line in a .desktop file to use the installed icon name."""
+    @staticmethod
+    def _patch_desktop_icon(content: str, icon_name: str) -> str:
+        """Replace or add the Icon= line in a .desktop file content."""
         lines = content.splitlines(keepends=True)
         patched: list[str] = []
+        found = False
         for line in lines:
             if line.strip().startswith("Icon="):
-                # Replace the icon path/name with the installed icon name
                 patched.append(f"Icon={icon_name}\n")
+                found = True
             else:
                 patched.append(line)
+        if not found:
+            patched.append(f"Icon={icon_name}\n")
         return "".join(patched)
     def _generate_fallback_desktop(self, desktop_dir: Path, icon_name: str | None = None):
         safe_name = self._pkg_name.lower().replace(" ", "-")
