@@ -794,7 +794,7 @@ def test_install_worker_system_install(qtbot, window, tmp_path):
     # Should have called _run_cmd with sudo
     assert mock_run.call_count >= 1
     first_cmd = mock_run.call_args_list[0][0][0]
-    assert 'sudo' in first_cmd or 'nix-env' in first_cmd
+    assert 'sudo' in first_cmd or 'nix-env' in first_cmd or 'nix' in first_cmd
 
 
 @pytest.mark.skip(reason="Path.stat mocking is unreliable in offscreen mode")

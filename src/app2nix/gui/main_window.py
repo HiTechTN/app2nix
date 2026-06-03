@@ -152,17 +152,37 @@ class InstallWorker(QThread):
             # Step 5: Build and install
             env = {"NIXPKGS_ALLOW_UNFREE": "1"}
 
-            if self._system_install:
-                self.progress.emit("Building and installing (system)...")
-                cmd = [
-                    "sudo", "-S",
-                    "nix-env", "-f", str(nix_file), "-i",
+            # Detect whether to use nix-env or nix profile (new Nix)
+            use_profile = self._detect_nix_profile()
+
+            if use_profile:
+                # New Nix: build + install in one step via nix profile install --file
+                self.progress.emit("Building and installing (nix profile)...")
+                install_cmd = [
+                    "nix", "profile", "install",
+                    "--file", str(nix_file),
                 ]
-                self._run_cmd(cmd, stdin_data=self._sudo_password + "\n", env=env)
+                if self._system_install:
+                    self._run_cmd(
+                        ["sudo", "-S"] + install_cmd,
+                        stdin_data=self._sudo_password + "\n", env=env,
+                    )
+                else:
+                    self._run_cmd(install_cmd, env=env)
             else:
-                self.progress.emit("Building and installing (user)...")
-                cmd = ["nix-env", "-f", str(nix_file), "-i"]
-                self._run_cmd(cmd, env=env)
+                # Legacy nix-env
+                if self._system_install:
+                    self.progress.emit("Building and installing (system)...")
+                    self._run_cmd(
+                        ["sudo", "-S", "nix-env", "-f", str(nix_file), "-i"],
+                        stdin_data=self._sudo_password + "\n", env=env,
+                    )
+                else:
+                    self.progress.emit("Building and installing (user)...")
+                    self._run_cmd(
+                        ["nix-env", "-f", str(nix_file), "-i"],
+                        env=env,
+                    )
 
             self.finished.emit(
                 f"{self._pkg_name} v{self._version} installed successfully!\n"
@@ -176,6 +196,18 @@ class InstallWorker(QThread):
             )
         except Exception as exc:
             self.error.emit(f"Installation failed: {exc}")
+
+    def _detect_nix_profile(self) -> bool:
+        """Detect if the system uses nix profile (new Nix) instead of nix-env."""
+        import subprocess as _sp
+        try:
+            r = _sp.run(
+                ["nix", "profile", "list"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return r.returncode == 0
+        except Exception:
+            return False  # Default to legacy nix-env
 
     def _run_cmd(self, cmd: list[str], stdin_data: str | None = None,
                  env: dict | None = None):
