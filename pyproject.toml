@@ -69,7 +69,7 @@ addopts = ["--cov=src/app2nix", "--cov-report=term-missing", "--cov-fail-under=7
 
 [tool.coverage.run]
 source = ["src/app2nix"]
-omit = ["*/gui/main_window.py"]
+omit = []
 
 [tool.coverage.report]
 exclude_lines = [
