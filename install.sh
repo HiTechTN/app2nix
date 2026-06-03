@@ -125,7 +125,7 @@ check_docker() {
     return 1
 }
 
-is_nixos() {
+is_nix_based() {
     grep -qi '^ID=nixos\|^ID=glfos' /etc/os-release 2>/dev/null ||
     test -f /etc/NIXOS ||
     command -v nixos-rebuild >/dev/null 2>&1
@@ -485,7 +485,7 @@ main() {
         "")
             print_banner | sed "s/VERSION_PLACEHOLDER/$VERSION/g"
             echo
-            if is_nixos; then
+            if is_nix_based; then
                 log "NixOS detected — installing natively"
                 install_user
             elif check_docker; then
