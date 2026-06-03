@@ -11,12 +11,14 @@ from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Route
 
 from app2nix.config import settings
-from app2nix.core.analyzer import SUPPORTED_FORMATS as _FORMAT_MAP, UniversalAnalyzer, detect_format
-
-SUPPORTED_FORMATS = list(_FORMAT_MAP.keys())
+from app2nix.core.analyzer import SUPPORTED_FORMATS as _FORMAT_MAP
+from app2nix.core.analyzer import UniversalAnalyzer, detect_format
 from app2nix.core.generator import NixGenerator
 from app2nix.core.resolver import DependencyResolver
 from app2nix.logging import logger
+
+SUPPORTED_FORMATS = list(_FORMAT_MAP.keys())
+
 
 def get_format(filename: str) -> str | None:
     return detect_format(filename)

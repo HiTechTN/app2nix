@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from app2nix.cli import app, _find_packages
+from app2nix.cli import _find_packages, app
 
 # =============================================================================
 # Helpers

@@ -1,6 +1,6 @@
-import zipfile
 import os
 import subprocess
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -17,9 +17,9 @@ from app2nix.core.analyzers.appimage import (
 from app2nix.core.analyzers.deb import _get_libs_ldd, analyze_deb
 from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
+from app2nix.core.analyzers.sevenz_analyzer import analyze_7z
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
-from app2nix.core.analyzers.sevenz_analyzer import analyze_7z
 from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo

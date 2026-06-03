@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import glob as _glob
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from io import StringIO
 from pathlib import Path
 
 import typer
@@ -26,7 +24,7 @@ _GLOB_CHARS = set("*?[")
 
 
 def _find_packages(directory: Path, *, recursive: bool = False) -> list[Path]:
-    """Return sorted list of supported package files inside *directory*."""    
+    """Return sorted list of supported package files inside *directory*."""
     from app2nix.core.analyzer import detect_format
     pattern = "**/*" if recursive else "*"
     found: list[Path] = []

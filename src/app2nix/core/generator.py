@@ -4,7 +4,6 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from app2nix.config import settings
 from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
@@ -102,7 +101,7 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = sorted(set(f"pkgs.{d}" for d in (resolved_deps or [])))
+        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
         native_deps = []
         if info.format == "deb":
@@ -142,7 +141,7 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = sorted(set(f"pkgs.{d}" for d in (resolved_deps or [])))
+        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 

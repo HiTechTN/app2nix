@@ -11,7 +11,6 @@ Complements the integration tests in tests/integration/test_server.py by coverin
   7. Homepage fallback edge cases
 """
 
-import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,7 +19,6 @@ from httpx import ASGITransport, AsyncClient
 
 from app2nix.models import PackageInfo
 from app2nix.server import SUPPORTED_FORMATS, app, get_format
-
 
 # =============================================================================
 # get_format — additional edge cases for new formats

@@ -878,7 +878,7 @@ class App2NixWindow(QWidget):
         self.analyze_btn.setEnabled(True)
         self.gen_default_btn.setEnabled(True)
         self.gen_flake_btn.setEnabled(True)
-        self.status_bar.setText(f"\u274c Install failed")
+        self.status_bar.setText("\u274c Install failed")
         QMessageBox.critical(
             self,
             "Installation Failed",

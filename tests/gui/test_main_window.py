@@ -1,4 +1,5 @@
 import subprocess
+
 import pytest
 
 pytest.importorskip("PyQt6")
@@ -799,8 +800,9 @@ def test_install_worker_system_install(qtbot, window, tmp_path):
 @pytest.mark.skip(reason="Path.stat mocking is unreliable in offscreen mode")
 def test_install_worker_world_writable_root_with_sudo(qtbot, window, tmp_path):
     """InstallWorker should fix world-writable root when sudo password provided."""
-    from app2nix.gui.main_window import InstallWorker
     import pathlib
+
+    from app2nix.gui.main_window import InstallWorker
 
     pkg_file = tmp_path / "test.deb"
     pkg_file.write_bytes(b"fake")
@@ -836,8 +838,9 @@ def test_install_worker_world_writable_root_with_sudo(qtbot, window, tmp_path):
 @pytest.mark.skip(reason="Path.stat mocking is unreliable in offscreen mode")
 def test_install_worker_world_writable_root_without_sudo(qtbot, window, tmp_path):
     """InstallWorker should error when root is world-writable and no sudo password."""
-    from app2nix.gui.main_window import InstallWorker
     import pathlib
+
+    from app2nix.gui.main_window import InstallWorker
 
     pkg_file = tmp_path / "test.deb"
     pkg_file.write_bytes(b"fake")
@@ -952,7 +955,7 @@ def test_on_install_clicked_no_analysis(qtbot, window):
     """Clicking Install without analysis should do nothing."""
     window._analysis_result = None
     window.current_file = None
-    with patch.object(window, '_install_worker') as mock_worker:
+    with patch.object(window, '_install_worker'):
         window._on_install_clicked()
     # No install should have started
 

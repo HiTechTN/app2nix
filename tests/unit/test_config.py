@@ -7,12 +7,8 @@ and lru_cache idempotency of get_settings().
 
 import os
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from app2nix.config import Settings, get_settings
-
 
 # ---------------------------------------------------------------------------
 # Settings defaults
