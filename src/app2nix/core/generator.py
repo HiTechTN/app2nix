@@ -29,12 +29,16 @@ INSTALL_PHASE_MAP = {
         'if [ -n "$appimage" ]; then '
         '  chmod +x "$appimage"; '
         '  "$appimage" --appimage-extract 2>/dev/null; '
-        "  if [ -d squashfs-root ]; then "
-        "    cp -r squashfs-root/* $out/; "
-        "    rm -rf squashfs-root; "
+        '  if [ -d squashfs-root ]; then '
+        '    cp -r squashfs-root/* $out/; '
+        '    rm -rf squashfs-root; '
+        '  elif command -v unsquashfs >/dev/null 2>&1; then '
+        '    unsquashfs -d $out/squashfs-root "$appimage" 2>/dev/null && '
+        '    cp -r squashfs-root/* $out/ && rm -rf squashfs-root || '
+        '    { echo "ERROR: unsquashfs extraction failed"; exit 1; }; '
         '  else '
-        '    echo "ERROR: appimage-extract failed"; exit 1; '
-        "  fi; "
+        '    echo "ERROR: neither --appimage-extract nor unsquashfs worked"; exit 1; '
+        '  fi; '
         'else '
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
         "fi"
@@ -106,6 +110,10 @@ class NixGenerator:
         native_deps = []
         if info.format == "deb":
             native_deps.append("dpkg")
+        elif info.format == "rpm":
+            native_deps.extend(["rpm", "cpio"])
+        elif info.format == "appimage":
+            native_deps.append("squashfsTools")
 
         content = template.render(
             name=info.name,

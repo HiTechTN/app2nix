@@ -28,6 +28,7 @@ LIGHT = {
     "tab_bg": "#f8f9fa",
     "tab_text": "#64748b",
     "tab_selected": "#3b82f6",
+    "tab_border": "#e5e7eb",
     "status_bg": "#1e293b",
     "status_text": "#94a3b8",
     "menu_bg": "#1e293b",
@@ -35,6 +36,11 @@ LIGHT = {
     "menu_hover": "#3b82f6",
     "progress_bg": "#e5e7eb",
     "separator": "#e5e7eb",
+    "help_card_bg": "#ffffff",
+    "help_card_border": "#e2e8f0",
+    "help_card_hover": "#f1f5f9",
+    "help_step_bg": "#f8fafc",
+    "help_step_border": "#e2e8f0",
 }
 
 DARK = {
@@ -65,6 +71,7 @@ DARK = {
     "tab_bg": "#1e293b",
     "tab_text": "#94a3b8",
     "tab_selected": "#60a5fa",
+    "tab_border": "#334155",
     "status_bg": "#0f172a",
     "status_text": "#64748b",
     "menu_bg": "#1e293b",
@@ -72,6 +79,11 @@ DARK = {
     "menu_hover": "#60a5fa",
     "progress_bg": "#334155",
     "separator": "#334155",
+    "help_card_bg": "#1e293b",
+    "help_card_border": "#334155",
+    "help_card_hover": "#334155",
+    "help_step_bg": "#162032",
+    "help_step_border": "#334155",
 }
 
 ALL = {"light": LIGHT, "dark": DARK}
