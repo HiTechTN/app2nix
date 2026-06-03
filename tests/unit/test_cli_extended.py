@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from app2nix.cli import app
+from app2nix.cli import app, _find_packages
 
 # =============================================================================
 # Helpers
@@ -1113,3 +1113,180 @@ class TestResolvePackages:
         result = _resolve_packages([str(tmp_path / "missing.deb")])
         assert len(result) == 1
         assert result[0].name == "missing.deb"
+
+
+
+# ---------------------------------------------------------------------------
+# Directory input tests (issue #12)
+# ---------------------------------------------------------------------------
+
+
+class TestDirectoryInput:
+    """Tests for directory input support in app2nix convert."""
+
+    def test_directory_finds_packages(self, tmp_path):
+        """Directory with .deb files should find and convert them."""
+        pkg_dir = tmp_path / "packages"
+        pkg_dir.mkdir()
+        (pkg_dir / "a.deb").write_bytes(b"fake")
+        (pkg_dir / "b.deb").write_bytes(b"fake")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run", side_effect=_make_deb_run_side_effect(tmp_path, "pkg", "1.0")):
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 2 package(s)" in result.output
+        assert "succeeded" in result.output
+
+    def test_directory_empty_shows_error(self, tmp_path):
+        """Empty directory should show error."""
+        pkg_dir = tmp_path / "empty"
+        pkg_dir.mkdir()
+        result = CliRunner().invoke(app, ["convert", str(pkg_dir)])
+        assert result.exit_code == 1
+        assert "No supported packages found" in result.output
+
+    def test_directory_skips_non_package_files(self, tmp_path):
+        """Non-package files should be skipped silently."""
+        pkg_dir = tmp_path / "mixed"
+        pkg_dir.mkdir()
+        (pkg_dir / "readme.txt").write_text("hello")
+        (pkg_dir / "image.png").write_bytes(b"png")
+        (pkg_dir / "a.deb").write_bytes(b"fake")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run", side_effect=_make_deb_run_side_effect(tmp_path, "pkg", "1.0")):
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 1 package(s)" in result.output
+
+    def test_directory_recursive(self, tmp_path):
+        """--recursive should traverse subdirectories."""
+        pkg_dir = tmp_path / "packages"
+        sub1 = pkg_dir / "sub1"
+        sub2 = pkg_dir / "sub2"
+        sub1.mkdir(parents=True)
+        sub2.mkdir(parents=True)
+        (sub1 / "a.deb").write_bytes(b"fake")
+        (sub2 / "b.deb").write_bytes(b"fake")
+        (pkg_dir / "readme.txt").write_text("hi")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run", side_effect=_make_deb_run_side_effect(tmp_path, "pkg", "1.0")):
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--recursive",
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 2 package(s)" in result.output
+
+    def test_directory_non_recursive_skips_subdirs(self, tmp_path):
+        """Without --recursive, subdirectories are ignored."""
+        pkg_dir = tmp_path / "packages"
+        sub = pkg_dir / "sub"
+        sub.mkdir(parents=True)
+        (sub / "a.deb").write_bytes(b"fake")
+        (pkg_dir / "b.deb").write_bytes(b"fake")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run", side_effect=_make_deb_run_side_effect(tmp_path, "pkg", "1.0")):
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 1 package(s)" in result.output
+
+    def test_directory_multi_format(self, tmp_path):
+        """Directory with multiple supported formats."""
+        pkg_dir = tmp_path / "packages"
+        pkg_dir.mkdir()
+        (pkg_dir / "app.deb").write_bytes(b"fake")
+        (pkg_dir / "app.tar.gz").write_bytes(b"fake")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = _make_deb_run_side_effect(tmp_path, "pkg", "1.0")
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 2 package(s)" in result.output
+
+    def test_directory_with_parallel(self, tmp_path):
+        """Directory input should work with --parallel."""
+        pkg_dir = tmp_path / "packages"
+        pkg_dir.mkdir()
+        (pkg_dir / "a.deb").write_bytes(b"fake")
+        (pkg_dir / "b.deb").write_bytes(b"fake")
+        out_dir = tmp_path / "out"
+
+        with patch("subprocess.run", side_effect=_make_deb_run_side_effect(tmp_path, "pkg", "1.0")):
+            result = CliRunner().invoke(app, [
+                "convert", str(pkg_dir),
+                "--parallel", "2",
+                "--output-dir", str(out_dir),
+            ])
+        assert result.exit_code == 0
+        assert "Found 2 package(s)" in result.output
+        assert "succeeded" in result.output
+
+    def test_path_not_found(self, tmp_path):
+        """Non-existent path should show error."""
+        result = CliRunner().invoke(app, ["convert", str(tmp_path / "nope")])
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower() or "no matching" in result.output.lower() or "File not found" in result.output
+
+
+class TestFindPackages:
+    """Unit tests for _find_packages helper."""
+
+    def test_finds_deb_files(self, tmp_path):
+        (tmp_path / "a.deb").write_bytes(b"fake")
+        (tmp_path / "b.deb").write_bytes(b"fake")
+        (tmp_path / "readme.txt").write_text("hello")
+        result = _find_packages(tmp_path)
+        assert len(result) == 2
+        assert all(p.suffix == ".deb" for p in result)
+
+    def test_sorted_order(self, tmp_path):
+        (tmp_path / "z.deb").write_bytes(b"fake")
+        (tmp_path / "a.deb").write_bytes(b"fake")
+        (tmp_path / "m.deb").write_bytes(b"fake")
+        result = _find_packages(tmp_path)
+        assert result == sorted(result)
+
+    def test_empty_directory(self, tmp_path):
+        result = _find_packages(tmp_path)
+        assert result == []
+
+    def test_recursive_finds_nested(self, tmp_path):
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (tmp_path / "a.deb").write_bytes(b"fake")
+        (sub / "b.deb").write_bytes(b"fake")
+        result = _find_packages(tmp_path, recursive=True)
+        assert len(result) == 2
+
+    def test_non_recursive_ignores_subdirs(self, tmp_path):
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (tmp_path / "a.deb").write_bytes(b"fake")
+        (sub / "b.deb").write_bytes(b"fake")
+        result = _find_packages(tmp_path, recursive=False)
+        assert len(result) == 1
+
+    def test_skips_directories(self, tmp_path):
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "a.deb").write_bytes(b"fake")
+        result = _find_packages(tmp_path)
+        assert len(result) == 1
+        assert result[0].name == "a.deb"

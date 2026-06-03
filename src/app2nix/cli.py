@@ -24,6 +24,19 @@ console = Console()
 _GLOB_CHARS = set("*?[")
 
 
+
+def _find_packages(directory: Path, *, recursive: bool = False) -> list[Path]:
+    """Return sorted list of supported package files inside *directory*."""    
+    from app2nix.core.analyzer import detect_format
+    pattern = "**/*" if recursive else "*"
+    found: list[Path] = []
+    for p in directory.glob(pattern):
+        if not p.is_file():
+            continue
+        if detect_format(p.name) is not None:
+            found.append(p)
+    return sorted(found)
+
 def _resolve_packages(raw: list[str]) -> list[Path]:
     """Expand glob patterns and return a sorted list of unique, existing files.
 
@@ -176,7 +189,7 @@ def _convert_single(
 @app.command()
 def convert(
     packages: list[str] = typer.Argument(
-        ..., help="Package file(s) or glob pattern(s) (.deb, .rpm, .AppImage, ...)"
+        ..., help="Package file(s), directory, or glob pattern(s) (.deb, .rpm, .AppImage, ...)"
     ),
     output_dir: Path = typer.Option(Path("."), "--output-dir", "-d", help="Output directory"),
     flake: bool = typer.Option(False, "--flake", "-f", help="Also generate flake.nix"),
@@ -185,14 +198,28 @@ def convert(
     validate: bool = typer.Option(True, "--validate/--no-validate", help="Validate generated Nix"),
     parallel: int = typer.Option(1, "--parallel", "-j", help="Number of parallel workers (batch mode)"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
+    recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively scan subdirectories when input is a directory"),
 ):
     """Convert one or more Linux packages to Nix expressions.
 
+    Supports directories: ``app2nix convert ./packages/``
     Supports glob patterns: ``app2nix convert *.deb``
     Multiple files are processed in one go, each getting its own subdirectory.
     Use ``--parallel N`` to convert packages in parallel.
     """
-    resolved = _resolve_packages(packages)
+    # --- Directory input support (issue #12) ---
+    if len(packages) == 1:
+        p = Path(packages[0])
+        if p.is_dir():
+            resolved = _find_packages(p, recursive=recursive)
+            if not resolved:
+                console.print(f"[yellow]No supported packages found in[/yellow] {p}")
+                raise typer.Exit(1)
+            console.print(f"[cyan]Found {len(resolved)} package(s) in {p}[/cyan]")
+        else:
+            resolved = _resolve_packages(packages)
+    else:
+        resolved = _resolve_packages(packages)
 
     if not resolved:
         console.print("[red]No matching packages found.[/red]")
