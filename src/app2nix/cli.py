@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+import glob as _glob
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 app = typer.Typer(
@@ -14,31 +18,66 @@ app = typer.Typer(
 console = Console()
 
 
-@app.command()
-def convert(
-    package: Path = typer.Argument(..., help="Package file (.deb, .rpm, .AppImage, ...)"),
-    output_dir: Path = typer.Option(Path("."), "--output-dir", "-d", help="Output directory"),
-    flake: bool = typer.Option(False, "--flake", "-f", help="Also generate flake.nix"),
-    json_out: bool = typer.Option(False, "--json", help="Output JSON descriptor"),
-    print_deps: bool = typer.Option(False, "--print-deps", help="Only print dependencies"),
-    validate: bool = typer.Option(True, "--validate/--no-validate", help="Validate generated Nix"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
-):
-    from app2nix.config import settings
+_GLOB_CHARS = set("*?[")
+
+
+def _resolve_packages(raw: list[str]) -> list[Path]:
+    """Expand glob patterns and return a sorted list of unique, existing files.
+
+    Literal paths (without glob characters) are always included so that
+    the "File not found" error fires later.  Glob patterns that match
+    nothing are silently dropped.
+    """
+    seen: set[Path] = set()
+    result: list[Path] = []
+    for pattern in raw:
+        has_glob = bool(_GLOB_CHARS & set(pattern))
+        expanded = _glob.glob(pattern, recursive=False)
+        if expanded:
+            for match in expanded:
+                p = Path(match).resolve()
+                if p.is_file() and p not in seen:
+                    seen.add(p)
+                    result.append(p)
+        elif not has_glob:
+            # Literal path — include so the 'not found' error fires later
+            p = Path(pattern).resolve()
+            if p not in seen:
+                seen.add(p)
+                result.append(p)
+    return sorted(result)
+
+
+def _convert_single(
+    package: Path,
+    output_dir: Path,
+    *,
+    flake: bool = False,
+    json_out: bool = False,
+    print_deps: bool = False,
+    validate: bool = True,
+    verbose: bool = False,
+) -> tuple[bool, str]:
+    """Convert a single package.  Returns (success, message)."""
     from app2nix.core.analyzer import UniversalAnalyzer
     from app2nix.core.generator import NixGenerator
     from app2nix.core.resolver import DependencyResolver
 
     if not package.exists():
-        console.print(f"[red]File not found:[/red] {package}")
-        raise typer.Exit(1)
+        msg = f"File not found: {package}"
+        console.print(f"[red]{msg}[/red]")
+        return False, msg
 
-    with console.status(f"[bold cyan]Analyzing {package.name}..."):
+    try:
         analyzer = UniversalAnalyzer()
         info = analyzer.analyze(str(package))
+    except Exception as exc:
+        msg = f"Analysis failed for {package.name}: {exc}"
+        console.print(f"[red]{msg}[/red]")
+        return False, msg
 
     if print_deps:
-        resolver = DependencyResolver(settings.cache_db.expanduser())
+        resolver = DependencyResolver()
         resolved, unresolved = resolver.resolve_all(info.dependencies)
 
         table = Table(title=f"Dependencies for {info.name}")
@@ -52,7 +91,7 @@ def convert(
             table.add_row(lib, "-", "[red]unknown[/red]")
 
         console.print(table)
-        return
+        return True, f"{info.name}: deps printed"
 
     if json_out:
         import json
@@ -68,12 +107,13 @@ def convert(
             "dependencies": nix_deps,
             "libraries": info.dependencies,
         }
+        output_dir.mkdir(parents=True, exist_ok=True)
         out_path = output_dir / f"{info.name}.json"
         out_path.write_text(json.dumps(json_result, indent=2))
         console.print(f"[green]Generated:[/green] {out_path}")
-        return
+        return True, f"{info.name}: JSON generated"
 
-    with console.status("[bold cyan]Generating Nix expression..."):
+    try:
         generator = NixGenerator()
         result = generator.generate_default_nix(info)
 
@@ -83,32 +123,135 @@ def convert(
                 title="Nix Validation",
             ))
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    nix_path = output_dir / "default.nix"
-    nix_path.write_text(result.nix_content)
-    console.print(f"[green]Generated:[/green] {nix_path}")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        nix_path = output_dir / "default.nix"
+        nix_path.write_text(result.nix_content)
+        console.print(f"[green]Generated:[/green] {nix_path}")
 
-    if flake:
-        flake_result = generator.generate_flake_nix(info)
-        flake_path = output_dir / "flake.nix"
-        flake_path.write_text(flake_result.nix_content)
-        console.print(f"[green]Generated:[/green] {flake_path}")
+        if flake:
+            flake_result = generator.generate_flake_nix(info)
+            flake_path = output_dir / "flake.nix"
+            flake_path.write_text(flake_result.nix_content)
+            console.print(f"[green]Generated:[/green] {flake_path}")
 
-    if result.unresolved_deps:
-        console.print(Panel(
-            "\n".join(f"  {d}" for d in result.unresolved_deps),
-            title=f"[yellow]{len(result.unresolved_deps)} unresolved dependencies[/yellow]",
-            subtitle="Consider adding to the dependency map",
-        ))
+        if result.unresolved_deps:
+            console.print(Panel(
+                "\n".join(f"  {d}" for d in result.unresolved_deps),
+                title=f"[yellow]{len(result.unresolved_deps)} unresolved dependencies[/yellow]",
+                subtitle="Consider adding to the dependency map",
+            ))
 
-    if verbose:
-        console.print(Panel(
-            f"Name: {info.name}\nVersion: {info.version}\n"
-            f"Format: {info.format}\nArch: {info.architecture}\n"
-            f"Libraries: {len(info.dependencies)}\n"
-            f"Resolved: {len(info.dependencies) - len(result.unresolved_deps)}",
-            title="Package Info",
-        ))
+        if verbose:
+            console.print(Panel(
+                f"Name: {info.name}\nVersion: {info.version}\n"
+                f"Format: {info.format}\nArch: {info.architecture}\n"
+                f"Libraries: {len(info.dependencies)}\n"
+                f"Resolved: {len(info.dependencies) - len(result.unresolved_deps)}",
+                title="Package Info",
+            ))
+
+        n_unresolved = len(result.unresolved_deps)
+        msg = f"{info.name} v{info.version}"
+        if n_unresolved:
+            msg += f" ({n_unresolved} unresolved)"
+        return True, msg
+
+    except Exception as exc:
+        msg = f"Generation failed for {package.name}: {exc}"
+        console.print(f"[red]{msg}[/red]")
+        return False, msg
+
+
+@app.command()
+def convert(
+    packages: list[str] = typer.Argument(
+        ..., help="Package file(s) or glob pattern(s) (.deb, .rpm, .AppImage, ...)"
+    ),
+    output_dir: Path = typer.Option(Path("."), "--output-dir", "-d", help="Output directory"),
+    flake: bool = typer.Option(False, "--flake", "-f", help="Also generate flake.nix"),
+    json_out: bool = typer.Option(False, "--json", help="Output JSON descriptor"),
+    print_deps: bool = typer.Option(False, "--print-deps", help="Only print dependencies"),
+    validate: bool = typer.Option(True, "--validate/--no-validate", help="Validate generated Nix"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """Convert one or more Linux packages to Nix expressions.
+
+    Supports glob patterns: ``app2nix convert *.deb``
+    Multiple files are processed in one go, each getting its own subdirectory.
+    """
+    resolved = _resolve_packages(packages)
+
+    if not resolved:
+        console.print("[red]No matching packages found.[/red]")
+        raise typer.Exit(1)
+
+    is_batch = len(resolved) > 1
+
+    if is_batch:
+        console.print(f"\n[bold cyan]📦 Batch convert: {len(resolved)} packages[/bold cyan]\n")
+
+    succeeded = 0
+    failed = 0
+    results: list[tuple[str, bool, str]] = []  # (filename, ok, message)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        disable=not is_batch,
+    ) as progress:
+        task = progress.add_task("Converting...", total=len(resolved)) if is_batch else None
+
+        for pkg in resolved:
+            if is_batch:
+                pkg_out = output_dir / pkg.stem
+                progress.update(task, description=f"Analyzing {pkg.name}...")
+            else:
+                pkg_out = output_dir
+
+            ok, msg = _convert_single(
+                pkg,
+                pkg_out,
+                flake=flake,
+                json_out=json_out,
+                print_deps=print_deps,
+                validate=validate,
+                verbose=verbose,
+            )
+
+            if ok:
+                succeeded += 1
+            else:
+                failed += 1
+            results.append((pkg.name, ok, msg))
+
+            if is_batch:
+                progress.advance(task)
+
+    # --- Summary for batch mode ---
+    if is_batch:
+        console.print()
+        summary = Table(title="Batch Conversion Summary")
+        summary.add_column("Package", style="cyan")
+        summary.add_column("Status", justify="center")
+        summary.add_column("Details")
+
+        for name, ok, msg in results:
+            status = "[green]✓[/green]" if ok else "[red]✗[/red]"
+            summary.add_row(name, status, msg)
+
+        console.print(summary)
+        console.print(
+            f"\n[bold]Result: [/bold]"
+            f"[green]{succeeded} succeeded[/green], "
+            f"[red]{failed} failed[/red] "
+            f"out of {len(resolved)} total"
+        )
+
+        if failed > 0:
+            raise typer.Exit(1)
+    elif failed > 0:
+        raise typer.Exit(1)
 
 
 @app.command()

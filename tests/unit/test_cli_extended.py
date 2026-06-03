@@ -9,6 +9,8 @@ Extra CLI tests covering the remaining uncovered code paths in cli.py:
   6. ``--verbose`` flag
   7. Package not found error
   8. ``gui()`` ImportError path
+  9. Batch conversion (multiple packages)
+ 10. _resolve_packages helper
 """
 
 import json
@@ -471,3 +473,186 @@ class TestConvertFullFlow:
         content = nix_file.read_text()
         assert "mkDerivation" in content
         assert "basic" in content.lower()
+
+
+# =============================================================================
+# Batch conversion (multiple packages)
+# =============================================================================
+
+
+class TestBatchConversion:
+    """Batch mode: ``app2nix convert pkg1.deb pkg2.rpm``"""
+
+    def test_batch_two_debs(self, tmp_path):
+        """Two deb files should each get their own subdirectory."""
+        deb1 = tmp_path / "alpha_1.0_amd64.deb"
+        deb1.write_text("fake deb 1")
+        deb2 = tmp_path / "beta_2.0_amd64.deb"
+        deb2.write_text("fake deb 2")
+        out_dir = tmp_path / "batch-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                [
+                    "convert",
+                    str(deb1), str(deb2),
+                    "--output-dir", str(out_dir),
+                ],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 2 packages" in result.output
+        # Each package gets its own subdirectory
+        assert (out_dir / "alpha_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "beta_2.0_amd64" / "default.nix").exists()
+        # Summary table should appear
+        assert "Batch Conversion Summary" in result.output
+        assert "2 succeeded" in result.output
+        assert "0 failed" in result.output
+
+    def test_batch_with_glob_pattern(self, tmp_path):
+        """Glob pattern ``*.deb`` should expand to multiple packages."""
+        for name in ("app1_1.0_amd64.deb", "app2_1.0_amd64.deb", "app3_1.0_amd64.deb"):
+            (tmp_path / name).write_text("fake deb")
+        out_dir = tmp_path / "glob-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                [
+                    "convert",
+                    str(tmp_path / "*.deb"),
+                    "--output-dir", str(out_dir),
+                ],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 3 packages" in result.output
+        assert "3 succeeded" in result.output
+        # Each gets a subdirectory
+        assert (out_dir / "app1_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "app2_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "app3_1.0_amd64" / "default.nix").exists()
+
+    def test_batch_partial_failure(self, tmp_path):
+        """Batch with one non-existent file should fail that one, succeed on the other."""
+        good = tmp_path / "good_1.0_amd64.deb"
+        good.write_text("fake deb")
+        bad = tmp_path / "nonexistent.deb"  # does not exist
+        out_dir = tmp_path / "partial-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                [
+                    "convert",
+                    str(good), str(bad),
+                    "--output-dir", str(out_dir),
+                ],
+            )
+
+        # Should exit 1 because one failed
+        assert result.exit_code == 1
+        assert "1 succeeded" in result.output
+        assert "1 failed" in result.output
+        # The good one should still have been converted
+        assert (out_dir / "good_1.0_amd64" / "default.nix").exists()
+
+    def test_batch_with_flake_flag(self, tmp_path):
+        """--flake should apply to all packages in batch mode."""
+        deb1 = tmp_path / "a_1.0_amd64.deb"
+        deb1.write_text("fake deb 1")
+        deb2 = tmp_path / "b_1.0_amd64.deb"
+        deb2.write_text("fake deb 2")
+        out_dir = tmp_path / "flake-batch"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                [
+                    "convert",
+                    str(deb1), str(deb2),
+                    "--output-dir", str(out_dir),
+                    "--flake",
+                ],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert (out_dir / "a_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "a_1.0_amd64" / "flake.nix").exists()
+        assert (out_dir / "b_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "b_1.0_amd64" / "flake.nix").exists()
+
+    def test_batch_no_matching_glob(self, tmp_path):
+        """Glob with no matches should error."""
+        out_dir = tmp_path / "empty-out"
+        out_dir.mkdir()
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            [
+                "convert",
+                str(tmp_path / "*.xyz"),
+                "--output-dir", str(out_dir),
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "No matching packages found" in result.output
+
+
+class TestResolvePackages:
+    """_resolve_packages helper function."""
+
+    def test_resolve_literal_paths(self, tmp_path):
+        """Literal paths are returned in sorted order."""
+        from app2nix.cli import _resolve_packages
+
+        (tmp_path / "c.deb").write_text("")
+        (tmp_path / "a.deb").write_text("")
+        (tmp_path / "b.deb").write_text("")
+
+        result = _resolve_packages([
+            str(tmp_path / "c.deb"),
+            str(tmp_path / "a.deb"),
+            str(tmp_path / "b.deb"),
+        ])
+
+        names = [p.name for p in result]
+        assert names == ["a.deb", "b.deb", "c.deb"]
+
+    def test_resolve_deduplicates(self, tmp_path):
+        """Duplicate paths should appear only once."""
+        from app2nix.cli import _resolve_packages
+
+        f = tmp_path / "dup.deb"
+        f.write_text("")
+
+        result = _resolve_packages([str(f), str(f)])
+        assert len(result) == 1
+
+    def test_resolve_nonexistent_path(self, tmp_path):
+        """Non-existent literal paths are included (for error messages)."""
+        from app2nix.cli import _resolve_packages
+
+        result = _resolve_packages([str(tmp_path / "missing.deb")])
+        assert len(result) == 1
+        assert result[0].name == "missing.deb"
