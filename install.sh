@@ -21,7 +21,7 @@
 
 set -e
 
-VERSION="3.0.1"
+VERSION="3.1.0"
 REPO="HiTechTN/app2nix"
 RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"
@@ -126,7 +126,7 @@ check_docker() {
 }
 
 is_nixos() {
-    grep -qi '^ID=nixos' /etc/os-release 2>/dev/null ||
+    grep -qi '^ID=nixos\|^ID=glfos' /etc/os-release 2>/dev/null ||
     test -f /etc/NIXOS ||
     command -v nixos-rebuild >/dev/null 2>&1
 }
@@ -365,8 +365,17 @@ if [ ! -f "$INSTALL_DIR/launch_gui.py" ]; then
     echo "Error: app2nix not found at $INSTALL_DIR" >&2
     exit 1
 fi
-# On NixOS, PyQt6 from pip lacks patched shared libraries — use nix-shell
-if command -v nix-shell >/dev/null 2>&1 && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null; then
+
+# Detect NixOS or NixOS-based distros (glfos, etc.)
+# On these systems, PyQt6 from pip lacks compatible shared libraries
+_is_nix_based() {
+    grep -qi '^ID=nixos\|^ID=glfos' /etc/os-release 2>/dev/null && return 0
+    test -f /etc/NIXOS 2>/dev/null && return 0
+    command -v nixos-rebuild >/dev/null 2>&1 && return 0
+    return 1
+}
+
+if command -v nix-shell >/dev/null 2>&1 && _is_nix_based; then
     exec nix-shell -p python3Packages.pyqt6 python3Packages.starlette python3Packages.uvicorn \
          python3Packages.python-multipart python3Packages.httpx python3Packages.pydantic \
          python3Packages.pydantic-settings python3Packages.jinja2 python3Packages.typer \
