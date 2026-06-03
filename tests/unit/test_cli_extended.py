@@ -619,6 +619,329 @@ class TestBatchConversion:
         assert "No matching packages found" in result.output
 
 
+# =============================================================================
+# Batch conversion — multi-format (RPM, tarball, AppImage)
+# =============================================================================
+
+
+def _make_combined_rpm_deb_tar_side_effect(tmp_path):
+    """Build combined side effects for deb + rpm + tarball batch tests."""
+    _run_deb = _make_deb_run_side_effect(tmp_path)
+    _run_rpm, _check_rpm = _make_rpm_run_side_effect(tmp_path)
+    _run_tar = _make_tarball_run_side_effect(tmp_path)
+
+    def combined_run(cmd, **kwargs):
+        if cmd[0] in ("dpkg-deb",):
+            return _run_deb(cmd, **kwargs)
+        elif cmd[0] in ("rpm",):
+            return _run_rpm(cmd, **kwargs)
+        elif "tar" in cmd or cmd[0] == "tar":
+            return _run_tar(cmd, **kwargs)
+        else:
+            return _run_deb(cmd, **kwargs)
+
+    def combined_check_output(cmd, **kwargs):
+        m = _run_rpm(cmd, **kwargs)
+        if m.returncode != 0:
+            raise subprocess.CalledProcessError(m.returncode, cmd)
+        return m.stdout
+
+    return combined_run, combined_check_output
+
+
+def _make_rpm_run_side_effect(tmp_path, pkg_name="rpm-test", version="1.0"):
+    """Build a side_effect for subprocess that simulates RPM analysis.
+
+    RPM uses ``subprocess.check_output`` (not ``subprocess.run``) for
+    ``rpm -qp --queryformat`` and ``rpm -qp --requires``.
+    """
+    def _run(cmd, **kwargs):
+        mock = MagicMock()
+        mock.returncode = 0
+        mock.stdout = ""
+        mock.stderr = ""
+        if cmd[:2] == ["rpm", "-qp"] and "--queryformat" in cmd:
+            mock.stdout = f"{pkg_name}\t{version}\tx86_64\n"
+        elif cmd[:2] == ["rpm", "-qp"] and "--requires" in cmd:
+            mock.stdout = "libssl.so.3\nlibz.so.1\n"
+        elif cmd[:2] == ["file", "-b"]:
+            mock.stdout = "ELF 64-bit LSB executable, x86-64"
+        elif cmd[:2] == ["patchelf", "--print-needed"]:
+            mock.stdout = "libssl.so.3\nlibunknown_xyz.so\n"
+        return mock
+
+    def _check_output(cmd, **kwargs):
+        m = _run(cmd, **kwargs)
+        if m.returncode != 0:
+            raise subprocess.CalledProcessError(m.returncode, cmd)
+        return m.stdout
+
+    return _run, _check_output
+
+
+def _make_tarball_run_side_effect(tmp_path):
+    """Build a side_effect for subprocess.run that simulates tarball extraction.
+
+    The tarball analyzer calls ``subprocess.run(['tar', ...])``,
+    then ``file -b`` and ``patchelf --print-needed``.
+    """
+    def _side(cmd, **kwargs):
+        mock = MagicMock()
+        mock.returncode = 0
+        mock.stdout = ""
+        mock.stderr = ""
+        if "tar" in cmd:
+            mock.returncode = 0
+        elif cmd[:2] == ["file", "-b"]:
+            mock.stdout = "ELF 64-bit LSB executable, x86-64"
+        elif cmd[:2] == ["patchelf", "--print-needed"]:
+            mock.stdout = "libssl.so.3\nlibz.so.1\n"
+        return mock
+    return _side
+
+
+class TestBatchMultiFormat:
+    """Batch mode with non-deb formats: RPM, tarball, AppImage."""
+
+    def test_batch_rpm_conversion(self, tmp_path):
+        """Two RPM files should each get their own subdirectory."""
+        rpm1 = tmp_path / "alpha-1.0.x86_64.rpm"
+        rpm1.write_text("fake rpm 1")
+        rpm2 = tmp_path / "beta-2.0.x86_64.rpm"
+        rpm2.write_text("fake rpm 2")
+        out_dir = tmp_path / "rpm-batch"
+        out_dir.mkdir()
+
+        _run_side, _check_output = _make_rpm_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with (
+            patch.object(subprocess, "run", side_effect=_run_side),
+            patch.object(subprocess, "check_output", side_effect=_check_output),
+        ):
+            result = runner.invoke(
+                app,
+                ["convert", str(rpm1), str(rpm2), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 2 packages" in result.output
+        assert "2 succeeded" in result.output
+        assert (out_dir / "alpha-1.0.x86_64" / "default.nix").exists()
+        assert (out_dir / "beta-2.0.x86_64" / "default.nix").exists()
+
+    def test_batch_tarball_conversion(self, tmp_path):
+        """Multiple tarballs should each get their own subdirectory."""
+        tar1 = tmp_path / "app1-1.0.tar.gz"
+        tar1.write_text("fake tar 1")
+        tar2 = tmp_path / "app2-2.0.tar.xz"
+        tar2.write_text("fake tar 2")
+        tar3 = tmp_path / "app3-3.0.tar.bz2"
+        tar3.write_text("fake tar 3")
+        out_dir = tmp_path / "tar-batch"
+        out_dir.mkdir()
+
+        tar_side = _make_tarball_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=tar_side):
+            result = runner.invoke(
+                app,
+                ["convert", str(tar1), str(tar2), str(tar3), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 3 packages" in result.output
+        assert "3 succeeded" in result.output
+        # Each tarball gets its own subdirectory
+        assert (out_dir / "app1-1.0.tar" / "default.nix").exists()
+        assert (out_dir / "app2-2.0.tar" / "default.nix").exists()
+        assert (out_dir / "app3-3.0.tar" / "default.nix").exists()
+
+    def test_batch_mixed_formats(self, tmp_path):
+        """Mix .deb, .rpm, and .tar.gz in a single batch command."""
+        deb = tmp_path / "my-deb_1.0_amd64.deb"
+        deb.write_text("fake deb")
+        rpm = tmp_path / "my-rpm-1.0.x86_64.rpm"
+        rpm.write_text("fake rpm")
+        tar = tmp_path / "my-tar-1.0.tar.gz"
+        tar.write_text("fake tar")
+        out_dir = tmp_path / "mixed-batch"
+        out_dir.mkdir()
+
+        combined_run, combined_check = _make_combined_rpm_deb_tar_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with (
+            patch.object(subprocess, "run", side_effect=combined_run),
+            patch.object(subprocess, "check_output", side_effect=combined_check),
+        ):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb), str(rpm), str(tar), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 3 packages" in result.output
+        assert "3 succeeded" in result.output
+        assert (out_dir / "my-deb_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "my-rpm-1.0.x86_64" / "default.nix").exists()
+        assert (out_dir / "my-tar-1.0.tar" / "default.nix").exists()
+
+    def test_batch_deb_rpm_tar_glob(self, tmp_path):
+        """Glob matching .deb, .rpm, and .tar.gz files."""
+        (tmp_path / "foo.deb").write_text("deb")
+        (tmp_path / "bar.rpm").write_text("rpm")
+        (tmp_path / "baz.tar.gz").write_text("tar")
+        out_dir = tmp_path / "glob-mixed"
+        out_dir.mkdir()
+
+        combined_run, combined_check = _make_combined_rpm_deb_tar_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with (
+            patch.object(subprocess, "run", side_effect=combined_run),
+            patch.object(subprocess, "check_output", side_effect=combined_check),
+        ):
+            result = runner.invoke(
+                app,
+                ["convert", str(tmp_path / "*.deb"), str(tmp_path / "*.rpm"), str(tmp_path / "*.tar.*"), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "3 succeeded" in result.output
+        assert (out_dir / "foo" / "default.nix").exists()
+        assert (out_dir / "bar" / "default.nix").exists()
+        # Path('baz.tar.gz').stem == 'baz.tar' (Python only strips last suffix)
+        assert (out_dir / "baz.tar" / "default.nix").exists()
+
+    def test_batch_rpm_with_flake(self, tmp_path):
+        """--flake flag should work with RPM batch conversion."""
+        rpm1 = tmp_path / "alpha-1.0.x86_64.rpm"
+        rpm1.write_text("fake rpm 1")
+        rpm2 = tmp_path / "beta-2.0.x86_64.rpm"
+        rpm2.write_text("fake rpm 2")
+        out_dir = tmp_path / "rpm-flake"
+        out_dir.mkdir()
+
+        _run_side, _check_output = _make_rpm_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with (
+            patch.object(subprocess, "run", side_effect=_run_side),
+            patch.object(subprocess, "check_output", side_effect=_check_output),
+        ):
+            result = runner.invoke(
+                app,
+                ["convert", str(rpm1), str(rpm2), "--output-dir", str(out_dir), "--flake"],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert (out_dir / "alpha-1.0.x86_64" / "default.nix").exists()
+        assert (out_dir / "alpha-1.0.x86_64" / "flake.nix").exists()
+        assert (out_dir / "beta-2.0.x86_64" / "default.nix").exists()
+        assert (out_dir / "beta-2.0.x86_64" / "flake.nix").exists()
+
+    def test_batch_two_tarballs_succeed(self, tmp_path):
+        """Batch with two valid tarballs should succeed for both."""
+        good = tmp_path / "good-1.0.tar.gz"
+        good.write_text("fake tar")
+        good2 = tmp_path / "good2-1.0.tar.gz"
+        good2.write_text("fake tar")
+        out_dir = tmp_path / "tar-succeed"
+        out_dir.mkdir()
+
+        tar_side = _make_tarball_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=tar_side):
+            result = runner.invoke(
+                app,
+                ["convert", str(good), str(good2), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "2 succeeded" in result.output
+        assert (out_dir / "good-1.0.tar" / "default.nix").exists()
+        assert (out_dir / "good2-1.0.tar" / "default.nix").exists()
+
+    def test_batch_all_formats_glob(self, tmp_path):
+        """Glob ``*.tar.*`` should match tar.gz, tar.xz, and tar.bz2."""
+        (tmp_path / "foo.tar.gz").write_text("tar")
+        (tmp_path / "bar.tar.xz").write_text("tar")
+        (tmp_path / "baz.tar.bz2").write_text("tar")
+        out_dir = tmp_path / "tar-glob"
+        out_dir.mkdir()
+
+        tar_side = _make_tarball_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=tar_side):
+            result = runner.invoke(
+                app,
+                ["convert", str(tmp_path / "*.tar.*"), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "3 packages" in result.output
+        assert "3 succeeded" in result.output
+        assert (out_dir / "foo.tar" / "default.nix").exists()
+        assert (out_dir / "bar.tar" / "default.nix").exists()
+        assert (out_dir / "baz.tar" / "default.nix").exists()
+
+    def test_batch_appimage_conversion(self, tmp_path):
+        """Two AppImage files should each get their own subdirectory."""
+        from app2nix.core.analyzer import SUPPORTED_FORMATS
+        from app2nix.models import PackageInfo
+
+        ai1 = tmp_path / "alpha.AppImage"
+        ai1.write_text("fake appimage 1")
+        ai2 = tmp_path / "beta.AppImage"
+        ai2.write_text("fake appimage 2")
+        out_dir = tmp_path / "ai-batch"
+        out_dir.mkdir()
+
+        def mock_analyze(path):
+            name = Path(path).stem
+            return PackageInfo(name=name, version="1.0", architecture="x86_64", format="appimage", dependencies=["ssl", "z"], executables=[f"usr/bin/{name}"])
+
+        runner = CliRunner()
+        with patch.dict(SUPPORTED_FORMATS, {".appimage": ("appimage", mock_analyze)}):
+            result = runner.invoke(
+                app,
+                ["convert", str(ai1), str(ai2), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Batch convert: 2 packages" in result.output
+        assert "2 succeeded" in result.output
+        assert (out_dir / "alpha" / "default.nix").exists()
+        assert (out_dir / "beta" / "default.nix").exists()
+
+    def test_batch_deb_rpm_mixed_with_glob(self, tmp_path):
+        """Glob matching both .deb and .rpm files in the same directory."""
+        (tmp_path / "tool-v1.deb").write_text("deb")
+        (tmp_path / "tool-v2.rpm").write_text("rpm")
+        out_dir = tmp_path / "deb-rpm-glob"
+        out_dir.mkdir()
+
+        combined_run, combined_check = _make_combined_rpm_deb_tar_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with (
+            patch.object(subprocess, "run", side_effect=combined_run),
+            patch.object(subprocess, "check_output", side_effect=combined_check),
+        ):
+            result = runner.invoke(
+                app,
+                ["convert", str(tmp_path / "tool-*.*"), "--output-dir", str(out_dir)],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "2 packages" in result.output
+        assert "2 succeeded" in result.output
+
+
 class TestResolvePackages:
     """_resolve_packages helper function."""
 
