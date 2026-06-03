@@ -942,6 +942,140 @@ class TestBatchMultiFormat:
         assert "2 succeeded" in result.output
 
 
+# =============================================================================
+# --parallel flag
+# =============================================================================
+
+
+class TestParallelFlag:
+    """``--parallel N`` flag for concurrent batch conversion."""
+
+    def test_parallel_batch_succeeds(self, tmp_path):
+        """With --parallel 2, two deb files should each get their own subdirectory."""
+        deb1 = tmp_path / "alpha_1.0_amd64.deb"
+        deb1.write_text("fake deb 1")
+        deb2 = tmp_path / "beta_2.0_amd64.deb"
+        deb2.write_text("fake deb 2")
+        out_dir = tmp_path / "parallel-out"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb1), str(deb2), "--output-dir", str(out_dir), "--parallel", "2"],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Parallel mode: 2 workers" in result.output
+        assert "2 succeeded" in result.output
+        assert (out_dir / "alpha_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "beta_2.0_amd64" / "default.nix").exists()
+        # Summary table should appear
+        assert "Batch Conversion Summary" in result.output
+
+    def test_parallel_with_three_packages(self, tmp_path):
+        """With --parallel 3, three packages should all succeed."""
+        for i in range(3):
+            (tmp_path / f"pkg{i}_1.0_amd64.deb").write_text(f"fake deb {i}")
+        out_dir = tmp_path / "parallel-3"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                [
+                    "convert",
+                    str(tmp_path / "*.deb"),
+                    "--output-dir", str(out_dir),
+                    "--parallel", "3",
+                ],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "3 packages" in result.output
+        assert "Parallel mode: 3 workers" in result.output
+        assert "3 succeeded" in result.output
+        for i in range(3):
+            assert (out_dir / f"pkg{i}_1.0_amd64" / "default.nix").exists()
+
+    def test_parallel_partial_failure(self, tmp_path):
+        """With --parallel 2, one bad + one good should report partial success."""
+        good = tmp_path / "good_1.0_amd64.deb"
+        good.write_text("fake deb")
+        bad = tmp_path / "nonexistent.deb"
+        out_dir = tmp_path / "parallel-partial"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(good), str(bad), "--output-dir", str(out_dir), "--parallel", "2"],
+            )
+
+        assert result.exit_code == 1
+        assert "1 succeeded" in result.output
+        assert "1 failed" in result.output
+        assert (out_dir / "good_1.0_amd64" / "default.nix").exists()
+
+    def test_parallel_with_flake(self, tmp_path):
+        """--parallel with --flake should generate both files."""
+        deb1 = tmp_path / "a_1.0_amd64.deb"
+        deb1.write_text("fake deb 1")
+        deb2 = tmp_path / "b_1.0_amd64.deb"
+        deb2.write_text("fake deb 2")
+        out_dir = tmp_path / "parallel-flake"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb1), str(deb2), "--output-dir", str(out_dir), "--parallel", "2", "--flake"],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert (out_dir / "a_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "a_1.0_amd64" / "flake.nix").exists()
+        assert (out_dir / "b_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "b_1.0_amd64" / "flake.nix").exists()
+
+    def test_parallel_1_uses_sequential(self, tmp_path):
+        """--parallel 1 should behave identically to sequential mode."""
+        deb1 = tmp_path / "x_1.0_amd64.deb"
+        deb1.write_text("fake deb")
+        deb2 = tmp_path / "y_1.0_amd64.deb"
+        deb2.write_text("fake deb")
+        out_dir = tmp_path / "parallel-1"
+        out_dir.mkdir()
+
+        side = _make_deb_run_side_effect(tmp_path)
+
+        runner = CliRunner()
+        with patch.object(subprocess, "run", side_effect=side):
+            result = runner.invoke(
+                app,
+                ["convert", str(deb1), str(deb2), "--output-dir", str(out_dir), "--parallel", "1"],
+            )
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        # With parallel=1, should NOT show "Parallel mode" message
+        assert "Parallel mode" not in result.output
+        assert "2 succeeded" in result.output
+        assert (out_dir / "x_1.0_amd64" / "default.nix").exists()
+        assert (out_dir / "y_1.0_amd64" / "default.nix").exists()
+
+
 class TestResolvePackages:
     """_resolve_packages helper function."""
 
