@@ -49,9 +49,20 @@ class TestSettingsDefaults:
         assert s.api_rate_limit == 10
 
     def test_secret_key_is_hex_string(self):
-        s = Settings()
-        assert isinstance(s.secret_key, str)
-        assert len(s.secret_key) == 64  # 32 bytes = 64 hex chars
+        # conftest.py sets APP2NIX_SECRET_KEY=test-secret-key-for-ci (22 chars)
+        # and .env also sets it.  Bypass both to verify the default
+        # secrets.token_hex(32) generates a 64-char hex string.
+        saved = os.environ.pop("APP2NIX_SECRET_KEY", None)
+        get_settings.cache_clear()
+        try:
+            s = Settings(_env_file="")
+            assert isinstance(s.secret_key, str)
+            assert len(s.secret_key) == 64  # 32 bytes = 64 hex chars
+            int(s.secret_key, 16)  # must be valid hexadecimal
+        finally:
+            if saved is not None:
+                os.environ["APP2NIX_SECRET_KEY"] = saved
+            get_settings.cache_clear()
 
     def test_work_dir_is_path(self):
         s = Settings()
