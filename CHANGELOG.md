@@ -5,6 +5,28 @@ All notable changes to [app2nix](https://github.com/HiTechTN/app2nix) will be do
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] — 2026-06-03
+
+### Added
+- **.zip archive analyzer** — extracts ZIP archives, discovers ELF binaries, resolves shared library dependencies (issue #3)
+- **.7z archive analyzer** — extracts 7z archives via `7z x`, discovers ELF binaries, resolves dependencies (issue #4)
+- **Batch CLI `--parallel N`** — convert multiple packages in parallel with ThreadPoolExecutor
+- **GUI test coverage to 95%** — 21 new tests for InstallWorker, SudoPasswordDialog, install flow (issue #16)
+- **GLFOS/NixOS segfault fix** — launcher now detects GLFOS and uses nix-shell for compatible PyQt6
+
+### Fixed
+- **install.sh** — `is_nixos()` now detects GLFOS (`ID=glfos`) in addition to NixOS
+- **generator.py** — restored broken zip install phase (missing `$src`, `$zip_file`, `$out` variables), added 7z install phase
+- **PackageFormat** — added `"zip"` and `"7z"` to the Literal type
+
+### Testing
+- 95/95 analyzer unit tests passing
+- 224/225 unit tests passing (1 pre-existing config test)
+- 90/93 GUI tests passing (3 skipped: Path.stat offscreen)
+- main_window.py coverage: 74% → 95%
+
+### Documentation
+- Updated GitHub Pages with batch CLI docs, new format support, v3.1.0 banner
 ## [3.0.3] — 2026-06-03
 
 ### Added

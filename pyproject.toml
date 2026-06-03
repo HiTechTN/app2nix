@@ -10,7 +10,7 @@ include = ["src/app2nix/gui/templates/**", "src/app2nix/gui/translations/**"]
 
 [project]
 name = "app2nix"
-version = "3.0.3"
+version = "3.1.0"
 description = "Convert any Linux package (.deb, .rpm, AppImage, Flatpak, Snap) to NixOS native applications"
 readme = "README.md"
 requires-python = ">=3.11"
