@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "unknown"]
+PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "zip", "unknown"]
 
 _SANITIZE_RE = re.compile(r"[^a-zA-Z0-9._-]")
 

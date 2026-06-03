@@ -6,6 +6,7 @@ from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
+from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
 
@@ -20,6 +21,7 @@ SUPPORTED_FORMATS = {
     ".tar": ("tarball", analyze_tarball),
     ".tar.bz2": ("tarball", analyze_tarball),
     ".tar.xz": ("tarball", analyze_tarball),
+    ".zip": ("zip", analyze_zip),
 }
 
 

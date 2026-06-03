@@ -1,3 +1,4 @@
+import zipfile
 import os
 import subprocess
 from pathlib import Path
@@ -18,6 +19,7 @@ from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
+from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
 
@@ -1064,8 +1066,11 @@ class TestUniversalAnalyzerDetectFormat:
     def test_dot_tar(self):
         assert self.analyzer.detect_format("archive.tar") == ".tar"
 
+    def test_dot_zip(self):
+        assert self.analyzer.detect_format("archive.zip") == ".zip"
+
     def test_unknown_format(self):
-        assert self.analyzer.detect_format("archive.zip") is None
+        assert self.analyzer.detect_format("archive.xyz") is None
 
     def test_no_extension(self):
         assert self.analyzer.detect_format("Makefile") is None
@@ -1106,7 +1111,7 @@ class TestUniversalAnalyzerDetectFormat:
         assert detect_format("archive.tar.xz") == ".tar.xz"
         assert detect_format("archive.txz") == ".tar.xz"
         assert detect_format("archive.tbz2") == ".tar.bz2"
-        assert detect_format("archive.zip") is None
+        assert detect_format("archive.zip") == ".zip"
 
 
 class TestUniversalAnalyzerAnalyze:
@@ -1118,10 +1123,22 @@ class TestUniversalAnalyzerAnalyze:
             self.analyzer.analyze("/nonexistent/path.deb")
 
     def test_raises_on_unsupported_format(self, tmp_path):
-        p = tmp_path / "archive.zip"
+        p = tmp_path / "archive.xyz"
         p.write_text("data")
         with pytest.raises(UnsupportedFormatError, match="Unsupported format"):
             self.analyzer.analyze(str(p))
+
+    def test_routes_to_zip_handler(self, tmp_path):
+        p = tmp_path / "package.zip"
+        p.write_text("data")
+        with patch("app2nix.core.analyzer.analyze_zip") as mock_zip:
+            mock_zip.return_value = PackageInfo(
+                name="test", version="1.0", format="zip"
+            )
+            self.analyzer._format_map = {".zip": ("zip", mock_zip)}
+            result = self.analyzer.analyze(str(p))
+        assert result.format == "zip"
+        mock_zip.assert_called_once_with(str(p))
 
     def test_routes_to_deb_handler(self, tmp_path):
         p = tmp_path / "package.deb"
@@ -1172,5 +1189,95 @@ class TestUniversalAnalyzerAnalyze:
         assert result.format == "tarball"
 
     def test_supported_formats_has_all_expected_keys(self):
-        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz"}
+        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz", ".zip"}
         assert set(SUPPORTED_FORMATS.keys()) == expected
+
+# =============================================================================
+# zipfile_analyzer.py -- analyze_zip with mocked subprocess
+# =============================================================================
+
+
+class TestAnalyzeZip:
+    def test_basic_zip_analysis(self, tmp_path):
+        """Should extract ZIP, parse name, and return correct PackageInfo."""
+        import zipfile as zf_mod
+
+        zip_path = tmp_path / "my-app.zip"
+        with zf_mod.ZipFile(str(zip_path), "w") as zf:
+            zf.writestr("usr/bin/myapp", "binary content")
+            zf.writestr("README.txt", "readme")
+
+        # find_elf uses 'file -b' which won't detect "binary content" as ELF
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "my-app"
+        assert info.version == "1.0"
+        assert info.format == "zip"
+        assert info.dependencies == []
+        assert info.executables == []
+
+    def test_zip_with_real_archive(self, tmp_path):
+        """Test with a real ZIP archive (no ELF binaries)."""
+        import zipfile as zf_mod
+
+        zip_path = tmp_path / "simple.zip"
+        with zf_mod.ZipFile(str(zip_path), "w") as zf:
+            zf.writestr("data/readme.txt", "Hello world")
+
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "simple"
+        assert info.version == "1.0"
+        assert info.format == "zip"
+        assert info.dependencies == []
+        assert info.executables == []
+
+    @patch("app2nix.core.analyzers.zipfile_analyzer.zipfile.ZipFile")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.shutil.rmtree")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.tempfile.mkdtemp")
+    def test_zip_cleanup_on_failure(self, mock_mkdtemp, mock_rmtree, mock_zipfile, tmp_path):
+        """Temp directory should be cleaned up even on error."""
+        mock_mkdtemp.return_value = str(tmp_path / "workdir")
+        mock_zipfile.side_effect = zipfile.BadZipFile("not a zip")
+
+        zip_path = tmp_path / "broken.zip"
+        zip_path.write_text("not a valid zip")
+
+        with pytest.raises(zipfile.BadZipFile):
+            analyze_zip(str(zip_path))
+
+        mock_rmtree.assert_called_once()
+
+    def test_zip_empty_archive(self, tmp_path):
+        """Should handle empty ZIP gracefully."""
+        import zipfile as zf_mod
+
+        zip_path = tmp_path / "empty.zip"
+        with zf_mod.ZipFile(str(zip_path), "w"):
+            pass  # empty archive
+
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "empty"
+        assert info.format == "zip"
+        assert info.dependencies == []
+        assert info.executables == []
+
+    @patch("app2nix.core.analyzers.zipfile_analyzer.find_elf")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.get_libs_patchelf")
+    def test_zip_with_elf_detection(self, mock_patchelf, mock_find_elf, tmp_path):
+        """Should discover ELF binaries and their dependencies."""
+        import zipfile as zf_mod
+
+        zip_path = tmp_path / "my-app.zip"
+        with zf_mod.ZipFile(str(zip_path), "w") as zf:
+            zf.writestr("bin/myapp", "ELF content")
+
+        mock_find_elf.return_value = []  # find_elf returns paths inside temp_dir
+        mock_patchelf.return_value = set()
+
+        info = analyze_zip(str(zip_path))
+        assert info.format == "zip"
+
+        # Verify find_elf was called with the temp extraction directory
+        mock_find_elf.assert_called_once()

@@ -40,6 +40,14 @@ INSTALL_PHASE_MAP = {
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
         "fi"
     ),
+    "zip": (
+        'zip_file=; '
+        'if [ -n "" ]; then '
+        '  unzip -o "" -d ; '
+        'else '
+        '  echo "ERROR: no .zip file found in "; exit 1; '
+        'fi'
+    ),
 }
 
 DEFAULT_INSTALL = (

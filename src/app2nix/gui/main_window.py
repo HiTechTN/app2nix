@@ -37,7 +37,7 @@ _REQUIRED_THEME_KEYS = {
 SUPPORTED_EXTENSIONS = {
     ".deb", ".rpm", ".appimage", ".flatpak",
     ".snap", ".tar.gz", ".tgz", ".tar",
-    ".tar.xz", ".tar.bz2",
+    ".tar.xz", ".tar.bz2", ".zip",
 }
 
 
@@ -659,7 +659,7 @@ class App2NixWindow(QWidget):
             str(Path.home()),
             (
                 "Packages (*.deb *.rpm *.AppImage *.appimage *.flatpak *.snap"
-                " *.tar.gz *.tgz *.tar *.tar.xz *.tar.bz2);;All files (*)"
+                " *.tar.gz *.tgz *.tar *.tar.xz *.tar.bz2 *.zip);;All files (*)"
             ),
         )
         if path:
@@ -684,7 +684,7 @@ class App2NixWindow(QWidget):
                     "error.unsupported_format",
                     "The selected file format is not supported.\n"
                     "Supported formats: .deb, .rpm, .AppImage, "
-                    ".flatpak, .snap, .tar.gz, .tgz, .tar",
+                    ".flatpak, .snap, .tar.gz, .tgz, .tar, .zip",
                 ),
             )
             return
