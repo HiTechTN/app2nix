@@ -8,7 +8,15 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
 
 app = typer.Typer(
@@ -197,6 +205,7 @@ def convert(
     parallel: int = typer.Option(1, "--parallel", "-j", help="Number of parallel workers (batch mode)"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively scan subdirectories when input is a directory"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output"),
 ):
     """Convert one or more Linux packages to Nix expressions.
 
@@ -266,8 +275,12 @@ def convert(
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=30),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
             console=console,
-            disable=not is_batch,
+            disable=not is_batch or quiet,
         ) as progress:
             task = progress.add_task("Converting...", total=len(resolved)) if is_batch else None
 
