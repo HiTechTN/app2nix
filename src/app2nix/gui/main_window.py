@@ -37,7 +37,7 @@ _REQUIRED_THEME_KEYS = {
 SUPPORTED_EXTENSIONS = {
     ".deb", ".rpm", ".appimage", ".flatpak",
     ".snap", ".tar.gz", ".tgz", ".tar",
-    ".tar.xz", ".tar.bz2", ".zip",
+    ".tar.xz", ".tar.bz2", ".zip", ".7z",
 }
 
 
@@ -659,7 +659,7 @@ class App2NixWindow(QWidget):
             str(Path.home()),
             (
                 "Packages (*.deb *.rpm *.AppImage *.appimage *.flatpak *.snap"
-                " *.tar.gz *.tgz *.tar *.tar.xz *.tar.bz2 *.zip);;All files (*)"
+                " *.tar.gz *.tgz *.tar *.tar.xz *.tar.bz2 *.zip *.7z);;All files (*)"
             ),
         )
         if path:

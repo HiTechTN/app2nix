@@ -19,6 +19,7 @@ from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
+from app2nix.core.analyzers.sevenz_analyzer import analyze_7z
 from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
@@ -1069,6 +1070,9 @@ class TestUniversalAnalyzerDetectFormat:
     def test_dot_zip(self):
         assert self.analyzer.detect_format("archive.zip") == ".zip"
 
+    def test_dot_7z(self):
+        assert self.analyzer.detect_format("archive.7z") == ".7z"
+
     def test_unknown_format(self):
         assert self.analyzer.detect_format("archive.xyz") is None
 
@@ -1127,6 +1131,18 @@ class TestUniversalAnalyzerAnalyze:
         p.write_text("data")
         with pytest.raises(UnsupportedFormatError, match="Unsupported format"):
             self.analyzer.analyze(str(p))
+
+    def test_routes_to_7z_handler(self, tmp_path):
+        p = tmp_path / "package.7z"
+        p.write_text("data")
+        with patch("app2nix.core.analyzer.analyze_7z") as mock_7z:
+            mock_7z.return_value = PackageInfo(
+                name="test", version="1.0", format="7z"
+            )
+            self.analyzer._format_map = {".7z": ("7z", mock_7z)}
+            result = self.analyzer.analyze(str(p))
+        assert result.format == "7z"
+        mock_7z.assert_called_once_with(str(p))
 
     def test_routes_to_zip_handler(self, tmp_path):
         p = tmp_path / "package.zip"
@@ -1189,7 +1205,7 @@ class TestUniversalAnalyzerAnalyze:
         assert result.format == "tarball"
 
     def test_supported_formats_has_all_expected_keys(self):
-        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz", ".zip"}
+        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz", ".zip", ".7z"}
         assert set(SUPPORTED_FORMATS.keys()) == expected
 
 # =============================================================================
@@ -1281,3 +1297,100 @@ class TestAnalyzeZip:
 
         # Verify find_elf was called with the temp extraction directory
         mock_find_elf.assert_called_once()
+
+# =============================================================================
+# sevenz_analyzer.py -- analyze_7z
+# =============================================================================
+
+
+class TestAnalyze7z:
+    @patch("app2nix.core.analyzers.sevenz_analyzer.subprocess.run")
+    def test_basic_7z_analysis(self, mock_run, tmp_path):
+        """Should extract 7z and return correct PackageInfo."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        archive_path = tmp_path / "my-app.7z"
+        archive_path.write_text("dummy")
+
+        info = analyze_7z(str(archive_path))
+
+        assert info.name == "my-app"
+        assert info.version == "1.0"
+        assert info.format == "7z"
+        # 7z extracted a temp dir with no ELF files
+        assert info.dependencies == []
+        assert info.executables == []
+        # Verify 7z command was called
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "7z"
+        assert cmd[1] == "x"
+
+    @patch("app2nix.core.analyzers.sevenz_analyzer.subprocess.run")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.find_elf")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.get_libs_patchelf")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.tempfile.mkdtemp")
+    def test_7z_with_elf_detection(self, mock_mkdtemp, mock_patchelf, mock_find_elf, mock_run, tmp_path):
+        """Should discover ELF binaries and dependencies."""
+        mock_mkdtemp.return_value = str(tmp_path / "workdir")
+        (tmp_path / "workdir").mkdir(exist_ok=True)
+        mock_run.return_value = MagicMock(returncode=0)
+        # Path must be inside the mkdtemp dir for relative_to to work
+        exe = tmp_path / "workdir" / "bin" / "myapp"
+        mock_find_elf.return_value = [exe]
+        mock_patchelf.return_value = {"ssl", "c"}
+
+        archive_path = tmp_path / "app.7z"
+        archive_path.write_text("dummy")
+
+        info = analyze_7z(str(archive_path))
+
+        assert info.name == "app"
+        assert info.format == "7z"
+        assert sorted(info.dependencies) == ["c", "ssl"]
+        mock_find_elf.assert_called_once()
+
+    @patch("app2nix.core.analyzers.sevenz_analyzer.subprocess.run")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.shutil.rmtree")
+    def test_7z_cleanup_on_failure(self, mock_rmtree, mock_run, tmp_path):
+        """Temp directory should be cleaned up even on error."""
+        mock_run.side_effect = FileNotFoundError("7z not found")
+
+        archive_path = tmp_path / "broken.7z"
+        archive_path.write_text("dummy")
+
+        with pytest.raises(FileNotFoundError):
+            analyze_7z(str(archive_path))
+
+        mock_rmtree.assert_called_once()
+
+    @patch("app2nix.core.analyzers.sevenz_analyzer.subprocess.run")
+    def test_7z_extraction_failure(self, mock_run, tmp_path):
+        """Should propagate CalledProcessError on extraction failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            2, "7z", stderr="Unsupported method"
+        )
+
+        archive_path = tmp_path / "corrupt.7z"
+        archive_path.write_text("dummy")
+
+        with pytest.raises(subprocess.CalledProcessError):
+            analyze_7z(str(archive_path))
+
+    @patch("app2nix.core.analyzers.sevenz_analyzer.subprocess.run")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.shutil.rmtree")
+    @patch("app2nix.core.analyzers.sevenz_analyzer.tempfile.mkdtemp")
+    def test_7z_complex_name(self, mock_mkdtemp, mock_rmtree, mock_run, tmp_path):
+        """Should handle complex filenames with dots."""
+        mock_mkdtemp.return_value = str(tmp_path / "workdir")
+        (tmp_path / "workdir").mkdir(exist_ok=True)
+        mock_run.return_value = MagicMock(returncode=0)
+
+        archive_path = tmp_path / "my-app-2.0-beta.7z"
+        archive_path.write_text("dummy")
+
+        info = analyze_7z(str(archive_path))
+
+        # Path.stem of "my-app-2.0-beta.7z" is "my-app-2.0-beta"
+        assert info.name == "my-app-2.0-beta"
+        assert info.format == "7z"
