@@ -213,27 +213,44 @@ class InstallWorker(QThread):
             self.error.emit(f"Installation failed: {exc}")
 
     def _install_desktop_files(self):
+        """Find .desktop files and icons in the Nix store and install them."""
         desktop_dir = Path.home() / ".local" / "share" / "applications"
         desktop_dir.mkdir(parents=True, exist_ok=True)
+
         store_path = self._find_nix_store_path()
         if not store_path:
             self.progress.emit("Could not find Nix store path, generating .desktop file...")
             self._generate_fallback_desktop(desktop_dir)
             self._refresh_desktop_database(desktop_dir)
             return
+
+        # Install icons from Nix store
+        icon_name = None
+        self.progress.emit("Searching for icons in package...")
+        try:
+            icon_name = self._install_icons(store_path)
+            if icon_name:
+                self._refresh_icon_cache()
+        except Exception as exc:
+            self.progress.emit(f"Warning: icon install failed: {exc}")
+
         self.progress.emit(f"Searching .desktop files in {store_path}...")
         desktop_files = self._find_desktop_files_in_store(store_path)
+
         if not desktop_files:
-            self._generate_fallback_desktop(desktop_dir)
+            self.progress.emit("No .desktop files found in package, generating...")
+            self._generate_fallback_desktop(desktop_dir, icon_name=icon_name)
         else:
             for df in desktop_files:
                 content = df.read_text(encoding="utf-8", errors="replace")
                 content = self._patch_desktop_categories(content)
+                if icon_name:
+                    content = self._patch_desktop_icon(content, icon_name)
                 dest = desktop_dir / df.name
                 dest.write_text(content, encoding="utf-8")
                 self.progress.emit(f"Installed desktop entry: {df.name}")
-        self._refresh_desktop_database(desktop_dir)
 
+        self._refresh_desktop_database(desktop_dir)
     def _find_nix_store_path(self) -> Path | None:
         safe_name = self._pkg_name.lower().replace(" ", "-")
         try:
@@ -277,6 +294,79 @@ class InstallWorker(QThread):
                             desktop_files.append(f)
         return desktop_files
 
+
+    def _find_icons_in_store(self, store_path: Path) -> list[Path]:
+        """Find icon files (png/svg) in a Nix store path's share/icons/ directory."""
+        icon_files: list[Path] = []
+        icons_dir = store_path / "share" / "icons"
+        if icons_dir.is_dir():
+            for f in icons_dir.rglob("*"):
+                if f.is_file() and f.suffix.lower() in (".png", ".svg", ".xpm", ".ico"):
+                    icon_files.append(f)
+        # Broader fallback: search share/icons in nested store paths
+        if not icon_files:
+            for nested_icons in store_path.glob("*/share/icons"):
+                if nested_icons.is_dir():
+                    for f in nested_icons.rglob("*"):
+                        if f.is_file() and f.suffix.lower() in (".png", ".svg", ".xpm", ".ico"):
+                            icon_files.append(f)
+        return icon_files
+
+    def _install_icons(self, store_path: Path) -> str | None:
+        """Copy icons from Nix store to ~/.local/share/icons/ and return the icon name."""
+        icons_dir = Path.home() / ".local" / "share" / "icons"
+        safe_name = self._pkg_name.lower().replace(" ", "-")
+
+        icon_files = self._find_icons_in_store(store_path)
+        if not icon_files:
+            self.progress.emit("No icons found in package.")
+            return None
+
+        # Find the best icon: prefer scalable (svg) then largest png
+        best_icon = None
+        for icon in icon_files:
+            if icon.suffix.lower() == ".svg":
+                best_icon = icon
+                break
+        if not best_icon:
+            # Pick the highest-resolution png
+            pngs = sorted(icon_files, key=lambda p: p.stat().st_size, reverse=True)
+            best_icon = pngs[0] if pngs else None
+
+        if not best_icon:
+            return None
+
+        # Create the icon directory structure: ~/.local/share/icons/hicolor/{size}/apps/
+        # For SVG: scalable/apps, for PNG: 48x48/apps or similar
+        if best_icon.suffix.lower() == ".svg":
+            dest_dir = icons_dir / "hicolor" / "scalable" / "apps"
+        else:
+            dest_dir = icons_dir / "hicolor" / "48x48" / "apps"
+
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"{safe_name}{best_icon.suffix}"
+        shutil.copy2(best_icon, dest)
+        self.progress.emit(f"Installed icon: {dest}")
+
+        # Also copy to a few standard sizes for better desktop integration
+        if best_icon.suffix.lower() == ".png":
+            for size in ["16x16", "32x32", "64x64", "128x128", "256x256"]:
+                size_dir = icons_dir / "hicolor" / size / "apps"
+                size_dir.mkdir(parents=True, exist_ok=True)
+                size_dest = size_dir / f"{safe_name}.png"
+                if not size_dest.exists():
+                    shutil.copy2(best_icon, size_dest)
+
+
+        return safe_name
+
+    def _refresh_icon_cache(self):
+        """Update icon caches after installing icons."""
+        icons_dir = Path.home() / ".local" / "share" / "icons"
+        try:
+            self._run_cmd(["gtk-update-icon-cache", "-f", "-t", str(icons_dir / "hicolor")])
+        except Exception:
+            pass
     def _patch_desktop_categories(self, content: str) -> str:
         lines = content.splitlines(keepends=True)
         has_categories = False
@@ -307,7 +397,19 @@ class InstallWorker(QThread):
                 patched.append(f"Categories={category}\n")
         return "".join(patched)
 
-    def _generate_fallback_desktop(self, desktop_dir: Path):
+
+    def _patch_desktop_icon(self, content: str, icon_name: str) -> str:
+        """Update the Icon= line in a .desktop file to use the installed icon name."""
+        lines = content.splitlines(keepends=True)
+        patched: list[str] = []
+        for line in lines:
+            if line.strip().startswith("Icon="):
+                # Replace the icon path/name with the installed icon name
+                patched.append(f"Icon={icon_name}\n")
+            else:
+                patched.append(line)
+        return "".join(patched)
+    def _generate_fallback_desktop(self, desktop_dir: Path, icon_name: str | None = None):
         safe_name = self._pkg_name.lower().replace(" ", "-")
         category = _guess_category(self._pkg_name)
         if not category.endswith(";"):
@@ -318,7 +420,7 @@ class InstallWorker(QThread):
             "[Desktop Entry]", "Type=Application",
             f"Name={self._pkg_name}",
             f"Comment={self._pkg_name} v{self._version} (installed via app2nix)",
-            f"Exec={exec_line}", f"Icon={safe_name}",
+            f"Exec={exec_line}", f"Icon={icon_name or safe_name}",
             "Terminal=false", f"Categories={category}",
             "StartupNotify=true", "",
         ]
