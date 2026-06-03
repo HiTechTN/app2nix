@@ -1,5 +1,6 @@
 """Main window for the app2nix graphical interface."""
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -32,6 +33,62 @@ _REQUIRED_THEME_KEYS = {
     "btn_sec_bg", "btn_sec_text", "btn_sec_border", "btn_sec_hover",
     "separator", "card_bg", "card_border", "progress_bg",
 }
+
+# Well-known app name -> category mapping (top 20)
+_NAME_TO_CATEGORY: dict[str, str] = {
+    "firefox": "Network;WebBrowser;",
+    "chrome": "Network;WebBrowser;",
+    "thunderbird": "Network;Email;",
+    "gimp": "Graphics;2DGraphics;",
+    "blender": "Graphics;3DGraphics;",
+    "vlc": "AudioVideo;Player;",
+    "mpv": "AudioVideo;Player;",
+    "steam": "Game;",
+    "discord": "Network;Chat;",
+    "vscode": "Development;IDE;",
+    "code": "Development;IDE;",
+    "sublime": "Development;TextEditor;",
+    "libreoffice": "Office;WordProcessor;",
+    "filezilla": "Network;FileTransfer;",
+    "keepassxc": "Utility;Security;",
+    "signal": "Network;Chat;",
+    "spotify": "AudioVideo;Audio;",
+    "htop": "System;Monitor;",
+    "intellij": "Development;IDE;",
+    "docker": "Development;",
+}
+
+# Keyword heuristics for apps not in the dictionary
+_KEYWORD_CATEGORIES: list[tuple[list[str], str]] = (
+    (["browser", "firefox", "chrome", "chromium"], "Network;WebBrowser;"),
+    (["editor", "notepad", "text"], "Development;TextEditor;"),
+    (["player", "video", "media"], "AudioVideo;Player;"),
+    (["audio", "music", "mixer"], "AudioVideo;Audio;"),
+    (["chat", "messenger", "talk"], "Network;Chat;"),
+    (["mail", "email", "inbox"], "Network;Email;"),
+    (["game", "play"], "Game;"),
+    (["ide", "code", "develop"], "Development;IDE;"),
+    (["terminal", "console", "shell"], "System;TerminalEmulator;"),
+    (["image", "photo", "picture", "view"], "Graphics;ImageViewer;"),
+    (["design", "draw", "vector"], "Graphics;Design;"),
+    (["download", "transfer", "torrent"], "Network;FileTransfer;"),
+    (["security", "password", "vpn", "encrypt"], "Utility;Security;"),
+    (["monitor", "process", "system"], "System;Monitor;"),
+    (["office", "document", "spreadsheet", "presentation"], "Office;"),
+)
+
+
+def _guess_category(pkg_name: str) -> str:
+    """Guess the freedesktop category from the package name."""
+    lower = pkg_name.lower()
+    if lower in _NAME_TO_CATEGORY:
+        return _NAME_TO_CATEGORY[lower]
+    for keywords, cat in _KEYWORD_CATEGORIES:
+        if any(kw in lower for kw in keywords):
+            return cat
+    return "Utility;"
+
+
 
 # Formats supported by the core analyzer
 SUPPORTED_EXTENSIONS = {
@@ -184,6 +241,11 @@ class InstallWorker(QThread):
                         env=env,
                     )
 
+            try:
+                self._install_desktop_files()
+            except Exception as exc:
+                self.progress.emit(f"Warning: desktop entry install failed: {exc}")
+
             self.finished.emit(
                 f"{self._pkg_name} v{self._version} installed successfully!\n"
                 f"Location: {pkg_dir}"
@@ -208,6 +270,160 @@ class InstallWorker(QThread):
             return r.returncode == 0
         except Exception:
             return False  # Default to legacy nix-env
+
+    def _install_desktop_files(self):
+        """Find .desktop files and copy to ~/.local/share/applications/."""
+        desktop_dir = Path.home() / ".local" / "share" / "applications"
+        desktop_dir.mkdir(parents=True, exist_ok=True)
+
+        store_path = self._find_nix_store_path()
+        if not store_path:
+            self.progress.emit("Could not find package in Nix store, generating .desktop file...")
+            self._generate_fallback_desktop(desktop_dir)
+            self._refresh_desktop_database(desktop_dir)
+            return
+
+        self.progress.emit(f"Searching for .desktop files in {store_path}...")
+        desktop_files = self._find_desktop_files_in_store(store_path)
+
+        if not desktop_files:
+            self.progress.emit("No .desktop files found, generating...")
+            self._generate_fallback_desktop(desktop_dir)
+        else:
+            for df in desktop_files:
+                content = df.read_text(encoding="utf-8", errors="replace")
+                content = self._patch_desktop_categories(content)
+                dest = desktop_dir / df.name
+                dest.write_text(content, encoding="utf-8")
+                self.progress.emit(f"Installed desktop entry: {df.name}")
+
+        self._refresh_desktop_database(desktop_dir)
+
+    def _find_nix_store_path(self):
+        """Find the Nix store path of the just-installed package."""
+        safe_name = self._pkg_name.lower().replace(" ", "-")
+        try:
+            result = self._run_cmd(["nix", "profile", "list", "--json"])
+            import json
+            data = json.loads(result.stdout)
+            elements = data.get("elements", {})
+            for key, elem in reversed(list(elements.items())):
+                key_lower = key.lower()
+                if safe_name in key_lower or self._pkg_name.lower() in key_lower:
+                    paths = elem.get("storePaths", [])
+                    if paths:
+                        return Path(paths[0])
+        except Exception:
+            pass
+        try:
+            result = self._run_cmd(["nix-env", "-q", "--out-path"])
+            for line in result.stdout.splitlines():
+                if self._pkg_name in line.lower():
+                    parts = line.rsplit(" ", 1)
+                    if len(parts) == 2 and parts[1].startswith("/nix/store/"):
+                        return Path(parts[1])
+        except Exception:
+            pass
+        return None
+
+    def _find_desktop_files_in_store(self, store_path):
+        """Find .desktop files in a Nix store path."""
+        desktop_files = []
+        search_dirs = [
+            store_path / "share" / "applications",
+            store_path / "share" / "icons",
+        ]
+        for search_dir in search_dirs:
+            if search_dir.is_dir():
+                for f in search_dir.rglob("*.desktop"):
+                    desktop_files.append(f)
+        if not desktop_files:
+            for share_app in store_path.glob("*/share/applications"):
+                if share_app.is_dir():
+                    for f in share_app.rglob("*.desktop"):
+                        if "mimeinfo" not in f.name.lower():
+                            desktop_files.append(f)
+        return desktop_files
+
+    def _patch_desktop_categories(self, content):
+        """Ensure the .desktop file has proper Categories."""
+        lines_d = content.splitlines(keepends=True)
+        has_categories = False
+        category = _guess_category(self._pkg_name)
+        if not category.endswith(";"):
+            category += ";"
+        patched = []
+        for line in lines_d:
+            if line.strip().startswith("Categories="):
+                has_categories = True
+                existing = line.split("=", 1)[1].strip()
+                if not existing or existing == ";":
+                    patched.append(f"Categories={category}\n")
+                else:
+                    if not existing.endswith(";"):
+                        patched.append(f"Categories={existing};\n")
+                    else:
+                        patched.append(line)
+            else:
+                patched.append(line)
+        if not has_categories:
+            inserted = False
+            for i, line in enumerate(patched):
+                if line.strip().startswith("[Desktop Action"):
+                    patched.insert(i, f"Categories={category}\n")
+                    inserted = True
+                    break
+            if not inserted:
+                patched.append(f"Categories={category}\n")
+        return "".join(patched)
+
+    def _generate_fallback_desktop(self, desktop_dir):
+        """Generate a .desktop file when the package does not include one."""
+        safe_name = self._pkg_name.lower().replace(" ", "-")
+        category = _guess_category(self._pkg_name)
+        if not category.endswith(";"):
+            category += ";"
+        exec_path = self._find_main_executable()
+        exec_line = exec_path if exec_path else str(Path.home() / ".nix-profile" / "bin" / safe_name)
+        content = f"""[Desktop Entry]
+Type=Application
+Name={self._pkg_name}
+Comment={self._pkg_name} v{self._version} (installed via app2nix)
+Exec={exec_line}
+Icon={safe_name}
+Terminal=false
+Categories={category}
+StartupNotify=true
+"""
+        desktop_file = desktop_dir / f"{safe_name}.desktop"
+        desktop_file.write_text(content, encoding="utf-8")
+        self.progress.emit(f"Generated desktop entry: {desktop_file.name}")
+
+    def _find_main_executable(self):
+        """Find the main executable path for the installed package."""
+        profile_bin = Path.home() / ".nix-profile" / "bin"
+        if profile_bin.is_dir():
+            safe_name = self._pkg_name.lower().replace(" ", "-")
+            candidate = profile_bin / safe_name
+            if candidate.is_file():
+                return str(candidate)
+            for f in profile_bin.iterdir():
+                if safe_name in f.name.lower():
+                    return str(f)
+        pkg_dir = Path.home() / "nix-packages" / self._pkg_name
+        if pkg_dir.is_dir():
+            for f in pkg_dir.rglob("bin/*"):
+                if f.is_file() and os.access(f, os.X_OK):
+                    return str(f)
+        return None
+
+    def _refresh_desktop_database(self, desktop_dir):
+        """Run update-desktop-database to refresh the application menu."""
+        try:
+            self._run_cmd(["update-desktop-database", str(desktop_dir)])
+            self.progress.emit("Desktop menu database updated.")
+        except Exception:
+            pass
 
     def _run_cmd(self, cmd: list[str], stdin_data: str | None = None,
                  env: dict | None = None):
