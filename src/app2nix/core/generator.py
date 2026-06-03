@@ -199,7 +199,7 @@ cd ~/nix-packages/{info.name}
 ## 4. Install
 ### User install
 ```bash
-NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+nix-build default.nix -o result && nix profile install ./result
 ```
 ### System install (NixOS)
 Add to /etc/nixos/configuration.nix:
@@ -221,6 +221,6 @@ VERSION="{info.version}"
 mkdir -p ~/nix-packages/$PACKAGE
 cd ~/nix-packages/$PACKAGE
 # Copy the generated default.nix here
-NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+nix-build default.nix -o result && nix profile install ./result
 echo "Installed $PACKAGE v$VERSION"
 """

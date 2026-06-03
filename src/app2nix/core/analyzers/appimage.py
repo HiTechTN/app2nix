@@ -82,7 +82,7 @@ def analyze_appimage(appimage_path: str) -> PackageInfo:
             )
 
         executables_elf = find_elf(squashfs)
-        deps = []
+        deps: list[str] = []
         for elf in executables_elf:
             deps.extend(get_libs_patchelf(elf))
 

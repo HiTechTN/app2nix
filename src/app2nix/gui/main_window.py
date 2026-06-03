@@ -857,226 +857,581 @@ class App2NixWindow(QWidget):
         return tab
 
     def _build_help_tab(self) -> QWidget:
+        """Build the Help & Support tab with interactive sections."""
         tab = QWidget()
         root = QVBoxLayout(tab)
         root.setContentsMargins(0, 0, 0, 0)
+
+        # Search bar at top
+        search_bar = QWidget()
+        search_bar.setObjectName("helpSearchBar")
+        search_lay = QHBoxLayout(search_bar)
+        search_lay.setContentsMargins(28, 12, 28, 8)
+        search_icon = QLabel("🔍")
+        search_icon.setStyleSheet("font-size: 16px;")
+        search_lay.addWidget(search_icon)
+        self._help_search = QLineEdit()
+        self._help_search.setPlaceholderText(tr("help.search", "Search help topics..."))
+        self._help_search.setObjectName("helpSearchInput")
+        self._help_search.textChanged.connect(self._on_help_search)
+        search_lay.addWidget(self._help_search, 1)
+        root.addWidget(search_bar)
+
+        # Scrollable content
         content = QWidget()
         content.setObjectName("helpContent")
         lay = QVBoxLayout(content)
-        lay.setContentsMargins(28, 20, 28, 20)
-        lay.setSpacing(16)
+        lay.setContentsMargins(28, 12, 28, 20)
+        lay.setSpacing(12)
 
+        # Title
         title = QLabel(tr("help.title", "Help & Support"))
         title.setObjectName("helpTitle")
         lay.addWidget(title)
+
         subtitle = QLabel(tr("help.subtitle", "Everything you need to get started with app2nix"))
         subtitle.setObjectName("helpSubtitle")
         lay.addWidget(subtitle)
 
-        # Quick Start
-        lay.addWidget(self._help_header(tr("help.quick_start", "Quick Start Guide")))
-        steps = [
-            (tr("help.step1_title", "1. Select a Package"),
-             tr("help.step1_desc", "Click Browse to select a Linux package file (.deb, .rpm, .AppImage, .flatpak, .snap, .tar.gz, .zip) or drag and drop it.")),
-            (tr("help.step2_title", "2. Analyze"),
-             tr("help.step2_desc", "Click Analyze to detect the package format, extract dependencies, and generate a NixOS expression automatically.")),
-            (tr("help.step3_title", "3. Review & Edit"),
-             tr("help.step3_desc", "Review the generated Nix expression. You can edit it directly in the editor, then save it as default.nix or flake.nix.")),
-            (tr("help.step4_title", "4. Install"),
-             tr("help.step4_desc", "Click Install on NixOS to build and install the package directly, or use the saved .nix file with nix-env or nixos-rebuild.")),
-        ]
-        for st, sd in steps:
-            card = QFrame()
-            card.setObjectName("helpStepCard")
-            cl = QHBoxLayout(card)
-            cl.setContentsMargins(16, 12, 16, 12)
-            cl.setSpacing(12)
-            tl = QLabel(st)
-            tl.setObjectName("helpStepTitle")
-            tl.setFixedWidth(200)
-            cl.addWidget(tl)
-            dl = QLabel(sd)
-            dl.setObjectName("helpStepDesc")
-            dl.setWordWrap(True)
-            cl.addWidget(dl, 1)
-            lay.addWidget(card)
+        # Store all searchable sections
+        self._help_sections: list[tuple[QWidget, str]] = []
 
-        # Formats
-        lay.addWidget(self._help_header(tr("help.formats_title", "Supported Formats")))
-        fmts_desc = QLabel(tr("help.formats_desc", "app2nix supports the following package formats:"))
-        fmts_desc.setObjectName("helpText")
-        lay.addWidget(fmts_desc)
-        fmt_frame = QFrame()
-        fmt_frame.setObjectName("helpFormatsFrame")
-        fl = QHBoxLayout(fmt_frame)
-        fl.setContentsMargins(16, 12, 16, 12)
-        fl.setSpacing(8)
-        for ext, emoji, desc in [(".deb", "\U0001f4e6", "Debian/Ubuntu"), (".rpm", "\U0001f4e6", "Fedora/RHEL"),
-            (".AppImage", "\U0001f680", "Portable apps"), (".flatpak", "\U0001f4e6", "Flatpak"),
-            (".snap", "\U0001f4e6", "Snap"), (".tar.gz", "\U0001f4e6", "Archives"), (".zip", "\U0001f4e6", "ZIP")]:
-            fc = QVBoxLayout()
-            fc.setAlignment(Qt.AlignmentFlag.AlignTop)
-            fc.setSpacing(2)
-            el = QLabel(emoji)
-            el.setStyleSheet("font-size: 20px;")
-            el.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            fc.addWidget(el)
-            xl = QLabel(ext)
-            xl.setObjectName("helpFormatExt")
-            xl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            fc.addWidget(xl)
-            dl2 = QLabel(desc)
-            dl2.setObjectName("helpFormatDesc")
-            dl2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            fc.addWidget(dl2)
-            fl.addLayout(fc)
-        fl.addStretch()
-        lay.addWidget(fmt_frame)
+        # ── How it Works ──
+        how_card = self._build_how_it_works_section()
+        self._help_sections.append((how_card, tr("help.how_title", "How it Works").lower() + " pipeline app2nix convert analyze nix"))
+        lay.addWidget(how_card)
 
-        # FAQ
-        lay.addWidget(self._help_header(tr("help.faq_title", "Frequently Asked Questions")))
-        faqs = [
-            (tr("help.faq1_q", "What is app2nix?"), tr("help.faq1_a", "app2nix converts Linux packages (.deb, .rpm, .AppImage, etc.) into NixOS expressions.")),
-            (tr("help.faq2_q", "Why webkitgtk_4_0 has been removed?"), tr("help.faq2_a", "The package depends on an old WebKit version. app2nix maps it to webkitgtk_4_1.")),
-            (tr("help.faq3_q", "How do I install a .deb package?"), tr("help.faq3_a", "Browse for the .deb file, click Analyze, review the Nix expression, and click Install.")),
-            (tr("help.faq4_q", "Can I install packages system-wide?"), tr("help.faq4_a", "Yes! Check System install (sudo) before clicking Install.")),
-            (tr("help.faq5_q", "What if a dependency cannot be resolved?"), tr("help.faq5_a", "Some uncommon libraries may not have a NixOS equivalent. Search on search.nixos.org.")),
-        ]
-        for fq, fa in faqs:
-            fc2 = QFrame()
-            fc2.setObjectName("helpFaqCard")
-            fl2 = QVBoxLayout(fc2)
-            fl2.setContentsMargins(16, 12, 16, 12)
-            fl2.setSpacing(6)
-            ql = QLabel(f"\u2753 {fq}")
-            ql.setObjectName("helpFaqQ")
-            ql.setWordWrap(True)
-            fl2.addWidget(ql)
-            al = QLabel(f"  {fa}")
-            al.setObjectName("helpFaqA")
-            al.setWordWrap(True)
-            fl2.addWidget(al)
-            lay.addWidget(fc2)
+        # ── Quick Start Guide ──
+        steps_card = self._build_quick_start_section()
+        self._help_sections.append((steps_card, tr("help.quick_start", "Quick Start Guide").lower() + " step select analyze review install browse package"))
+        lay.addWidget(steps_card)
 
-        # Tips
-        lay.addWidget(self._help_header(tr("help.tips_title", "Tips & Troubleshooting")))
-        tips = [
-            (tr("help.tip1_title", "Root permissions"), tr("help.tip1_desc", "If you get a sandbox error, run: sudo chmod 755 /")),
-            (tr("help.tip2_title", "Unfree packages"), tr("help.tip2_desc", "app2nix sets NIXPKGS_ALLOW_UNFREE=1 during installation.")),
-            (tr("help.tip3_title", "Desktop integration"), tr("help.tip3_desc", "After installation, app2nix installs .desktop files for your application menu.")),
-        ]
-        for tt, td in tips:
-            tc = QFrame()
-            tc.setObjectName("helpTipCard")
-            tl2 = QHBoxLayout(tc)
-            tl2.setContentsMargins(16, 12, 16, 12)
-            tl2.setSpacing(12)
-            tt_lbl = QLabel(f"\U0001f4a1 {tt}")
-            tt_lbl.setObjectName("helpTipTitle")
-            tt_lbl.setFixedWidth(200)
-            tl2.addWidget(tt_lbl)
-            td_lbl = QLabel(td)
-            td_lbl.setObjectName("helpTipDesc")
-            td_lbl.setWordWrap(True)
-            tl2.addWidget(td_lbl, 1)
-            lay.addWidget(tc)
+        # ── Supported Formats ──
+        formats_card = self._build_formats_section()
+        self._help_sections.append((formats_card, tr("help.formats_title", "Supported Formats").lower() + " deb rpm appimage flatpak snap tar zip archive"))
+        lay.addWidget(formats_card)
 
-        # Contact
-        lay.addWidget(self._help_header(tr("help.contact_title", "Need more help?")))
-        cc = QFrame()
-        cc.setObjectName("helpContactCard")
-        ccl = QVBoxLayout(cc)
-        ccl.setContentsMargins(16, 12, 16, 12)
-        ccl.setSpacing(8)
-        ccl.addWidget(QLabel(tr("help.contact_desc", "Visit our documentation or open an issue on GitHub:")))
-        lr = QHBoxLayout()
-        lr.setSpacing(8)
-        for lt, url in [("\U0001f4d6 Documentation", "https://codebuff.com/docs"),
-            ("\U0001f41b Report Bug", "https://github.com/app2nix/app2nix/issues"),
-            ("\u2b50 GitHub", "https://github.com/app2nix/app2nix")]:
-            btn = QPushButton(lt)
-            btn.setObjectName("helpLinkBtn")
-            btn.clicked.connect(lambda checked, u=url: QDesktopServices.openUrl(QUrl(u)))
-            lr.addWidget(btn)
-        lr.addStretch()
-        ccl.addLayout(lr)
-        lay.addWidget(cc)
+        # ── Command Line Reference ──
+        cli_card = self._build_cli_reference_section()
+        self._help_sections.append((cli_card, tr("help.cli_title", "Command Line Reference").lower() + " cli terminal command nix-build nix profile install shell"))
+        lay.addWidget(cli_card)
+
+        # ── FAQ ──
+        faq_card = self._build_faq_section()
+        self._help_sections.append((faq_card, tr("help.faq_title", "Frequently Asked Questions").lower() + " what how why error webkit unsquashfs sandbox profile"))
+        lay.addWidget(faq_card)
+
+        # ── Tips & Troubleshooting ──
+        tips_card = self._build_tips_section()
+        self._help_sections.append((tips_card, tr("help.tips_title", "Tips & Troubleshooting").lower() + " root permissions sandbox unfree desktop integration chmod"))
+        lay.addWidget(tips_card)
+
+        # ── Contact / Links ──
+        contact_card = self._build_contact_section()
+        self._help_sections.append((contact_card, tr("help.contact_title", "Need more help?").lower() + " documentation github bug report issue"))
+        lay.addWidget(contact_card)
+
         lay.addStretch()
+
+        self._help_content = content
         scroll = _make_scrollable(content)
         root.addWidget(scroll)
         return tab
+
+    def _on_help_search(self, text: str):
+        """Filter help sections based on search text."""
+        query = text.lower().strip()
+        for widget, keywords in self._help_sections:
+            if not query:
+                widget.setVisible(True)
+            else:
+                widget.setVisible(query in keywords)
+
+    def _build_how_it_works_section(self) -> QWidget:
+        """Build the 'How it Works' visual pipeline section."""
+        card = QFrame()
+        card.setObjectName("helpHowCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(10)
+
+        lay.addWidget(self._help_section_header(tr("help.how_title", "How it Works")))
+
+        desc = QLabel(tr("help.how_desc", "app2nix automatically converts any Linux package into a NixOS-compatible expression in 3 steps:"))
+        desc.setObjectName("helpText")
+        desc.setWordWrap(True)
+        lay.addWidget(desc)
+
+        # Pipeline visualization
+        pipeline = QWidget()
+        pipeline.setObjectName("helpPipeline")
+        pl = QHBoxLayout(pipeline)
+        pl.setContentsMargins(0, 8, 0, 8)
+        pl.setSpacing(0)
+
+        steps = [
+            ("📦", tr("help.how_input", "Linux Package"), tr("help.how_input_desc", ".deb .rpm .AppImage...")),
+            ("→", "", ""),
+            ("🔍", tr("help.how_analyze", "Analyze"), tr("help.how_analyze_desc", "Extract metadata & deps")),
+            ("→", "", ""),
+            ("🔧", tr("help.how_resolve", "Resolve"), tr("help.how_resolve_desc", "Map to Nix packages")),
+            ("→", "", ""),
+            ("📄", tr("help.how_generate", "Generate"), tr("help.how_generate_desc", "Create .nix file")),
+        ]
+
+        for emoji, label, desc in steps:
+            if emoji == "→":
+                arrow = QLabel("→")
+                arrow.setStyleSheet("font-size: 20px; font-weight: bold; color: {accent};")
+                arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                pl.addWidget(arrow)
+            else:
+                step = QVBoxLayout()
+                step.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                step.setSpacing(2)
+                icon = QLabel(emoji)
+                icon.setStyleSheet("font-size: 24px;")
+                icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                step.addWidget(icon)
+                lbl = QLabel(label)
+                lbl.setObjectName("helpPipelineLabel")
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                step.addWidget(lbl)
+                if desc:
+                    d = QLabel(desc)
+                    d.setObjectName("helpPipelineDesc")
+                    d.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    step.addWidget(d)
+                pl.addLayout(step)
+
+        pl.addStretch()
+        lay.addWidget(pipeline)
+
+        return card
+
+    def _build_quick_start_section(self) -> QWidget:
+        """Build the Quick Start Guide with visual step indicators."""
+        card = QFrame()
+        card.setObjectName("helpQuickCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(10)
+
+        lay.addWidget(self._help_section_header(tr("help.quick_start", "Quick Start Guide")))
+
+        steps = [
+            ("1", tr("help.step1_title", "Select a Package"),
+             tr("help.step1_desc", "Click 'Browse' to select a Linux package file (.deb, .rpm, .AppImage, .flatpak, .snap, .tar.gz, .zip) or drag and drop it.")),
+            ("2", tr("help.step2_title", "Analyze"),
+             tr("help.step2_desc", "Click 'Analyze' to detect the package format, extract dependencies, and generate a NixOS expression automatically.")),
+            ("3", tr("help.step3_title", "Review & Edit"),
+             tr("help.step3_desc", "Review the generated Nix expression. You can edit it directly in the editor, then save it as default.nix or flake.nix.")),
+            ("4", tr("help.step4_title", "Install"),
+             tr("help.step4_desc", "Click 'Install on NixOS' to build and install the package directly, or use the saved .nix file with nix profile install or nixos-rebuild.")),
+        ]
+
+        for num, step_title, step_desc in steps:
+            step_row = QHBoxLayout()
+            step_row.setSpacing(14)
+
+            # Number circle
+            circle = QLabel(num)
+            circle.setObjectName("helpStepCircle")
+            circle.setFixedSize(36, 36)
+            circle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            step_row.addWidget(circle)
+
+            # Text
+            text_col = QVBoxLayout()
+            text_col.setSpacing(2)
+            title_lbl = QLabel(step_title)
+            title_lbl.setObjectName("helpStepTitle")
+            text_col.addWidget(title_lbl)
+            desc_lbl = QLabel(step_desc)
+            desc_lbl.setObjectName("helpStepDesc")
+            desc_lbl.setWordWrap(True)
+            text_col.addWidget(desc_lbl)
+            step_row.addLayout(text_col, 1)
+
+            lay.addLayout(step_row)
+
+        return card
+
+    def _build_formats_section(self) -> QWidget:
+        """Build the supported formats section with visual cards."""
+        card = QFrame()
+        card.setObjectName("helpFormatsCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(10)
+
+        lay.addWidget(self._help_section_header(tr("help.formats_title", "Supported Formats")))
+
+        formats_desc = QLabel(tr("help.formats_desc", "app2nix supports the following package formats with automatic detection and extraction:"))
+        formats_desc.setObjectName("helpText")
+        formats_desc.setWordWrap(True)
+        lay.addWidget(formats_desc)
+
+        formats_frame = QWidget()
+        fmt_grid = QHBoxLayout(formats_frame)
+        fmt_grid.setContentsMargins(0, 8, 0, 0)
+        fmt_grid.setSpacing(12)
+
+        format_emojis = [
+            (".deb", "📦", "Debian/Ubuntu", tr("help.fmt_deb", "dpkg extraction")),
+            (".rpm", "📦", "Fedora/RHEL", tr("help.fmt_rpm", "rpm2cpio + cpio")),
+            (".AppImage", "🚀", "Portable Apps", tr("help.fmt_appimage", "FUSE / unsquashfs")),
+            (".flatpak", "📦", "Flatpak", tr("help.fmt_flatpak", "flatpak extraction")),
+            (".snap", "📦", "Snap", tr("help.fmt_snap", "squashfs extraction")),
+            (".tar.gz", "📦", "Archives", tr("help.fmt_tar", "tarball extraction")),
+            (".zip", "📦", "ZIP", tr("help.fmt_zip", "unzip extraction")),
+        ]
+
+        for ext, emoji, name, method in format_emojis:
+            fmt_col = QVBoxLayout()
+            fmt_col.setAlignment(Qt.AlignmentFlag.AlignTop)
+            fmt_col.setSpacing(2)
+            emoji_lbl = QLabel(emoji)
+            emoji_lbl.setStyleSheet("font-size: 22px;")
+            emoji_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fmt_col.addWidget(emoji_lbl)
+            ext_lbl = QLabel(ext)
+            ext_lbl.setObjectName("helpFormatExt")
+            ext_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fmt_col.addWidget(ext_lbl)
+            name_lbl = QLabel(name)
+            name_lbl.setObjectName("helpFormatName")
+            name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fmt_col.addWidget(name_lbl)
+            method_lbl = QLabel(method)
+            method_lbl.setObjectName("helpFormatMethod")
+            method_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            method_lbl.setWordWrap(True)
+            fmt_col.addWidget(method_lbl)
+            fmt_grid.addLayout(fmt_col)
+
+        fmt_grid.addStretch()
+        lay.addWidget(formats_frame)
+
+        return card
+
+    def _build_cli_reference_section(self) -> QWidget:
+        """Build the Command Line Reference section."""
+        card = QFrame()
+        card.setObjectName("helpCliCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(10)
+
+        lay.addWidget(self._help_section_header(tr("help.cli_title", "Command Line Reference")))
+
+        commands = [
+            (tr("help.cli_convert", "Convert a package"),
+             'app2nix convert package.deb --output-dir ./nix-output',
+             tr("help.cli_convert_desc", "Analyze a .deb and generate a default.nix file")),
+            (tr("help.cli_convert_flake", "Convert with flake.nix"),
+             'app2nix convert package.rpm --flake --output-dir ./nix-output',
+             tr("help.cli_convert_flake_desc", "Also generate flake.nix alongside default.nix")),
+            (tr("help.cli_batch", "Batch convert a directory"),
+             'app2nix convert ./packages/ --recursive --parallel 4',
+             tr("help.cli_batch_desc", "Convert all packages in a directory in parallel")),
+            (tr("help.cli_install_manual", "Manual install (user)"),
+             'nix profile install ./result',
+             tr("help.cli_install_manual_desc", "Install a built package into your user profile")),
+            (tr("help.cli_install_nixos", "Manual install (NixOS)"),
+             'sudo nixos-rebuild switch',
+             tr("help.cli_install_nixos_desc", "Rebuild system config with the new package")),
+            (tr("help.cli_server", "Start web server"),
+             'app2nix serve --port 8000',
+             tr("help.cli_server_desc", "Launch the web UI on port 8000")),
+        ]
+
+        for title, cmd, desc in commands:
+            cmd_row = QVBoxLayout()
+            cmd_row.setSpacing(2)
+
+            title_lbl = QLabel(title)
+            title_lbl.setObjectName("helpCliTitle")
+            cmd_row.addWidget(title_lbl)
+
+            if desc:
+                desc_lbl = QLabel(desc)
+                desc_lbl.setObjectName("helpCliDesc")
+                cmd_row.addWidget(desc_lbl)
+
+            code_frame = QFrame()
+            code_frame.setObjectName("helpCodeFrame")
+            code_lay = QHBoxLayout(code_frame)
+            code_lay.setContentsMargins(12, 6, 12, 6)
+            code_lbl = QLabel(f"$ {cmd}")
+            code_lbl.setObjectName("helpCodeLabel")
+            code_lay.addWidget(code_lbl, 1)
+
+            copy_btn = QPushButton("📋")
+            copy_btn.setObjectName("helpCopyBtn")
+            copy_btn.setFixedSize(28, 28)
+            copy_btn.setToolTip(tr("help.copy_cmd", "Copy to clipboard"))
+            copy_btn.clicked.connect(lambda checked, c=cmd: self._copy_to_clipboard(c))
+            code_lay.addWidget(copy_btn)
+
+            cmd_row.addWidget(code_frame)
+            lay.addLayout(cmd_row)
+
+        return card
+
+    def _copy_to_clipboard(self, text: str):
+        """Copy text to the system clipboard."""
+        from PyQt6.QtWidgets import QApplication
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(text)
+            self.status_bar.setText(tr("help.copied", "Copied to clipboard!"))
+
+    def _build_faq_section(self) -> QWidget:
+        """Build the FAQ section with interactive toggle buttons."""
+        card = QFrame()
+        card.setObjectName("helpFaqCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(8)
+
+        lay.addWidget(self._help_section_header(tr("help.faq_title", "Frequently Asked Questions")))
+
+        faqs = [
+            (tr("help.faq1_q", "What is app2nix?"),
+             tr("help.faq1_a", "app2nix converts Linux packages (.deb, .rpm, .AppImage, etc.) into NixOS expressions, allowing you to install any Linux package on NixOS. It analyzes dependencies, maps them to Nix packages, and generates ready-to-use Nix expressions.")),
+            (tr("help.faq2_q", "Why do I get 'webkitgtk_4_0 has been removed'?"),
+             tr("help.faq2_a", "This error means the package depends on an old WebKit version that was removed from nixpkgs. app2nix automatically maps webkitgtk_4_0 to webkitgtk_4_1. If the package still fails, it may need code changes by the upstream developer.")),
+            (tr("help.faq3_q", "How do I install a .deb package?"),
+             tr("help.faq3_a", "Simply browse for the .deb file, click Analyze, review the generated Nix expression, and click Install. app2nix handles dpkg extraction automatically. The package will be built using Nix and added to your profile.")),
+            (tr("help.faq4_q", "Can I install packages system-wide?"),
+             tr("help.faq4_a", "Yes! Check the 'System install (sudo)' checkbox before clicking Install. You'll be prompted for your sudo password. This adds the package to the system-wide Nix profile.")),
+            (tr("help.faq5_q", "What if a dependency can't be resolved?"),
+             tr("help.faq5_a", "Some uncommon libraries may not have a NixOS equivalent. The unresolved dependencies will be listed after analysis. You can manually find the correct Nix package name at search.nixos.org and add it to the generated expression.")),
+            (tr("help.faq6_q", "How does unsquashfs/AppImage extraction work?"),
+             tr("help.faq6_a", "app2nix first tries --appimage-extract (FUSE). If that fails, it falls back to unsquashfs. On NixOS, it can auto-install squashfs-tools via nix-shell. For manual installation: nix-shell -p squashfs-tools.")),
+            (tr("help.faq7_q", "I get 'profile is incompatible with nix-env'. What now?"),
+             tr("help.faq7_a", "Your Nix profile was created with 'nix profile' commands. Use 'nix profile install' instead of 'nix-env -i'. app2nix uses nix-build + nix profile install by default.")),
+            (tr("help.faq8_q", "How do I uninstall a package installed by app2nix?"),
+             tr("help.faq8_a", "Run 'nix profile remove <package-name>' to remove the package from your profile. app2nix will automatically clean up associated .desktop files on the next install.")),
+        ]
+
+        self._faq_widgets: list[tuple[QWidget, QWidget]] = []
+        for faq_q, faq_a in faqs:
+            faq_container = QWidget()
+            faq_lay = QVBoxLayout(faq_container)
+            faq_lay.setContentsMargins(0, 0, 0, 0)
+            faq_lay.setSpacing(0)
+
+            # Toggle button
+            toggle = QPushButton(f"  ❓ {faq_q}")
+            toggle.setObjectName("helpFaqToggle")
+            toggle.setCheckable(True)
+            toggle.setChecked(False)
+
+            # Answer label
+            answer = QLabel(f"    {faq_a}")
+            answer.setObjectName("helpFaqA")
+            answer.setWordWrap(True)
+            answer.setVisible(False)
+            answer.setContentsMargins(20, 4, 8, 10)
+
+            toggle.toggled.connect(lambda checked, a=answer, t=toggle: (
+                a.setVisible(checked),
+                t.setText(t.text().replace("❓", "✅") if checked else t.text().replace("✅", "❓"))
+            ))
+
+            faq_lay.addWidget(toggle)
+            faq_lay.addWidget(answer)
+            self._faq_widgets.append((faq_container, answer))
+            lay.addWidget(faq_container)
+
+        return card
+
+    def _build_tips_section(self) -> QWidget:
+        """Build the Tips & Troubleshooting section."""
+        card = QFrame()
+        card.setObjectName("helpTipsCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(10)
+
+        lay.addWidget(self._help_section_header(tr("help.tips_title", "Tips & Troubleshooting")))
+
+        tips = [
+            (tr("help.tip1_title", "🔧 Root permissions"),
+             tr("help.tip1_desc", "If you get a sandbox error, your root directory may be world-writable. Fix with: sudo chmod 755 /"),
+             "sudo chmod 755 /"),
+            (tr("help.tip2_title", "🔓 Unfree packages"),
+             tr("help.tip2_desc", "app2nix automatically sets NIXPKGS_ALLOW_UNFREE=1 during installation. No extra configuration needed."),
+             None),
+            (tr("help.tip3_title", "🖥️ Desktop integration"),
+             tr("help.tip3_desc", "After installation, app2nix automatically installs .desktop files and icons so the app appears in your application menu."),
+             None),
+            (tr("help.tip4_title", "⚡ Speed up builds"),
+             tr("help.tip4_desc", "Use --parallel N with the CLI to convert multiple packages in parallel. Enable Nix substituters for faster downloads."),
+             None),
+            (tr("help.tip5_title", "🔄 Profile management"),
+             tr("help.tip5_desc", "List installed packages with 'nix profile list'. Remove with 'nix profile remove <name>'. Backup with 'nix profile diff-closures'."),
+             None),
+        ]
+
+        for tip_title, tip_desc, tip_cmd in tips:
+            tip_card = QFrame()
+            tip_card.setObjectName("helpTipInner")
+            tip_lay = QVBoxLayout(tip_card)
+            tip_lay.setContentsMargins(14, 10, 14, 10)
+            tip_lay.setSpacing(4)
+
+            tip_t = QLabel(tip_title)
+            tip_t.setObjectName("helpTipTitle")
+            tip_lay.addWidget(tip_t)
+
+            tip_d = QLabel(tip_desc)
+            tip_d.setObjectName("helpTipDesc")
+            tip_d.setWordWrap(True)
+            tip_lay.addWidget(tip_d)
+
+            if tip_cmd:
+                cmd_frame = QFrame()
+                cmd_frame.setObjectName("helpCodeFrame")
+                cmd_lay = QHBoxLayout(cmd_frame)
+                cmd_lay.setContentsMargins(10, 4, 4, 4)
+                cmd_lbl = QLabel(f"$ {tip_cmd}")
+                cmd_lbl.setObjectName("helpCodeLabel")
+                cmd_lay.addWidget(cmd_lbl, 1)
+                copy_btn = QPushButton("📋")
+                copy_btn.setObjectName("helpCopyBtn")
+                copy_btn.setFixedSize(26, 26)
+                copy_btn.clicked.connect(lambda checked, c=tip_cmd: self._copy_to_clipboard(c))
+                cmd_lay.addWidget(copy_btn)
+                tip_lay.addWidget(cmd_frame)
+
+            lay.addWidget(tip_card)
+
+        return card
+
+    def _build_contact_section(self) -> QWidget:
+        """Build the contact/links section."""
+        card = QFrame()
+        card.setObjectName("helpContactCard")
+        contact_lay = QVBoxLayout(card)
+        contact_lay.setContentsMargins(20, 16, 20, 16)
+        contact_lay.setSpacing(10)
+
+        contact_lay.addWidget(self._help_section_header(tr("help.contact_title", "Need more help?")))
+
+        contact_lbl = QLabel(
+            tr("help.contact_desc", "Visit our documentation or open an issue on GitHub:")
+        )
+        contact_lbl.setObjectName("helpText")
+        contact_lay.addWidget(contact_lbl)
+
+        links_row = QHBoxLayout()
+        links_row.setSpacing(8)
+
+        for label_text, url in [
+            (tr("help.link_docs", "📖 Documentation"), "https://github.com/HiTechTN/app2nix#readme"),
+            (tr("help.link_bug", "🐛 Report Bug"), "https://github.com/HiTechTN/app2nix/issues"),
+            (tr("help.link_github", "⭐ GitHub"), "https://github.com/HiTechTN/app2nix"),
+        ]:
+            btn = QPushButton(label_text)
+            btn.setObjectName("helpLinkBtn")
+            btn.clicked.connect(lambda checked, u=url: QDesktopServices.openUrl(QUrl(u)))
+            links_row.addWidget(btn)
+
+        links_row.addStretch()
+        contact_lay.addLayout(links_row)
+
+        return card
+
+    # -- About tab ---------------------------------------------------------
 
     def _build_about_tab(self) -> QWidget:
         tab = QWidget()
         root = QVBoxLayout(tab)
         root.setContentsMargins(0, 0, 0, 0)
+
         content = QWidget()
         content.setObjectName("aboutContent")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(40, 30, 40, 30)
         lay.setSpacing(16)
-        icon_lbl = QLabel("\U0001f6e0\ufe0f")
+
+        icon_lbl = QLabel("🛠️")
         icon_lbl.setStyleSheet("font-size: 48px;")
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(icon_lbl)
+
         name_lbl = QLabel("app2nix")
         name_lbl.setObjectName("aboutName")
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(name_lbl)
+
         desc_lbl = QLabel(tr("about.desc", "Universal Package to NixOS Converter"))
         desc_lbl.setObjectName("aboutDesc")
         desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(desc_lbl)
-        version_lbl = QLabel(tr("about.version", "Version 3.0.1"))
+
+        version_lbl = QLabel(tr("about.version", "Version 3.1.0"))
         version_lbl.setObjectName("aboutVersion")
         version_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(version_lbl)
+
         sep = QFrame()
         sep.setObjectName("separator")
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setFixedHeight(1)
         lay.addWidget(sep)
-        for emoji, label, value in [
-            ("\U0001f464", tr("about.author", "Contributors"), "app2nix contributors"),
-            ("\U0001f4dc", tr("about.license", "License"), "MIT License"),
-            ("\U0001f4bb", tr("about.credits", "Built with"), "Python, PyQt6, Rust, and Nix"),
-            ("\u2764\ufe0f", tr("about.thanks", "Thanks"), "The NixOS community"),
-        ]:
+
+        info_items = [
+            ("👤", tr("about.author", "Contributors"), "app2nix contributors"),
+            ("📜", tr("about.license", "License"), "MIT License"),
+            ("💻", tr("about.credits", "Built with"), "Python, PyQt6, Rust, and Nix"),
+            ("❤️", tr("about.thanks", "Thanks"), "The NixOS community"),
+        ]
+
+        for emoji, label, value in info_items:
             info_row = QHBoxLayout()
             info_row.setSpacing(12)
-            e_lbl = QLabel(emoji)
-            e_lbl.setStyleSheet("font-size: 18px;")
-            e_lbl.setFixedWidth(30)
-            info_row.addWidget(e_lbl)
+            emoji_lbl = QLabel(emoji)
+            emoji_lbl.setStyleSheet("font-size: 18px;")
+            emoji_lbl.setFixedWidth(30)
+            info_row.addWidget(emoji_lbl)
             col = QVBoxLayout()
             col.setSpacing(1)
-            k_lbl = QLabel(label)
-            k_lbl.setObjectName("aboutKey")
-            col.addWidget(k_lbl)
-            v_lbl = QLabel(value)
-            v_lbl.setObjectName("aboutValue")
-            col.addWidget(v_lbl)
+            key_lbl = QLabel(label)
+            key_lbl.setObjectName("aboutKey")
+            col.addWidget(key_lbl)
+            val_lbl = QLabel(value)
+            val_lbl.setObjectName("aboutValue")
+            col.addWidget(val_lbl)
             info_row.addLayout(col, 1)
             lay.addLayout(info_row)
+
         sep2 = QFrame()
         sep2.setObjectName("separator")
         sep2.setFrameShape(QFrame.Shape.HLine)
         sep2.setFixedHeight(1)
         lay.addWidget(sep2)
-        lr = QHBoxLayout()
-        lr.setSpacing(8)
-        lr.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        for lt, url in [
-            ("\U0001f4d6 " + tr("about.docs", "Documentation"), "https://codebuff.com/docs"),
-            ("\U0001f41b " + tr("about.bug_report", "Report a Bug"), "https://github.com/app2nix/app2nix/issues"),
-            ("\U0001f4bb " + tr("about.github", "GitHub"), "https://github.com/app2nix/app2nix"),
+
+        links_row = QHBoxLayout()
+        links_row.setSpacing(8)
+        links_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        for label_text, url in [
+            ("📖 " + tr("about.docs", "Documentation"), "https://github.com/HiTechTN/app2nix#readme"),
+            ("🐛 " + tr("about.bug_report", "Report a Bug"), "https://github.com/HiTechTN/app2nix/issues"),
+            ("💻 " + tr("about.github", "GitHub"), "https://github.com/HiTechTN/app2nix"),
         ]:
-            btn = QPushButton(lt)
+            btn = QPushButton(label_text)
             btn.setObjectName("aboutLinkBtn")
             btn.clicked.connect(lambda checked, u=url: QDesktopServices.openUrl(QUrl(u)))
-            lr.addWidget(btn)
-        lay.addLayout(lr)
+            links_row.addWidget(btn)
+
+        lay.addLayout(links_row)
         lay.addStretch()
+
         scroll = _make_scrollable(content)
         root.addWidget(scroll)
         return tab
@@ -1086,7 +1441,7 @@ class App2NixWindow(QWidget):
         lbl.setObjectName("sectionLabel")
         return lbl
 
-    def _help_header(self, text: str) -> QLabel:
+    def _help_section_header(self, text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setObjectName("helpSectionHeader")
         return lbl
@@ -1167,6 +1522,44 @@ class App2NixWindow(QWidget):
         QLabel#helpTipDesc {{ font-size: 13px; color: {t["text_primary"]}; }}
         QFrame#helpContactCard {{ background: {hcbg}; border: 1px solid {hcbdr}; border-radius: 8px; }}
         QLabel#helpText {{ font-size: 13px; color: {t["text_primary"]}; }}
+
+        /* Help search bar */
+        QWidget#helpSearchBar {{ background: {t["card_bg"]}; border-bottom: 1px solid {t["separator"]}; }}
+        QLineEdit#helpSearchInput {{ padding: 8px 12px; border: 1px solid {t["input_border"]}; border-radius: 6px; background: {t["input_bg"]}; color: {t["text_primary"]}; font-size: 14px; }}
+
+        /* How it Works pipeline */
+        QFrame#helpHowCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QLabel#helpPipelineLabel {{ font-size: 12px; font-weight: 700; color: {t["text_primary"]}; }}
+        QLabel#helpPipelineDesc {{ font-size: 10px; color: {t["text_muted"]}; }}
+
+        /* Quick Start steps */
+        QFrame#helpQuickCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QLabel#helpStepCircle {{ background: {t["accent"]}; color: #ffffff; border-radius: 18px; font-size: 16px; font-weight: 800; }}
+
+        /* Formats card */
+        QFrame#helpFormatsCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QLabel#helpFormatName {{ font-size: 11px; font-weight: 600; color: {t["text_primary"]}; }}
+        QLabel#helpFormatMethod {{ font-size: 9px; color: {t["text_muted"]}; }}
+
+        /* CLI reference */
+        QFrame#helpCliCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QLabel#helpCliTitle {{ font-size: 13px; font-weight: 700; color: {t["text_primary"]}; }}
+        QLabel#helpCliDesc {{ font-size: 11px; color: {t["text_muted"]}; }}
+        QFrame#helpCodeFrame {{ background: {t["input_bg"]}; border: 1px solid {t["input_border"]}; border-radius: 4px; }}
+        QLabel#helpCodeLabel {{ font-family: monospace; font-size: 12px; color: {t["accent"]}; }}
+        QPushButton#helpCopyBtn {{ background: transparent; border: none; font-size: 14px; padding: 2px; }}
+        QPushButton#helpCopyBtn:hover {{ background: {t["separator"]}; border-radius: 4px; }}
+
+        /* FAQ toggle buttons */
+        QFrame#helpFaqCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QPushButton#helpFaqToggle {{ background: transparent; border: none; border-bottom: 1px solid {t["separator"]}; text-align: left; font-size: 13px; font-weight: 600; color: {t["text_primary"]}; padding: 10px 8px; }}
+        QPushButton#helpFaqToggle:hover {{ background: {t.get("help_step_bg", t["card_bg"])}; }}
+        QPushButton#helpFaqToggle:checked {{ color: {t["accent"]}; }}
+
+        /* Tips section */
+        QFrame#helpTipsCard {{ background: {t.get("help_card_bg", t["card_bg"])}; border: 1px solid {t.get("help_card_border", t["card_border"])}; border-radius: 10px; }}
+        QFrame#helpTipInner {{ background: {t.get("help_step_bg", t["card_bg"])}; border: 1px solid {t.get("help_step_border", t["card_border"])}; border-radius: 8px; }}
+
         QLabel#aboutName {{ font-size: 28px; font-weight: 800; color: {t["text_primary"]}; }}
         QLabel#aboutDesc {{ font-size: 16px; color: {t["text_secondary"]}; }}
         QLabel#aboutVersion {{ font-size: 14px; color: {t["accent"]}; font-weight: 600; }}
