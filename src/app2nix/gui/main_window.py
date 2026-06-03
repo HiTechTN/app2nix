@@ -156,10 +156,10 @@ class InstallWorker(QThread):
             use_profile = self._detect_nix_profile()
 
             if use_profile:
-                # New Nix: build + install in one step via nix profile install --file
+                # New Nix: build + install in one step via nix profile add --file
                 self.progress.emit("Building and installing (nix profile)...")
                 install_cmd = [
-                    "nix", "profile", "install",
+                    "nix", "profile", "add",
                     "--file", str(nix_file),
                 ]
                 if self._system_install:
