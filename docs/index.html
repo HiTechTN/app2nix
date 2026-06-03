@@ -245,7 +245,7 @@ h2:hover .anchor-link, h3:hover .anchor-link { opacity: 1; }
     <span class="emoji">📦</span>
     <div>
       <h1>app2nix</h1>
-      <span>v3.0.0 — Documentation</span>
+      <span>v3.0.3 — Documentation</span>
     </div>
   </div>
   <nav>
@@ -285,11 +285,31 @@ h2:hover .anchor-link, h3:hover .anchor-link { opacity: 1; }
   <h1>📦 app2nix Documentation</h1>
   <p class="subtitle">Convert any Linux package — .deb, .rpm, .AppImage, Flatpak, Snap, tarball — into a native NixOS expression with one command.</p>
   <div class="badge-row">
-    <span class="badge blue">v3.0.0</span>
+    <span class="badge blue">v3.0.3</span>
     <span class="badge green">Stable</span>
     <span class="badge purple">Python 3.11+</span>
     <span class="badge yellow">CLI + GUI + API</span>
   </div>
+</div>
+
+<!-- ─────────────────── WHAT'S NEW ─────────────────── -->
+<div style="margin: 0 0 32px; padding: 20px 24px; border-radius: 12px; background: linear-gradient(135deg, rgba(82,114,190,.15), rgba(124,58,237,.12)); border: 1px solid rgba(82,114,190,.3);">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+    <span style="font-size: 20px;">🎉</span>
+    <strong style="color: #fff; font-size: 18px; font-weight: 700;">What's New in v3.0.3</strong>
+    <span class="badge green" style="margin-left: 4px;">Latest</span>
+  </div>
+  <ul style="margin: 8px 0 0; padding-left: 20px; color: var(--text2); font-size: 14px; line-height: 1.8;">
+    <li><strong>Batch CLI</strong> — <span class="inline-code">app2nix convert *.deb</span> converts multiple packages at once with glob support</li>
+    <li><strong>NixOS GUI</strong> — PyQt6 interface with nix-shell fallback for compatibility</li>
+    <li><strong>tar.bz2 &amp; tar.xz support</strong> — all common tarball formats now handled</li>
+    <li><strong>Architecture mapping</strong> — proper Nix system strings (amd64→x86_64-linux, arm64→aarch64-linux)</li>
+    <li><strong>197 unit tests</strong> — server edge cases, config, logging, CLI batch tests</li>
+    <li><strong>ROADMAP.md</strong> — v3.1.0 planning with 5 milestones and 14 GitHub issues</li>
+  </ul>
+  <p style="margin: 12px 0 0; font-size: 13px;">
+    <a href="https://github.com/HiTechTN/app2nix/releases/tag/v3.0.3" style="color: var(--accent);">Read full release notes →</a>
+  </p>
 </div>
 
 <!-- ─────────────────── OVERVIEW ─────────────────── -->
@@ -310,11 +330,12 @@ h2:hover .anchor-link, h3:hover .anchor-link { opacity: 1; }
 
 <h3>Key Features</h3>
 <ul>
-  <li><strong>Universal formats</strong> — .deb, .rpm, .AppImage, Flatpak, Snap, tar.gz</li>
+  <li><strong>Universal formats</strong> — .deb, .rpm, .AppImage, Flatpak, Snap, tar.gz, tar.bz2, tar.xz</li>
   <li><strong>Auto-dependency resolution</strong> — maps 150+ libraries to Nixpkgs</li>
   <li><strong>Auto-PatchELF</strong> — automatic rpath fixing and binary patching</li>
   <li><strong>Three interfaces</strong> — CLI, Web UI (Starlette), Desktop GUI (PyQt6)</li>
   <li><strong>REST API</strong> — integrate into your own tools and pipelines</li>
+  <li><strong>Batch mode</strong> — convert multiple packages with glob patterns: <span class="inline-code">app2nix convert *.deb</span></li>
   <li><strong>Docker support</strong> — ready-to-use container image on ghcr.io</li>
 </ul>
 
@@ -399,11 +420,11 @@ sudo nixos-rebuild switch</pre>
 <h3 id="cli-convert">convert <a class="anchor-link" href="#cli-convert">#</a></h3>
 <p>Convert a Linux package file into a NixOS expression.</p>
 
-<pre><span class="lang-label">bash</span>app2nix convert [OPTIONS] PACKAGE</pre>
+<pre><span class="lang-label">bash</span>app2nix convert [OPTIONS] PACKAGE [PACKAGE ...]</pre>
 
 <table>
   <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
-  <tr><td><span class="inline-code">PACKAGE</span></td><td>PATH</td><td>—</td><td>Package file (.deb, .rpm, .AppImage, …)</td></tr>
+  <tr><td><span class="inline-code">PACKAGE</span></td><td>PATH...</td><td>—</td><td>Package file(s) or glob patterns (.deb, .rpm, *.deb, …)</td></tr>
   <tr><td><span class="inline-code">--output-dir, -d</span></td><td>PATH</td><td><span class="inline-code">.</span></td><td>Output directory</td></tr>
   <tr><td><span class="inline-code">--flake, -f</span></td><td>flag</td><td>—</td><td>Also generate <span class="inline-code">flake.nix</span></td></tr>
   <tr><td><span class="inline-code">--json</span></td><td>flag</td><td>—</td><td>Output JSON descriptor to stdout</td></tr>
@@ -411,6 +432,8 @@ sudo nixos-rebuild switch</pre>
   <tr><td><span class="inline-code">--validate / --no-validate</span></td><td>flag</td><td>yes</td><td>Validate Nix syntax via <span class="inline-code">nix-instantiate</span></td></tr>
   <tr><td><span class="inline-code">--verbose, -v</span></td><td>flag</td><td>—</td><td>Verbose output</td></tr>
 </table>
+
+<div class="callout success"><strong>🆕 Batch mode</strong> — Pass multiple files or glob patterns to convert them all at once. Each package gets its own subdirectory with a progress spinner and summary table.</div>
 
 <div class="callout warning"><strong>⚠️ Note</strong> — Nix validation requires <span class="inline-code">nix-instantiate</span> on your PATH. If Nix is not installed, validation is skipped automatically.</div>
 
@@ -590,7 +613,7 @@ sudo nixos-rebuild switch</pre>
   <tr><td><span class="inline-code">core/analyzers/</span></td><td>Format parsers: deb, rpm, appimage, flatpak, snap, tarball</td></tr>
   <tr><td><span class="inline-code">core/resolver.py</span></td><td>DependencyResolver — maps 150+ libraries to Nixpkgs</td></tr>
   <tr><td><span class="inline-code">core/generator.py</span></td><td>NixGenerator — produces default.nix, flake.nix, install scripts</td></tr>
-  <tr><td><span class="inline-code">core/validator.py</span></td><td>Nix syntax validation via nix-instantiate</td></tr>
+  <tr><td><span class="inline-code">core/analyzers/_elf_utils.py</span></td><td>Shared ELF helpers — find_elf, get_libs_patchelf</td></tr>
   <tr><td><span class="inline-code">gui/</span></td><td>PyQt6 desktop GUI with QThread workers, i18n, themes</td></tr>
 </table>
 
@@ -634,7 +657,7 @@ docker run -p 8000:8000 -e APP2NIX_SECRET_KEY=devkey app2nix</pre>
   <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
   <tr><td><span class="inline-code">APP2NIX_SECRET_KEY</span></td><td>—</td><td>Required. Session signing key.</td></tr>
   <tr><td><span class="inline-code">APP2NIX_MAX_UPLOAD_SIZE</span></td><td><span class="inline-code">524288000</span> (500 MB)</td><td>Maximum file upload size in bytes</td></tr>
-  <tr><td><span class="inline-code">APP2NIX_CACHE_DB</span></td><td><span class="inline-code">~/.cache/app2nix/resolver.db</span></td><td>SQLite cache path for dependency resolution</td></tr>
+  <tr><td><span class="inline-code">APP2NIX_CACHE_DB</span></td><td><span class="inline-code">~/.cache/app2nix/deps.db</span></td><td>SQLite cache path for dependency resolution</td></tr>
   <tr><td><span class="inline-code">APP2NIX_DEBUG</span></td><td><span class="inline-code">false</span></td><td>Enable debug mode</td></tr>
 </table>
 
@@ -736,7 +759,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
   <tr><td>AppImage</td><td><span class="inline-code">.AppImage</span>, <span class="inline-code">.appimage</span></td><td><span class="badge green">Stable</span></td><td>FUSE or <span class="inline-code">unsquashfs</span></td></tr>
   <tr><td>Flatpak</td><td><span class="inline-code">.flatpak</span></td><td><span class="badge yellow">Beta</span></td><td><span class="inline-code">flatpak</span> build tools</td></tr>
   <tr><td>Snap</td><td><span class="inline-code">.snap</span></td><td><span class="badge yellow">Beta</span></td><td><span class="inline-code">squashfs-tools</span></td></tr>
-  <tr><td>Tarball</td><td><span class="inline-code">.tar.gz</span>, <span class="inline-code">.tgz</span>, <span class="inline-code">.tar</span></td><td><span class="badge green">Stable</span></td><td><span class="inline-code">tar</span></td></tr>
+  <tr><td>Tarball</td><td><span class="inline-code">.tar.gz</span>, <span class="inline-code">.tar.bz2</span>, <span class="inline-code">.tar.xz</span>, <span class="inline-code">.tgz</span>, <span class="inline-code">.tar</span></td><td><span class="badge green">Stable</span></td><td><span class="inline-code">tar</span></td></tr>
 </table>
 
 <hr style="border-color: var(--border); margin: 48px 0 24px;">
@@ -747,7 +770,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
     &nbsp;·&nbsp;
     <a href="https://github.com/HiTechTN/app2nix/issues">Report Bug</a>
     &nbsp;·&nbsp;
-    <span class="inline-code">app2nix v3.0.0</span>
+    <span class="inline-code">app2nix v3.0.3</span>
   </p>
   <p style="color: var(--text3); font-size: 12px; margin-top: 8px;">
     Made with ❤️ by <a href="https://github.com/HiTechTN">HiTechTN</a>
