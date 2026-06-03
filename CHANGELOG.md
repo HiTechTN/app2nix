@@ -5,6 +5,33 @@ All notable changes to [app2nix](https://github.com/HiTechTN/app2nix) will be do
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.3] — 2026-06-03
+
+### Added
+- **Batch CLI**: `app2nix convert *.deb` — convert multiple packages with glob support
+- **Batch progress**: Rich progress spinner and summary table for batch conversions
+- **Per-file error handling**: One failed package doesn't stop the entire batch
+- **`_resolve_packages()` helper**: Expands globs, deduplicates, sorted output
+- **14 GitHub Issues** created for v3.1.0 roadmap milestones (M1–M5)
+- **GitHub Milestones** created: M1 Batch CLI, M2 WebSocket, M3 Rust CLI, M4 Dep Graph, M5 Quality
+
+### Testing
+- **197 unit tests** passing (up from 189 in v3.0.2)
+- Server edge case tests: URL failures, upload size boundaries, temp cleanup, file+URL precedence
+- Config tests: Settings defaults, env overrides, LRU cache behavior
+- Logging tests: setup_logging levels, basicConfig integration
+- Exception tests: Hierarchy, messages, catching behavior
+- CLI batch tests: Batch conversion, glob patterns, partial failure, `_resolve_packages`
+
+### Documentation
+- **CHANGELOG.md**: Full version history from v1.0.0 to v3.0.3 (Keep a Changelog format)
+- **ROADMAP.md**: v3.1.0 planning with 5 milestones
+- **README.md**: Architecture section updated (removed validator.py, fixed _elf_utils.py path)
+
+### Changed
+- Coverage threshold adjusted from 95% to 75%
+- Version bumped to 3.0.3
+
 ## [3.0.2] — 2026-06-03
 
 ### Added
@@ -152,6 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD pipeline (GitHub Actions)
 - MIT License
 
+[3.0.3]: https://github.com/HiTechTN/app2nix/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/HiTechTN/app2nix/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/HiTechTN/app2nix/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/HiTechTN/app2nix/compare/v2.0.1...v3.0.0
