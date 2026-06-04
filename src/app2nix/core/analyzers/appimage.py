@@ -111,6 +111,17 @@ def _extract_unsquashfs(path: Path, temp_dir: Path) -> Path | None:
     return dest if dest.exists() else None
 
 
+def _parse_desktop_file(content: str) -> dict[str, str]:
+    info: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        info[key.strip()] = val.strip()
+    return info
+
+
 def analyze_appimage(appimage_path: str) -> PackageInfo:
     path = Path(appimage_path)
     temp_dir = Path(tempfile.mkdtemp(prefix="app2nix_appimage_"))
@@ -121,12 +132,12 @@ def analyze_appimage(appimage_path: str) -> PackageInfo:
                 "Install it with: nix-shell -p squashfs-tools"
             )
 
-        squashfs = _extract_fuse(path, temp_dir)
+        squashfs = _extract_unsquashfs(path, temp_dir)
         if not squashfs:
-            squashfs = _extract_unsquashfs(path, temp_dir)
+            squashfs = _extract_fuse(path, temp_dir)
         if not squashfs:
             raise ValueError(
-                "Failed to extract AppImage. Tried --appimage-extract and unsquashfs. "
+                "Failed to extract AppImage. Tried unsquashfs and --appimage-extract. "
                 "Install squashfs-tools: nix-shell -p squashfs-tools\n"
                 "On non-NixOS: sudo apt install squashfs-tools / sudo dnf install squashfs-tools"
             )
@@ -141,13 +152,31 @@ def analyze_appimage(appimage_path: str) -> PackageInfo:
             if f.is_file() and os.access(f, os.X_OK):
                 executables.append(str(f.relative_to(squashfs)))
 
+        # Try .desktop files for real app name, version, and description
+        name = path.stem
+        version = "1.0"
+        description = ""
+        for desktop_file in squashfs.rglob("*.desktop"):
+            try:
+                raw = desktop_file.read_text(encoding="utf-8", errors="replace")
+                desktop = _parse_desktop_file(raw)
+                if desktop.get("X-AppImage-Version"):
+                    version = desktop["X-AppImage-Version"]
+                if desktop.get("Name"):
+                    name = desktop["Name"]
+                if desktop.get("Comment"):
+                    description = desktop["Comment"]
+            except Exception:
+                pass
+
         return PackageInfo(
-            name=path.stem,
-            version="1.0",
+            name=name,
+            version=version,
             architecture="x86_64",
             format="appimage",
             dependencies=sorted(set(deps)),
             executables=executables,
+            description=description,
         )
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

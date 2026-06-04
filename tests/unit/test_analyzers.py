@@ -634,11 +634,11 @@ class TestAnalyzeAppimage:
         """Should return a PackageInfo with correct fields on success."""
         mock_which.return_value = "/usr/bin/unsquashfs"
         mock_mkdtemp.return_value = str(tmp_path / "workdir")
-        mock_fuse.return_value = tmp_path / "squashfs-root"
-        (tmp_path / "squashfs-root").mkdir(exist_ok=True)
-        (tmp_path / "squashfs-root" / "usr").mkdir(exist_ok=True)
-        (tmp_path / "squashfs-root" / "usr" / "bin").mkdir(exist_ok=True)
-        exe = tmp_path / "squashfs-root" / "usr" / "bin" / "myapp"
+        _unsquashfs_mock = tmp_path / "squashfs-root"
+        _unsquashfs_mock.mkdir(exist_ok=True)
+        (_unsquashfs_mock / "usr").mkdir(exist_ok=True)
+        (_unsquashfs_mock / "usr" / "bin").mkdir(exist_ok=True)
+        exe = _unsquashfs_mock / "usr" / "bin" / "myapp"
         exe.write_text("#!/bin/bash")
         exe.chmod(0o755)
         mock_find_elf.return_value = [exe]
@@ -647,7 +647,8 @@ class TestAnalyzeAppimage:
         appimage_path = str(tmp_path / "test-app.AppImage")
         Path(appimage_path).write_text("dummy")
 
-        info = analyze_appimage(appimage_path)
+        with patch("app2nix.core.analyzers.appimage._extract_unsquashfs", return_value=_unsquashfs_mock):
+            info = analyze_appimage(appimage_path)
 
         assert info.name == "test-app"
         assert info.version == "1.0"
@@ -907,8 +908,10 @@ class TestAnalyzeRpm:
             mock_cpio.return_value = ["ssl", "z"]
             info = analyze_rpm(rpm_path)
 
-        # path.stem of "app-1.0.x86_64.rpm" is "app-1.0.x86_64"
-        assert info.name == "app-1.0.x86_64"
+        # _parse_rpm_filename extracts "app" from "app-1.0.x86_64.rpm"
+        assert info.name == "app"
+        assert info.version == "1.0"
+        assert info.architecture == "x86_64"
         assert info.format == "rpm"
         assert "ssl" in info.dependencies
         mock_cpio.assert_called_once()

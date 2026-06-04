@@ -7,6 +7,32 @@ from jinja2 import Environment, FileSystemLoader
 from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
+_FIXUP_PHASE = (
+    # Copy executables from subdirectories into $out/bin/ so they appear in PATH
+    'if [ -d "$out/usr/bin" ]; then mkdir -p $out/bin; '
+    'for f in "$out"/usr/bin/*; do [ -f "$f" ] && [ -x "$f" ] && cp "$f" "$out/bin/"; done; fi; '
+    'if [ -d "$out/sbin" ]; then mkdir -p $out/bin; '
+    'for f in "$out"/sbin/*; do [ -f "$f" ] && [ -x "$f" ] && cp "$f" "$out/bin/"; done; fi; '
+    # Make sure all executables in $out/bin are executable
+    'if [ -d "$out/bin" ]; then '
+    'for f in "$out"/bin/*; do [ -f "$f" ] && chmod +x "$f"; done; fi; '
+    # Restructure and fix desktop files — ensure Categories is set
+    'if [ -d "$out/usr/share/applications" ]; then mkdir -p $out/share/applications; '
+    'for f in "$out"/usr/share/applications/*.desktop; do '
+    'b=$(basename "$f"); '
+    'if grep -q "^Categories=[ ]*$" "$f" 2>/dev/null; then '
+    '  sed "s/^Categories=[ ]*$/Categories=Utility;/" "$f" > "$out/share/applications/$b"; '
+    'else '
+    '  cp "$f" "$out/share/applications/$b"; '
+    'fi; done; fi; '
+    # Restructure icons
+    'if [ -d "$out/usr/share/icons" ]; then mkdir -p $out/share; '
+    'cp -r "$out/usr/share/icons" "$out/share/" 2>/dev/null || true; fi; '
+    # Clean up temporary extracted paths
+    'rm -rf "$out/usr" 2>/dev/null || true; rm -rf "$out/squashfs-root" 2>/dev/null || true; rm -rf "$out/home" 2>/dev/null || true; rm -rf "$out/etc" 2>/dev/null || true'
+)
+
+
 INSTALL_PHASE_MAP = {
     "deb": (
         'deb_file=$(find $src -name "*.deb" -o -name "*.ipk" 2>/dev/null | head -1); '
@@ -19,7 +45,7 @@ INSTALL_PHASE_MAP = {
     "rpm": (
         'rpm_file=$(find $src -name "*.rpm" 2>/dev/null | head -1); '
         'if [ -n "$rpm_file" ]; then '
-        '  mkdir -p $out; cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames; '
+        '  mkdir -p $out; cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames 2>/dev/null; '
         'else '
         '  echo "ERROR: no .rpm file found in $src"; exit 1; '
         "fi"
@@ -28,16 +54,20 @@ INSTALL_PHASE_MAP = {
         'appimage=$(find $src -name "*.AppImage" -o -name "*.appimage" 2>/dev/null | head -1); '
         'if [ -n "$appimage" ]; then '
         '  chmod +x "$appimage"; '
-        '  "$appimage" --appimage-extract 2>/dev/null; '
-        '  if [ -d squashfs-root ]; then '
-        '    cp -r squashfs-root/* $out/; '
-        '    rm -rf squashfs-root; '
-        '  elif command -v unsquashfs >/dev/null 2>&1; then '
+        '  if command -v unsquashfs >/dev/null 2>&1; then '
         '    unsquashfs -d $out/squashfs-root "$appimage" 2>/dev/null && '
-        '    cp -r squashfs-root/* $out/ && rm -rf squashfs-root || '
-        '    { echo "ERROR: unsquashfs extraction failed"; exit 1; }; '
+        '    cp -r squashfs-root/* $out/ || '
+        '    { "$appimage" --appimage-extract 2>/dev/null && '
+        '      [ -d squashfs-root ] && cp -r squashfs-root/* $out/ && rm -rf squashfs-root; } || '
+        '    { echo "ERROR: AppImage extraction failed"; exit 1; }; '
+        '    rm -rf squashfs-root 2>/dev/null || true; '
         '  else '
-        '    echo "ERROR: neither --appimage-extract nor unsquashfs worked"; exit 1; '
+        '    "$appimage" --appimage-extract 2>/dev/null; '
+        '    if [ -d squashfs-root ]; then '
+        '      cp -r squashfs-root/* $out/; rm -rf squashfs-root; '
+        '    else '
+        '      echo "ERROR: cannot extract AppImage (no unsquashfs, FUSE failed)"; exit 1; '
+        '    fi; '
         '  fi'
         'else '
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
@@ -49,7 +79,7 @@ INSTALL_PHASE_MAP = {
         '  unzip -o "$zip_file" -d $out; '
         'else '
         '  echo "ERROR: no .zip file found in $src"; exit 1; '
-        'fi'
+        "fi"
     ),
     "7z": (
         'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
@@ -57,7 +87,7 @@ INSTALL_PHASE_MAP = {
         '  7z x "$sz_file" -o$out -y; '
         'else '
         '  echo "ERROR: no .7z file found in $src"; exit 1; '
-        'fi'
+        "fi"
     ),
 }
 
@@ -124,6 +154,7 @@ class NixGenerator:
             native_deps=native_deps,
             build_deps=build_deps,
             install_phase=install_phase,
+            fixup_phase=_FIXUP_PHASE,
         )
 
         flake = self.generate_flake_nix(info, resolved_deps=resolved_deps, unresolved=unresolved)

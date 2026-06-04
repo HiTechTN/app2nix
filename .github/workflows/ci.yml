@@ -96,7 +96,8 @@ jobs:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [test, rust-check]
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && github.repository == 'HiTechTN/app2nix'
+    continue-on-error: true
     permissions:
       contents: read
       packages: write
