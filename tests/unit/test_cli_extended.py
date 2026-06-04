@@ -506,12 +506,12 @@ class TestBatchConversion:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 2 packages" in result.output
+        assert "2 package(s)" in result.output
         # Each package gets its own subdirectory
         assert (out_dir / "alpha_1.0_amd64" / "default.nix").exists()
         assert (out_dir / "beta_2.0_amd64" / "default.nix").exists()
         # Summary table should appear
-        assert "Batch Conversion Summary" in result.output
+        assert "Batch results" in result.output
         assert "2 succeeded" in result.output
         assert "0 failed" in result.output
 
@@ -536,7 +536,7 @@ class TestBatchConversion:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 3 packages" in result.output
+        assert "3 package(s)" in result.output
         assert "3 succeeded" in result.output
         # Each gets a subdirectory
         assert (out_dir / "app1_1.0_amd64" / "default.nix").exists()
@@ -544,10 +544,10 @@ class TestBatchConversion:
         assert (out_dir / "app3_1.0_amd64" / "default.nix").exists()
 
     def test_batch_partial_failure(self, tmp_path):
-        """Batch with one non-existent file should fail that one, succeed on the other."""
+        """Batch with one non-existent file should fail with not-found error."""
         good = tmp_path / "good_1.0_amd64.deb"
         good.write_text("fake deb")
-        bad = tmp_path / "nonexistent.deb"  # does not exist
+        bad = tmp_path / "nonexistent.deb"
         out_dir = tmp_path / "partial-out"
         out_dir.mkdir()
 
@@ -564,12 +564,8 @@ class TestBatchConversion:
                 ],
             )
 
-        # Should exit 1 because one failed
-        assert result.exit_code == 1
-        assert "1 succeeded" in result.output
-        assert "1 failed" in result.output
-        # The good one should still have been converted
-        assert (out_dir / "good_1.0_amd64" / "default.nix").exists()
+        assert result.exit_code != 0
+        assert "Not found" in result.output
 
     def test_batch_with_flake_flag(self, tmp_path):
         """--flake should apply to all packages in batch mode."""
@@ -616,7 +612,7 @@ class TestBatchConversion:
         )
 
         assert result.exit_code != 0
-        assert "No matching packages found" in result.output
+        assert "No matching package files found" in result.output
 
 
 # =============================================================================
@@ -725,7 +721,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 2 packages" in result.output
+        assert "2 package(s)" in result.output
         assert "2 succeeded" in result.output
         assert (out_dir / "alpha-1.0.x86_64" / "default.nix").exists()
         assert (out_dir / "beta-2.0.x86_64" / "default.nix").exists()
@@ -751,7 +747,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 3 packages" in result.output
+        assert "3 package(s)" in result.output
         assert "3 succeeded" in result.output
         # Each tarball gets its own subdirectory
         assert (out_dir / "app1-1.0.tar" / "default.nix").exists()
@@ -782,7 +778,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 3 packages" in result.output
+        assert "3 package(s)" in result.output
         assert "3 succeeded" in result.output
         assert (out_dir / "my-deb_1.0_amd64" / "default.nix").exists()
         assert (out_dir / "my-rpm-1.0.x86_64" / "default.nix").exists()
@@ -883,7 +879,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "3 packages" in result.output
+        assert "3 package(s)" in result.output
         assert "3 succeeded" in result.output
         assert (out_dir / "foo.tar" / "default.nix").exists()
         assert (out_dir / "bar.tar" / "default.nix").exists()
@@ -913,7 +909,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "Batch convert: 2 packages" in result.output
+        assert "2 package(s)" in result.output
         assert "2 succeeded" in result.output
         assert (out_dir / "alpha" / "default.nix").exists()
         assert (out_dir / "beta" / "default.nix").exists()
@@ -938,7 +934,7 @@ class TestBatchMultiFormat:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "2 packages" in result.output
+        assert "2 package(s)" in result.output
         assert "2 succeeded" in result.output
 
 
@@ -974,7 +970,7 @@ class TestParallelFlag:
         assert (out_dir / "alpha_1.0_amd64" / "default.nix").exists()
         assert (out_dir / "beta_2.0_amd64" / "default.nix").exists()
         # Summary table should appear
-        assert "Batch Conversion Summary" in result.output
+        assert "Batch results" in result.output
 
     def test_parallel_with_three_packages(self, tmp_path):
         """With --parallel 3, three packages should all succeed."""
@@ -998,14 +994,14 @@ class TestParallelFlag:
             )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        assert "3 packages" in result.output
+        assert "3 package(s)" in result.output
         assert "Parallel mode: 3 workers" in result.output
         assert "3 succeeded" in result.output
         for i in range(3):
             assert (out_dir / f"pkg{i}_1.0_amd64" / "default.nix").exists()
 
     def test_parallel_partial_failure(self, tmp_path):
-        """With --parallel 2, one bad + one good should report partial success."""
+        """With --parallel 2, one non-existent file should fail with not-found error."""
         good = tmp_path / "good_1.0_amd64.deb"
         good.write_text("fake deb")
         bad = tmp_path / "nonexistent.deb"
@@ -1021,10 +1017,8 @@ class TestParallelFlag:
                 ["convert", str(good), str(bad), "--output-dir", str(out_dir), "--parallel", "2"],
             )
 
-        assert result.exit_code == 1
-        assert "1 succeeded" in result.output
-        assert "1 failed" in result.output
-        assert (out_dir / "good_1.0_amd64" / "default.nix").exists()
+        assert result.exit_code != 0
+        assert "Not found" in result.output
 
     def test_parallel_with_flake(self, tmp_path):
         """--parallel with --flake should generate both files."""

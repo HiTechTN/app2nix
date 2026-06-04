@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
 
+import glob as _glob
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -25,6 +27,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 console = Console()
+
+_GLOB_CHARS = set("*?[")
 
 # All extensions that detect_format() can recognise (used by directory scan).
 _DETECTABLE_EXTS: set[str] = {
@@ -50,6 +54,32 @@ def _find_packages(directory: Path, *, recursive: bool = False) -> list[Path]:
         if detect_format(p.name) is not None:
             found.append(p)
     return sorted(found)
+
+
+def _resolve_packages(raw: list[str]) -> list[Path]:
+    """Expand glob patterns and return a sorted list of unique, existing files.
+
+    Literal paths (without glob characters) are always included so that
+    the "File not found" error fires later.  Glob patterns that match
+    nothing are silently dropped.
+    """
+    seen: set[Path] = set()
+    result: list[Path] = []
+    for pattern in raw:
+        has_glob = bool(_GLOB_CHARS & set(pattern))
+        expanded = _glob.glob(pattern, recursive=False)
+        if expanded:
+            for match in expanded:
+                p = Path(match).resolve()
+                if p.is_file() and p not in seen:
+                    seen.add(p)
+                    result.append(p)
+        elif not has_glob:
+            p = Path(pattern).resolve()
+            if p not in seen:
+                seen.add(p)
+                result.append(p)
+    return sorted(result)
 
 
 def _convert_single(
@@ -178,58 +208,78 @@ def _convert_single(
 
 @app.command()
 def convert(
-    package: str = typer.Argument(..., help="Package file or directory (.deb, .rpm, .AppImage, ...)"),
+    packages: list[str] = typer.Argument(
+        ..., help="Package file(s), directory, or glob pattern(s) (.deb, .rpm, .AppImage, ...)"
+    ),
     output_dir: str = typer.Option(".", "--output-dir", "-d", help="Output directory"),
     flake: bool = typer.Option(False, "--flake", "-f", help="Also generate flake.nix"),
     json_out: bool = typer.Option(False, "--json", help="Output JSON descriptor"),
     print_deps: bool = typer.Option(False, "--print-deps", help="Only print dependencies"),
     validate: bool = typer.Option(True, "--validate/--no-validate", help="Validate generated Nix"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
-    recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively scan subdirectories when INPUT is a directory"),
+    recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively scan subdirectories when input is a directory"),
     parallel: int = typer.Option(1, "--parallel", "-p", help="Number of parallel workers (batch mode)"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output"),
 ):
     """Convert Linux packages to NixOS expressions.
 
-    Accepts a single file, a glob pattern, or a **directory**.  When a
-    directory is given, all supported packages inside it are processed
-    automatically (use ``--recursive`` to include subdirectories).
+    Supports directories: ``app2nix convert ./packages/``
+    Supports glob patterns: ``app2nix convert *.deb``
+    Multiple files are processed in one go, each getting its own subdirectory.
+    Use ``--parallel N`` to convert packages in parallel.
     """
     from app2nix.core.analyzer import detect_format
 
-    package_path = Path(package)
     output_path = Path(output_dir)
 
-    # ── Resolve input to a list of package paths ──────────────────────
-    if package_path.is_dir():
-        # Directory mode: scan for supported packages
-        packages = _find_packages(package_path, recursive=recursive)
-        if not packages:
+    # --- Directory input support ---
+    if len(packages) == 1:
+        p = Path(packages[0])
+        if p.is_dir():
+            pkgs = _find_packages(p, recursive=recursive)
+            if not pkgs:
+                if not quiet:
+                    console.print(
+                        f"[yellow]No supported packages found in[/yellow] {p}"
+                    )
+                raise typer.Exit(1)
             if not quiet:
                 console.print(
-                    f"[yellow]No supported packages found in[/yellow] {package_path}"
+                    f"[cyan]Found {len(pkgs)} package(s) in {p}[/cyan]"
                 )
-            raise typer.Exit(1)
+            packages = [str(x) for x in pkgs]
+        elif p.is_file():
+            if detect_format(p.name) is None:
+                if not quiet:
+                    console.print(f"[red]Unsupported format:[/red] {p.suffix}")
+                raise typer.Exit(1)
+
+    # --- Glob / literal resolution ---
+    paths = _resolve_packages(packages)
+
+    if not paths:
         if not quiet:
-            console.print(
-                f"[cyan]Found {len(packages)} package(s) in {package_path}[/cyan]"
-            )
-    elif package_path.is_file():
-        # Single file
-        if detect_format(package_path.name) is None:
-            if not quiet:
-                console.print(f"[red]Unsupported format:[/red] {package_path.suffix}")
-            raise typer.Exit(1)
-        packages = [package_path]
-    else:
-        if not quiet:
-            console.print(f"[red]Not found:[/red] {package_path}")
+            console.print("[red]No matching package files found.[/red]")
         raise typer.Exit(1)
 
+    # --- Re-check unsupported and not-found ---
+    for raw in packages:
+        has_glob = bool(_GLOB_CHARS & set(raw))
+        if not has_glob:
+            p = Path(raw)
+            if not p.exists():
+                if not quiet:
+                    console.print(f"[red]Not found:[/red] {p}")
+                raise typer.Exit(1)
+            if p.is_file() and detect_format(p.name) is None:
+                if not quiet:
+                    console.print(f"[red]Unsupported format:[/red] {p.suffix}")
+                raise typer.Exit(1)
+
     # ── Batch mode (more than one package OR --parallel > 1) ──────────
-    if len(packages) > 1:
+    if len(paths) > 1:
         _run_batch(
-            packages,
+            paths,
             output_dir=output_path,
             flake=flake,
             json_out=json_out,
@@ -242,7 +292,7 @@ def convert(
         return
 
     # ── Single-file mode ──────────────────────────────────────────────
-    pkg = packages[0]
+    pkg = paths[0]
     status_msg = f"[bold cyan]Analyzing {pkg.name}...[/bold cyan]" if not quiet else ""
     with console.status(status_msg) if not quiet else nullcontext():
         _convert_single(
@@ -273,10 +323,10 @@ def _run_batch(
     results: list[dict[str, object]] = []
     total = len(packages)
 
-    def _task(pkg: Path) -> dict[str, object]:
+    def _task(pkg: Path, pkg_out: Path) -> dict[str, object]:
         return _convert_single(
             pkg,
-            output_dir=output_dir,
+            output_dir=pkg_out,
             flake=flake,
             json_out=json_out,
             print_deps=print_deps,
@@ -285,16 +335,22 @@ def _run_batch(
             quiet=True,
         )
 
+    if not quiet and parallel > 1:
+        console.print(f"[cyan]Parallel mode: {parallel} workers[/cyan]")
+
     if quiet:
-        # Silent mode: no progress bar, just process
         if parallel > 1:
             with ThreadPoolExecutor(max_workers=parallel) as pool:
-                futures = [pool.submit(_task, p) for p in packages]
+                futures = {}
+                for pkg in packages:
+                    pkg_out = output_dir / pkg.stem
+                    futures[pool.submit(_task, pkg, pkg_out)] = pkg.name
                 for future in as_completed(futures):
                     results.append(future.result())
         else:
             for pkg in packages:
-                results.append(_task(pkg))
+                pkg_out = output_dir / pkg.stem
+                results.append(_task(pkg, pkg_out))
     else:
         # Normal mode: show Rich progress bar with ETA, bar, elapsed
         with Progress(
@@ -314,7 +370,8 @@ def _run_batch(
                     fut_to_idx: dict = {}
                     for i, pkg in enumerate(packages):
                         progress.update(task_id, description=f"[blue]{pkg.name}[/blue]")
-                        fut = pool.submit(_task, pkg)
+                        pkg_out = output_dir / pkg.stem
+                        fut = pool.submit(_task, pkg, pkg_out)
                         fut_to_idx[fut] = i
 
                     for future in as_completed(fut_to_idx):
@@ -323,7 +380,8 @@ def _run_batch(
             else:
                 for pkg in packages:
                     progress.update(task_id, description=f"[blue]{pkg.name}[/blue]")
-                    results.append(_task(pkg))
+                    pkg_out = output_dir / pkg.stem
+                    results.append(_task(pkg, pkg_out))
                     progress.advance(task_id)
 
         # ── Summary table ─────────────────────────────────────────────

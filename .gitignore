@@ -8,3 +8,7 @@ build/
 *.nix-result/
 result
 packages4test/
+target/
+.coverage
+result-lib/
+*.so
