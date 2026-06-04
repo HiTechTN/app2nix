@@ -4,7 +4,6 @@ from app2nix.core.analyzers.appimage import analyze_appimage
 from app2nix.core.analyzers.deb import analyze_deb
 from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import analyze_rpm
-from app2nix.core.analyzers.sevenz_analyzer import analyze_7z
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
 from app2nix.core.analyzers.zipfile_analyzer import analyze_zip

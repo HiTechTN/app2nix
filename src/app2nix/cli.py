@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
+import glob as _glob
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
-
-import glob as _glob
 
 import typer
 from rich.console import Console

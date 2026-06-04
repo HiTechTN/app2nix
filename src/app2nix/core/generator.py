@@ -59,22 +59,6 @@ INSTALL_PHASE_MAP = {
         '  echo "ERROR: no .7z file found in $src"; exit 1; '
         'fi'
     ),
-    "zip": (
-        'zip_file=$(find $src -name "*.zip" 2>/dev/null | head -1); '
-        'if [ -n "$zip_file" ]; then '
-        '  unzip -o "$zip_file" -d $out; '
-        'else '
-        '  echo "ERROR: no .zip file found in $src"; exit 1; '
-        'fi'
-    ),
-    "7z": (
-        'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
-        'if [ -n "$sz_file" ]; then '
-        '  7z x "$sz_file" -o$out -y; '
-        'else '
-        '  echo "ERROR: no .7z file found in $src"; exit 1; '
-        'fi'
-    ),
 }
 
 DEFAULT_INSTALL = (
