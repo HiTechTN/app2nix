@@ -104,60 +104,6 @@ def _guess_category(pkg_name: str) -> str:
     return "Utility;"
 
 
-# Well-known app name → category mapping (top 20 most popular)
-_NAME_TO_CATEGORY: dict[str, str] = {
-    "firefox": "Network;WebBrowser;",
-    "chrome": "Network;WebBrowser;",
-    "thunderbird": "Network;Email;",
-    "gimp": "Graphics;2DGraphics;",
-    "blender": "Graphics;3DGraphics;",
-    "vlc": "AudioVideo;Player;",
-    "mpv": "AudioVideo;Player;",
-    "steam": "Game;",
-    "discord": "Network;Chat;",
-    "vscode": "Development;IDE;",
-    "code": "Development;IDE;",
-    "sublime": "Development;TextEditor;",
-    "libreoffice": "Office;WordProcessor;",
-    "filezilla": "Network;FileTransfer;",
-    "keepassxc": "Utility;Security;",
-    "signal": "Network;Chat;",
-    "spotify": "AudioVideo;Audio;",
-    "htop": "System;Monitor;",
-    "intellij": "Development;IDE;",
-    "docker": "Development;",
-}
-
-# Keyword heuristics for apps not in the dictionary
-_KEYWORD_CATEGORIES: list[tuple[list[str], str]] = [
-    (["browser", "firefox", "chrome", "chromium"], "Network;WebBrowser;"),
-    (["editor", "notepad", "text"], "Development;TextEditor;"),
-    (["player", "video", "media"], "AudioVideo;Player;"),
-    (["audio", "music", "mixer"], "AudioVideo;Audio;"),
-    (["chat", "messenger", "talk"], "Network;Chat;"),
-    (["mail", "email", "inbox"], "Network;Email;"),
-    (["game", "play"], "Game;"),
-    (["ide", "code", "develop"], "Development;IDE;"),
-    (["terminal", "console", "shell"], "System;TerminalEmulator;"),
-    (["image", "photo", "picture", "view"], "Graphics;ImageViewer;"),
-    (["design", "draw", "vector"], "Graphics;Design;"),
-    (["download", "transfer", "torrent"], "Network;FileTransfer;"),
-    (["security", "password", "vpn", "encrypt"], "Utility;Security;"),
-    (["monitor", "process", "system"], "System;Monitor;"),
-    (["office", "document", "spreadsheet", "presentation"], "Office;"),
-]
-
-
-def _guess_category(pkg_name: str) -> str:
-    """Guess the freedesktop category from the package name."""
-    lower = pkg_name.lower()
-    if lower in _NAME_TO_CATEGORY:
-        return _NAME_TO_CATEGORY[lower]
-    for keywords, cat in _KEYWORD_CATEGORIES:
-        if any(kw in lower for kw in keywords):
-            return cat
-    return "Utility;"
-
 
 def _detect_format(path: str) -> str | None:
     name = path.lower()
