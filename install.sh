@@ -21,7 +21,7 @@
 
 set -e
 
-VERSION="3.0.1"
+VERSION="3.1.0"
 REPO="HiTechTN/app2nix"
 RAW_URL="https://raw.githubusercontent.com/${REPO}/master"
 INSTALL_DIR="${APP2NIX_DIR:-$HOME/.local/app2nix}"

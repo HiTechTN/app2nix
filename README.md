@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/github/license/HiTechTN/app2nix?color=green)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen?logo=firefox)](https://hitechtn.github.io/app2nix/)
 
-[Live Demo](https://hitechtn.github.io/app2nix/) | [Quick Start](#-quick-start) | [Formats](#-supported-formats) | [Docs](#-documentation) | [Contributing](#-contributing)
+[Live Demo](https://hitechtn.github.io/app2nix/) | [Quick Start](#-quick-start) | [Formats](#-supported-formats) | [Docs](#-documentation) | [What's New](#-whats-new-in-v302) | [Contributing](#-contributing)
 
 </div>
 
@@ -22,6 +22,16 @@
 ## What it does
 
 app2nix takes a `.deb`, `.rpm`, `.AppImage`, Flatpak, Snap, or tarball and produces a ready-to-use NixOS expression — with dependency resolution, ELF patching, and desktop integration.
+
+## What's New in v3.0.2
+
+🚀 **NixOS GUI** — One-click install with `nix-shell` fallback for PyQt6 compatibility  
+📦 **New formats** — `.tar.bz2` and `.tar.xz` support with alias detection (`.txz`, `.tbz2`)  
+🏗️ **Architecture mapping** — Proper Nix system strings (amd64→x86_64-linux, arm64→aarch64-linux)  
+🔧 **Simplified resolver** — Removed SQLite cache, added dependency deduplication  
+🧪 **189 unit tests** — Server edge cases, upload boundaries, temp cleanup, format detection  
+
+[**→ Release notes**](https://github.com/HiTechTN/app2nix/releases/tag/v3.0.2)
 
 ```
 $ app2nix convert firefox.deb
@@ -86,7 +96,7 @@ docker run -p 8000:8000 ghcr.io/hitechtn/app2nix:latest
 | AppImage | `.AppImage` | Stable |
 | Flatpak | `.flatpak` | Beta |
 | Snap | `.snap` | Beta |
-| Tarball | `.tar.gz` | Stable |
+| Tarball | `.tar.gz`, `.tar.xz`, `.tar.bz2` | Stable |
 
 ## How it works
 
@@ -114,15 +124,23 @@ src/app2nix/
   cli.py              # Typer CLI (convert, serve, gui)
   server.py           # Starlette web API
   models.py           # PackageInfo, ConversionResult
+  config.py           # Settings (env-based)
+  logging.py          # Rich logging setup
+  exceptions.py       # Error hierarchy
   core/
     analyzer.py       # UniversalAnalyzer (format dispatch)
-    analyzers/        # deb, rpm, appimage, flatpak, snap, tarball
-    _elf_utils.py     # Shared ELF helpers
+    analyzers/
+      _elf_utils.py   # Shared ELF helpers (find_elf, get_libs_patchelf)
+      deb.py          # Debian package analysis
+      rpm.py          # RPM package analysis
+      appimage.py     # AppImage extraction + analysis
+      flatpak.py      # Flatpak metadata parsing
+      snap.py         # Snap package analysis
+      tarball.py      # Tarball extraction + analysis
     resolver.py       # DependencyResolver (DEP_MAP)
-    generator.py      # NixGenerator (Jinja2)
-    validator.py      # nix-instantiate check
+    generator.py      # NixGenerator (Jinja2) + inline validation
   gui/
-    main_window.py    # PyQt6 GUI
+    main_window.py    # PyQt6 GUI + InstallWorker + SudoDialog
     i18n.py           # en, fr, ar
     theme.py          # light / dark
 ```

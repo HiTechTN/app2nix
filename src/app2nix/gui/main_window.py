@@ -51,6 +51,58 @@ SUPPORTED_EXTENSIONS = {
     ".tar.xz", ".tar.bz2", ".zip", ".7z",
 }
 
+# Well-known app name → category mapping
+_NAME_TO_CATEGORY: dict[str, str] = {
+    "firefox": "Network;WebBrowser;",
+    "chrome": "Network;WebBrowser;",
+    "thunderbird": "Network;Email;",
+    "gimp": "Graphics;2DGraphics;",
+    "blender": "Graphics;3DGraphics;",
+    "vlc": "AudioVideo;Player;",
+    "mpv": "AudioVideo;Player;",
+    "steam": "Game;",
+    "discord": "Network;Chat;",
+    "vscode": "Development;IDE;",
+    "code": "Development;IDE;",
+    "sublime": "Development;TextEditor;",
+    "libreoffice": "Office;WordProcessor;",
+    "filezilla": "Network;FileTransfer;",
+    "keepassxc": "Utility;Security;",
+    "signal": "Network;Chat;",
+    "spotify": "AudioVideo;Audio;",
+    "htop": "System;Monitor;",
+    "intellij": "Development;IDE;",
+    "docker": "Development;",
+}
+
+_KEYWORD_CATEGORIES: list[tuple[list[str], str]] = [
+    (["browser", "firefox", "chrome", "chromium"], "Network;WebBrowser;"),
+    (["editor", "notepad", "text"], "Development;TextEditor;"),
+    (["player", "video", "media"], "AudioVideo;Player;"),
+    (["audio", "music", "mixer"], "AudioVideo;Audio;"),
+    (["chat", "messenger", "talk"], "Network;Chat;"),
+    (["mail", "email", "inbox"], "Network;Email;"),
+    (["game", "play"], "Game;"),
+    (["ide", "code", "develop"], "Development;IDE;"),
+    (["terminal", "console", "shell"], "System;TerminalEmulator;"),
+    (["image", "photo", "picture", "view"], "Graphics;ImageViewer;"),
+    (["design", "draw", "vector"], "Graphics;Design;"),
+    (["download", "transfer", "torrent"], "Network;FileTransfer;"),
+    (["security", "password", "vpn", "encrypt"], "Utility;Security;"),
+    (["monitor", "process", "system"], "System;Monitor;"),
+    (["office", "document", "spreadsheet", "presentation"], "Office;"),
+]
+
+
+def _guess_category(pkg_name: str) -> str:
+    lower = pkg_name.lower()
+    if lower in _NAME_TO_CATEGORY:
+        return _NAME_TO_CATEGORY[lower]
+    for keywords, cat in _KEYWORD_CATEGORIES:
+        if any(kw in lower for kw in keywords):
+            return cat
+    return "Utility;"
+
 
 # Well-known app name → category mapping (top 20 most popular)
 _NAME_TO_CATEGORY: dict[str, str] = {
@@ -108,7 +160,6 @@ def _guess_category(pkg_name: str) -> str:
 
 
 def _detect_format(path: str) -> str | None:
-    """Return the extension key for a supported format, or None."""
     name = path.lower()
     for ext in (".tar.gz", ".tar.bz2", ".tar.xz"):
         if name.endswith(ext):
@@ -123,13 +174,7 @@ def _detect_format(path: str) -> str | None:
     return ext if ext in SUPPORTED_EXTENSIONS else None
 
 
-# ---------------------------------------------------------------------------
-# Worker thread for analysis (prevents UI freeze)
-# ---------------------------------------------------------------------------
-
 class AnalyzeWorker(QThread):
-    """Runs package analysis in a background thread."""
-
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
 
@@ -140,15 +185,11 @@ class AnalyzeWorker(QThread):
     def run(self):
         try:
             from app2nix.core.analyzer import UniversalAnalyzer
-
+            from app2nix.core.generator import NixGenerator
             analyzer = UniversalAnalyzer()
             info = analyzer.analyze(self._package_path)
-
-            from app2nix.core.generator import NixGenerator
-
             generator = NixGenerator()
             result = generator.generate_default_nix(info)
-
             self.finished.emit(result)
         except Exception as exc:
             self.error.emit(str(exc))
@@ -647,8 +688,6 @@ class App2NixWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("mainWidget")
-
-        # State
         self.current_file: str | None = None
         self._analysis_result = None
         self._worker: AnalyzeWorker | None = None
@@ -683,6 +722,8 @@ class App2NixWindow(QWidget):
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
 
+        title_col = QVBoxLayout()
+        title_col.setSpacing(0)
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
 
@@ -804,13 +845,11 @@ class App2NixWindow(QWidget):
 
         self.analyze_btn = QPushButton(tr("analyze.btn", "🔍 Analyze"))
         self.analyze_btn.setObjectName("analyzeBtn")
-        self.analyze_btn.setEnabled(True)
         btn_row.addWidget(self.analyze_btn)
 
         self.clear_btn = QPushButton(tr("clear.btn", "🗑️ Clear"))
         self.clear_btn.setObjectName("clearBtn")
         btn_row.addWidget(self.clear_btn)
-
         btn_row.addStretch()
         root.addLayout(btn_row)
 
@@ -825,6 +864,8 @@ class App2NixWindow(QWidget):
         # -- Output area ---------------------------------------------------
         root.addWidget(self._section_label(tr("tab.results", "NIX EXPRESSION")))
 
+        # Output
+        root.addWidget(self._section_label(tr("tab.results", "NIX EXPRESSION")))
         self.output_area = QTextEdit()
         self.output_area.setReadOnly(True)
         self.output_area.setPlaceholderText(
@@ -847,7 +888,6 @@ class App2NixWindow(QWidget):
         self.gen_flake_btn.setObjectName("genBtn")
         self.gen_flake_btn.setEnabled(False)
         gen_row.addWidget(self.gen_flake_btn)
-
         gen_row.addStretch()
 
         self.system_install_cb = QCheckBox(tr("install.system_cb", "System install (sudo)"))
@@ -1202,7 +1242,6 @@ class App2NixWindow(QWidget):
         if missing:
             from app2nix.gui.theme import LIGHT
             t = {**LIGHT, **t}
-
         h = t["header_start"]
         he = t["header_end"]
         tab_bg = t.get("tab_bg", t["bg"])
@@ -1620,7 +1659,6 @@ class App2NixWindow(QWidget):
 
     def _browse_file(self):
         from PyQt6.QtWidgets import QFileDialog
-
         path, _ = QFileDialog.getOpenFileName(
             self,
             tr("window.select_file", "Select a package file"),
@@ -1642,7 +1680,6 @@ class App2NixWindow(QWidget):
                 tr("error.select_file", "Please select a package file first."),
             )
             return
-
         fmt = _detect_format(path)
         if not fmt:
             QMessageBox.warning(
@@ -1654,11 +1691,9 @@ class App2NixWindow(QWidget):
                 ),
             )
             return
-
         self._start_analysis(path)
 
     def _start_analysis(self, package_path: str):
-        """Begin analysis of a package file in a background thread."""
         self.current_file = package_path
         self.analyze_btn.setEnabled(False)
         self.gen_default_btn.setEnabled(False)
@@ -1673,7 +1708,6 @@ class App2NixWindow(QWidget):
         self.lbl_format.setText(ext or "—")
         self.lbl_version.setText("…")
         self.lbl_arch.setText("…")
-
         self._worker = AnalyzeWorker(package_path)
         self._worker.finished.connect(self._on_analysis_finished)
         self._worker.error.connect(self._on_analysis_error)
@@ -1741,7 +1775,7 @@ class App2NixWindow(QWidget):
     def _toggle_theme(self):
         self._theme_mode = "dark" if self._theme_mode == "light" else "light"
         self._apply_theme(self._theme_mode)
-        self.theme_btn.setText("☀️" if self._theme_mode == "dark" else "🌙")
+        self.theme_btn.setText("\u2600\ufe0f" if self._theme_mode == "dark" else "\U0001f319")
 
     def _save_default_nix(self):
         if self._analysis_result:
@@ -1752,29 +1786,21 @@ class App2NixWindow(QWidget):
             return
         try:
             from app2nix.core.generator import NixGenerator
-
             gen = NixGenerator()
             info = self._analysis_result.package
             flake_result = gen.generate_flake_nix(info)
             self._save_file("flake.nix", flake_result.nix_content)
         except Exception as exc:
-            QMessageBox.critical(
-                self, "Error", f"Failed to generate flake.nix:\n{exc}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to generate flake.nix:\n{exc}")
 
     def _save_file(self, filename: str, content: str):
         from PyQt6.QtWidgets import QFileDialog
-
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            f"Save {filename}",
-            str(Path.home() / filename),
-            "Nix files (*.nix);;All files (*)",
-        )
+        path, _ = QFileDialog.getSaveFileName(self, f"Save {filename}",
+            str(Path.home() / filename), "Nix files (*.nix);;All files (*)")
         if path:
             try:
                 Path(path).write_text(content, encoding="utf-8")
-                self.status_bar.setText(f"💾 Saved to {path}")
+                self.status_bar.setText(f"\U0001f4be Saved to {path}")
             except OSError as exc:
                 QMessageBox.critical(
                     self,

@@ -12,7 +12,6 @@ let
     jinja2
     typer
     rich
-    aiosqlite
     itsdangerous
   ]);
 in

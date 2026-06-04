@@ -1,0 +1,37 @@
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.stdenv.mkDerivation {
+  pname = "{{ name }}";
+  version = "{{ version }}";
+  src = {{ src_expr }};
+
+  dontUnpack = true;
+
+  nativeBuildInputs = with pkgs; [
+    autoPatchelfHook
+    {%- for dep in native_deps %}
+    {{ dep }}
+    {%- endfor %}
+  ];
+
+  buildInputs = with pkgs; [
+    stdenv.cc.cc.lib
+    {%- for dep in build_deps %}
+    {{ dep }}
+    {%- endfor %}
+  ];
+
+  installPhase = ''
+    runHook preInstall
+    {{ install_phase }}
+    runHook postInstall
+  '';
+
+  meta = with pkgs.lib; {
+    description = "{{ description }}";
+    platforms = [ "{{ platform }}" ];
+    mainProgram = "{{ name }}";
+    license = licenses.unfree;
+    maintainers = [];
+  };
+}

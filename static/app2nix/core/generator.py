@@ -4,6 +4,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app2nix.config import settings
 from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
@@ -19,7 +20,7 @@ INSTALL_PHASE_MAP = {
     "rpm": (
         'rpm_file=$(find $src -name "*.rpm" 2>/dev/null | head -1); '
         'if [ -n "$rpm_file" ]; then '
-        '  mkdir -p $out; cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames; '
+        "  mkdir -p $out; cd $out; rpm2cpio \"$rpm_file\" | cpio -idmv; "
         'else '
         '  echo "ERROR: no .rpm file found in $src"; exit 1; '
         "fi"
@@ -29,51 +30,15 @@ INSTALL_PHASE_MAP = {
         'if [ -n "$appimage" ]; then '
         '  chmod +x "$appimage"; '
         '  "$appimage" --appimage-extract 2>/dev/null; '
-        '  if [ -d squashfs-root ]; then '
-        '    cp -r squashfs-root/* $out/; '
-        '    rm -rf squashfs-root; '
-        '  elif command -v unsquashfs >/dev/null 2>&1; then '
-        '    unsquashfs -d $out/squashfs-root "$appimage" 2>/dev/null && '
-        '    cp -r squashfs-root/* $out/ && rm -rf squashfs-root || '
-        '    { echo "ERROR: unsquashfs extraction failed"; exit 1; }; '
+        "  if [ -d squashfs-root ]; then "
+        "    cp -r squashfs-root/* $out/; "
+        "    rm -rf squashfs-root; "
         '  else '
-        '    echo "ERROR: neither --appimage-extract nor unsquashfs worked"; exit 1; '
-        '  fi'
+        '    echo "ERROR: appimage-extract failed"; exit 1; '
+        "  fi; "
         'else '
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
-        'fi'
-    ),
-    "zip": (
-        'zip_file=$(find $src -name "*.zip" 2>/dev/null | head -1); '
-        'if [ -n "$zip_file" ]; then '
-        '  unzip -o "$zip_file" -d $out; '
-        'else '
-        '  echo "ERROR: no .zip file found in $src"; exit 1; '
-        'fi'
-    ),
-    "7z": (
-        'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
-        'if [ -n "$sz_file" ]; then '
-        '  7z x "$sz_file" -o$out -y; '
-        'else '
-        '  echo "ERROR: no .7z file found in $src"; exit 1; '
-        'fi'
-    ),
-    "zip": (
-        'zip_file=$(find $src -name "*.zip" 2>/dev/null | head -1); '
-        'if [ -n "$zip_file" ]; then '
-        '  unzip -o "$zip_file" -d $out; '
-        'else '
-        '  echo "ERROR: no .zip file found in $src"; exit 1; '
-        'fi'
-    ),
-    "7z": (
-        'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
-        'if [ -n "$sz_file" ]; then '
-        '  7z x "$sz_file" -o$out -y; '
-        'else '
-        '  echo "ERROR: no .7z file found in $src"; exit 1; '
-        'fi'
+        "fi"
     ),
 }
 
@@ -121,15 +86,11 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
+        build_deps = sorted(set(f"pkgs.{d}" for d in (resolved_deps or [])))
         unresolved = unresolved or []
         native_deps = []
         if info.format == "deb":
             native_deps.append("dpkg")
-        elif info.format == "rpm":
-            native_deps.extend(["rpm", "cpio"])
-        elif info.format == "appimage":
-            native_deps.append("squashfsTools")
 
         content = template.render(
             name=info.name,
@@ -165,7 +126,7 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
+        build_deps = sorted(set(f"pkgs.{d}" for d in (resolved_deps or [])))
         unresolved = unresolved or []
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 
@@ -213,13 +174,9 @@ cd ~/nix-packages/{info.name}
 ## 3. Create default.nix with the generated content
 
 ## 4. Install
-### User install (flakes)
+### User install
 ```bash
-nix profile install ./default.nix
-```
-### User install (legacy)
-```bash
-nix-build default.nix -o result && nix profile install ./result
+NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
 ```
 ### System install (NixOS)
 Add to /etc/nixos/configuration.nix:
@@ -241,10 +198,6 @@ VERSION="{info.version}"
 mkdir -p ~/nix-packages/$PACKAGE
 cd ~/nix-packages/$PACKAGE
 # Copy the generated default.nix here
-if command -v nix profile >/dev/null 2>&1; then
-  nix profile install ./default.nix
-else
-  NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
-fi
+NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
 echo "Installed $PACKAGE v$VERSION"
 """
