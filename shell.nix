@@ -43,14 +43,14 @@ pkgs.mkShell {
     pkgs.pcre2         # libpcre2-8 (regex — used by Glib)
     pkgs.libffi        # libffi (foreign function interface — used by Glib)
 
-    # X11 client libraries (Qt6 XCB platform plugin)
-    pkgs.xorg.libX11       # libX11
-    pkgs.xorg.libXext      # libXext (X extensions)
-    pkgs.xorg.libXrender   # libXrender (X rendering)
-    pkgs.xorg.libXcursor   # libXcursor (cursor themes)
-    pkgs.xorg.libXfixes    # libXfixes (X fixes protocol)
-    pkgs.xorg.libXi        # libXi (X input extension)
-    pkgs.xorg.libXrandr    # libXrandr (X resize, rotate, and reflect)
+            # X11 client libraries (Qt6 XCB platform plugin)
+            pkgs.libx11
+            pkgs.libxext
+            pkgs.libxrender
+            pkgs.libxcursor
+            pkgs.libxfixes
+            pkgs.libxi
+            pkgs.libxrandr
 
     # XCB utilities (Qt6 xcb platform plugin dependencies)
     pkgs.libxcb             # libxcb (core xcb protocol — xcb-randr, xcb-shm, xcb-sync, xcb-xfixes, etc.)
@@ -66,7 +66,7 @@ pkgs.mkShell {
     pkgs.patchelf
     pkgs.file
     pkgs.squashfsTools
-    pkgs.xorg.xvfb  # xvfb-run for headless GUI tests
+    pkgs.xvfb
   ];
 
   shellHook = ''

@@ -17,7 +17,7 @@ let
 in
 pkgs.stdenv.mkDerivation {
   pname = "app2nix-gui";
-  version = "3.0.1";
+  version = "3.1.0";
   src = ./.;
   dontUnpack = true;
   buildInputs = [ python-with-packages pkgs.makeWrapper pkgs.squashfsTools pkgs.rpm pkgs.cpio pkgs.dpkg pkgs.patchelf pkgs.file ];

@@ -55,7 +55,7 @@
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "app2nix";
-          version = "3.0.1";
+          version = "3.1.0";
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
@@ -77,6 +77,8 @@
         };
 
         packages.app2nix = self.packages.${system}.default;
+
+        packages.app2nix-gui = pkgs.callPackage ./pkg.nix { inherit pkgs; };
 
         devShells.default = pkgs.mkShell {
           buildInputs = nativeBuildInputs ++ buildInputs ++ buildDeps ++ [
@@ -115,13 +117,13 @@
             pkgs.libffi        # libffi (foreign function interface — used by Glib)
 
             # X11 client libraries (Qt6 XCB platform plugin)
-            pkgs.xorg.libX11       # libX11
-            pkgs.xorg.libXext      # libXext (X extensions)
-            pkgs.xorg.libXrender   # libXrender (X rendering)
-            pkgs.xorg.libXcursor   # libXcursor (cursor themes)
-            pkgs.xorg.libXfixes    # libXfixes (X fixes protocol)
-            pkgs.xorg.libXi        # libXi (X input extension)
-            pkgs.xorg.libXrandr    # libXrandr (X resize, rotate, and reflect)
+            pkgs.libx11
+            pkgs.libxext
+            pkgs.libxrender
+            pkgs.libxcursor
+            pkgs.libxfixes
+            pkgs.libxi
+            pkgs.libxrandr
 
             # XCB utilities (Qt6 xcb platform plugin dependencies)
             pkgs.libxcb             # libxcb (core xcb protocol — xcb-randr, xcb-shm, xcb-sync, xcb-xfixes, etc.)
@@ -133,7 +135,7 @@
             pkgs.libxcb-wm          # libxcb-wm — provides libxcb-icccm.so.4 (inter-client communication)
 
             # Tools
-            pkgs.xorg.xvfb       # Xvfb + xvfb-run for headless GUI tests
+            pkgs.xvfb
             pkgs.dpkg
             pkgs.patchelf
             pkgs.file
