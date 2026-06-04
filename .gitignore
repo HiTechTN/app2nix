@@ -12,3 +12,4 @@ target/
 .coverage
 result-lib/
 *.so
+result-lib
