@@ -24,7 +24,9 @@ def analyze_flatpak(flatpak_path: str) -> PackageInfo:
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
-        _parse_metadata(temp_dir)
+        meta_name = _parse_metadata(temp_dir)
+        if meta_name:
+            name = meta_name
 
         manifest = _find_manifest(path.parent)
         if manifest:
@@ -47,7 +49,7 @@ def analyze_flatpak(flatpak_path: str) -> PackageInfo:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def _parse_metadata(temp_dir: Path) -> None:
+def _parse_metadata(temp_dir: Path) -> str | None:
     """Parse flatpak metadata file for app name and runtime info."""
     for candidate in [temp_dir / "metadata", temp_dir / "squashfs-root" / "metadata"]:
         if candidate.exists():
@@ -56,9 +58,10 @@ def _parse_metadata(temp_dir: Path) -> None:
                 for line in content.splitlines():
                     line = line.strip()
                     if line.startswith("name="):
-                        return
+                        return line.split("=", 1)[1].strip()
             except Exception:
                 pass
+    return None
 
 
 def _find_manifest(search_dir: Path) -> Path | None:

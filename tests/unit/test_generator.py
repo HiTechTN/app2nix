@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app2nix.core.generator import NixGenerator
+from app2nix.core.generator import NixGenerator, _arch_to_nix_platform
 from app2nix.models import PackageInfo
 
 
@@ -69,6 +69,33 @@ def test_validate_success(generator):
 
     assert validated is True
     assert err is None
+
+
+def test_arch_to_nix_platform_none():
+    assert _arch_to_nix_platform(None) == "x86_64-linux"
+
+
+def test_arch_to_nix_platform_empty():
+    assert _arch_to_nix_platform("") == "x86_64-linux"
+
+
+def test_generate_rpm_native_deps(generator):
+    info = PackageInfo(
+        name="rpm-app", version="1.0", format="rpm",
+        architecture="x86_64", dependencies=[],
+    )
+    result = generator.generate_default_nix(info)
+    assert "rpm" in result.nix_content
+    assert "cpio" in result.nix_content
+
+
+def test_generate_appimage_native_deps(generator):
+    info = PackageInfo(
+        name="appimage-app", version="1.0", format="appimage",
+        architecture="x86_64", dependencies=[],
+    )
+    result = generator.generate_default_nix(info)
+    assert "squashfsTools" in result.nix_content
 
 
 def test_validate_failure(generator):

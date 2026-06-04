@@ -50,8 +50,6 @@ def test_detect_format_unsupported_returns_none():
     cases = [
         "/home/user/package.exe",
         "/home/user/package.msi",
-        "/home/user/package.zip",
-        "/home/user/package.7z",
         "/home/user/package.xyz",
         "/home/user/package",  # no extension
         "/home/user/.hidden",  # dotfile, no extension
@@ -72,10 +70,10 @@ def test_initial_window_state(window):
     assert window.browse_btn is not None
 
     # -- Info labels --
-    assert window.lbl_name.text() == "-"
-    assert window.lbl_version.text() == "-"
-    assert window.lbl_format.text() == "-"
-    assert window.lbl_arch.text() == "-"
+    assert window.lbl_name.text() == "\u2014"
+    assert window.lbl_version.text() == "\u2014"
+    assert window.lbl_format.text() == "\u2014"
+    assert window.lbl_arch.text() == "\u2014"
 
     # -- Output area --
     assert window.output_area.toPlainText() == ""
@@ -98,7 +96,7 @@ def test_initial_window_state(window):
     assert sep.frameShape() == QFrame.Shape.HLine
 
     # -- Status bar --
-    assert window.status_bar.text() == "Ready"
+    assert window.status_bar.text() == "Ready • Select a package file to begin"
 
     # -- Internal state --
     assert window.current_file is None
@@ -123,7 +121,7 @@ def test_clear_resets_state(qtbot, window):
     window.lbl_name.setText("test-app")
     qtbot.mouseClick(window.clear_btn, Qt.MouseButton.LeftButton)
     assert window.file_path.text() == ""
-    assert window.lbl_name.text() == "-"
+    assert window.lbl_name.text() == "\u2014"
     assert window.current_file is None
 
 
@@ -163,15 +161,15 @@ def test_clear_during_active_analysis_resets_ui(qtbot, window, tmp_path):
     assert window.file_path.text() == ""
     assert window.current_file is None
     assert window._analysis_result is None
-    assert window.lbl_name.text() == "-"
-    assert window.lbl_version.text() == "-"
-    assert window.lbl_format.text() == "-"
-    assert window.lbl_arch.text() == "-"
+    assert window.lbl_name.text() == "\u2014"
+    assert window.lbl_version.text() == "\u2014"
+    assert window.lbl_format.text() == "\u2014"
+    assert window.lbl_arch.text() == "\u2014"
     assert window.output_area.toPlainText() == ""
     assert window.analyze_btn.isEnabled() is True
     assert window.gen_default_btn.isEnabled() is False
     assert window.gen_flake_btn.isEnabled() is False
-    assert window.status_bar.text() == "Ready"
+    assert window.status_bar.text() == "Ready • Select a package file to begin"
 
 
 def test_clear_disconnects_worker_and_sets_to_none(qtbot, window, tmp_path):
@@ -251,7 +249,7 @@ def test_worker_error_after_clear_race_condition_fixed(qtbot, window, tmp_path):
     # ── 3. L'erreur **ne doit pas** s'afficher (bug corrigé) ───────────
     mock_critical.assert_not_called()
     assert window.analyze_btn.isEnabled() is True
-    assert window.status_bar.text() == "Ready"
+    assert window.status_bar.text() == "Ready • Select a package file to begin"
     assert window._analysis_result is None
 
 
@@ -438,18 +436,18 @@ def test_e2e_analyze_and_generate(qtbot, window, tmp_path):
     window.file_path.setText(str(pkg_file))
 
     # ── 2. Build a mock analysis result ─────────────────────────────────
-    mock_info = MagicMock(spec=["name", "version", "format", "architecture"])
-    mock_info.name = "test-app"
-    mock_info.version = "1.2.3"
-    mock_info.format = "deb"
-    mock_info.architecture = "amd64"
+    mock_package = MagicMock(spec=["name", "version", "format", "architecture"])
+    mock_package.name = "test-app"
+    mock_package.version = "1.2.3"
+    mock_package.format = "deb"
+    mock_package.architecture = "amd64"
 
     nix_content = (
         "{ pkgs ? import <nixpkgs> {} }: pkgs.stdenv.mkDerivation "
         '{ name = "test-app"; version = "1.2.3"; }'
     )
     mock_result = MagicMock()
-    mock_result.info = mock_info
+    mock_result.package = mock_package
     mock_result.nix_content = nix_content
 
     # ── 3. Patch AnalyzeWorker so it emits ``finished`` synchronously ──
@@ -696,12 +694,12 @@ def test_worker_finished_after_clear_race_condition_fixed(qtbot, window, tmp_pat
         assert len(finished_callbacks) == 0, "callback should have been disconnected"
 
     # ── 3. L'UI reste dans son état initial (bug corrigé) ───────────────
-    assert window.lbl_name.text() == "-"
-    assert window.lbl_version.text() == "-"
-    assert window.lbl_format.text() == "-"
-    assert window.lbl_arch.text() == "-"
+    assert window.lbl_name.text() == "\u2014"
+    assert window.lbl_version.text() == "\u2014"
+    assert window.lbl_format.text() == "\u2014"
+    assert window.lbl_arch.text() == "\u2014"
     assert window.output_area.toPlainText() == ""
     assert window.gen_default_btn.isEnabled() is False
     assert window.gen_flake_btn.isEnabled() is False
-    assert window.status_bar.text() == "Ready"
+    assert window.status_bar.text() == "Ready • Select a package file to begin"
     assert window._analysis_result is None

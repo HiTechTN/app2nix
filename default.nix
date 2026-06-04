@@ -11,7 +11,6 @@ let
     jinja2
     typer
     rich
-    aiosqlite
     itsdangerous
   ]);
 in
@@ -21,7 +20,7 @@ pkgs.stdenv.mkDerivation {
 
   src = ./.;
 
-  nativeBuildInputs = [ python-with-packages pkgs.makeWrapper pkgs.dpkg pkgs.patchelf pkgs.file ];
+  nativeBuildInputs = [ python-with-packages pkgs.makeWrapper pkgs.squashfsTools pkgs.rpm pkgs.cpio pkgs.dpkg pkgs.patchelf pkgs.file ];
 
   installPhase = ''
     mkdir -p $out/bin $out/lib/python3/site-packages
@@ -39,12 +38,24 @@ pkgs.stdenv.mkDerivation {
       --add-flags "-m" \
       --add-flags "app2nix" \
       --add-flags "serve" \
-      --set PYTHONPATH "$out/lib/python3/site-packages"
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.squashfsTools}/bin \
+      --prefix PATH : ${pkgs.rpm}/bin \
+      --prefix PATH : ${pkgs.cpio}/bin \
+      --prefix PATH : ${pkgs.dpkg}/bin \
+      --prefix PATH : ${pkgs.patchelf}/bin \
+      --prefix PATH : ${pkgs.file}/bin
 
     makeWrapper ${python-with-packages}/bin/python $out/bin/app2nix-gui \
       --add-flags "-m" \
       --add-flags "app2nix.gui" \
-      --set PYTHONPATH "$out/lib/python3/site-packages"
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.squashfsTools}/bin \
+      --prefix PATH : ${pkgs.rpm}/bin \
+      --prefix PATH : ${pkgs.cpio}/bin \
+      --prefix PATH : ${pkgs.dpkg}/bin \
+      --prefix PATH : ${pkgs.patchelf}/bin \
+      --prefix PATH : ${pkgs.file}/bin
   '';
 
   meta = with pkgs.lib; {

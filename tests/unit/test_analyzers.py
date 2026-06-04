@@ -1,5 +1,7 @@
 import os
+import struct
 import subprocess
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -11,7 +13,6 @@ from app2nix.core.analyzers.appimage import (
     _appimage_offset,
     _extract_fuse,
     _extract_unsquashfs,
-    _find_elf_deps,
     analyze_appimage,
 )
 from app2nix.core.analyzers.deb import _get_libs_ldd, analyze_deb
@@ -19,6 +20,7 @@ from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import _extract_deps_via_cpio, analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
+from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
 
@@ -202,6 +204,47 @@ class TestAnalyzeDeb:
 
         mock_rmtree.assert_called_once()
 
+    def test_parse_dpkg_info_exception(self, tmp_path):
+        """When dpkg-deb -I fails, should return unknown fields."""
+        mock_mkdtemp = tmp_path / "workdir"
+        mock_mkdtemp.mkdir(exist_ok=True)
+        deb_path = str(tmp_path / "broken.deb")
+        Path(deb_path).write_text("dummy")
+
+        call_count = 0
+
+        def mock_run(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if "-x" in cmd:
+                mock.returncode = 0
+            elif "-I" in cmd:
+                raise RuntimeError("dpkg-deb -I failed")
+            elif cmd[0] == "file":
+                mock.stdout = "ELF 64-bit LSB executable"
+            elif cmd[0] == "ldd":
+                mock.stdout = ""
+            elif cmd[0] == "patchelf":
+                mock.stdout = ""
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with (
+            patch("app2nix.core.analyzers.deb.tempfile.mkdtemp") as mock_mkd,
+            patch("app2nix.core.analyzers.deb.shutil.rmtree") as mock_rmtree,
+            patch.object(subprocess, "run", side_effect=mock_run),
+        ):
+            mock_mkd.return_value = str(mock_mkdtemp)
+            info = analyze_deb(deb_path)
+
+        assert info.name == "unknown"
+        assert info.version == "unknown"
+        assert info.architecture == "unknown"
+        mock_rmtree.assert_called_once()
+
 
 # =============================================================================
 # appimage.py — _appimage_offset (binary parsing)
@@ -252,6 +295,85 @@ class TestAppimageOffset:
         # data.isdigit() is False, so falls through to mmap
         # No hsqs marker, so returns 0
         assert _appimage_offset(appimage) == 0
+
+    def test_hsqs_at_position_below_8_is_skipped(self, tmp_path):
+        """idx < 8 should skip (increment idx) rather than check superblock."""
+        appimage = tmp_path / "test.AppImage"
+        hsqs_at = 5
+        data = b"x" * hsqs_at + b"hsqs" + b"x" * 50
+        data = data[:-8] + b"XXXXXXXX"
+        appimage.write_bytes(data)
+        assert _appimage_offset(appimage) == 0
+
+    def test_valid_squashfs_superblock_returns_offset(self, tmp_path):
+        """A valid squashfs superblock at hsqs should return the offset."""
+        appimage = tmp_path / "test.AppImage"
+        # Build a valid-looking squashfs superblock starting with "hsqs"
+        hsqs_pos = 8
+        # hsqs (4 bytes) + inodes(4) + ?(4) + block_size(4) + fragments(4)
+        inodes = struct.pack("<I", 42)
+        pad = struct.pack("<I", 0)
+        block_size = struct.pack("<I", 4096)
+        fragments = struct.pack("<I", 0)
+        superblock = b"hsqs" + inodes + pad + block_size + fragments
+        data = b"x" * hsqs_pos + superblock + b"x" * 50
+        data = data[:-8] + b"XXXXXXXX"
+        appimage.write_bytes(data)
+        assert _appimage_offset(appimage) == hsqs_pos
+
+    def test_superblock_validation_returns_false_with_short_data(self, tmp_path):
+        """_validate_squashfs_superblock returns False when data too short."""
+        appimage = tmp_path / "test.AppImage"
+        # Put hsqs at end where < 20 bytes remain
+        data = b"x" * 90 + b"hsqs" + b"short"
+        data = data[:-8] + b"XXXXXXXX"
+        appimage.write_bytes(data)
+        # No valid superblock found, no ELF, no fallback
+        assert _appimage_offset(appimage) == 0
+
+    def test_elf_load_segments_track_highest_end(self, tmp_path):
+        """ELF PT_LOAD segments are parsed to track the highest end offset."""
+        appimage = tmp_path / "test.AppImage"
+        e_phoff = 64
+        e_phentsize = 56
+        e_phnum = 3
+
+        # Build 64-byte ELF header
+        elf_hdr = bytearray(64)
+        elf_hdr[0:4] = b"\x7fELF"
+        struct.pack_into("<Q", elf_hdr, 32, e_phoff)
+        struct.pack_into("<H", elf_hdr, 54, e_phentsize)
+        struct.pack_into("<H", elf_hdr, 56, e_phnum)
+
+        # Build 2 LOAD program headers
+        ph1 = bytearray(e_phentsize)
+        struct.pack_into("<I", ph1, 0, 1)   # p_type = PT_LOAD
+        struct.pack_into("<Q", ph1, 8, 40)   # p_offset
+        struct.pack_into("<Q", ph1, 32, 60)  # p_filesz
+        # end = 40 + 60 = 100
+
+        ph2 = bytearray(e_phentsize)
+        struct.pack_into("<I", ph2, 0, 1)    # p_type = PT_LOAD
+        struct.pack_into("<Q", ph2, 8, 100)  # p_offset
+        struct.pack_into("<Q", ph2, 32, 50)  # p_filesz
+        # end = 100 + 50 = 150
+
+        # Non-LOAD segment (p_type != 1) — should be skipped
+        ph3 = bytearray(e_phentsize)
+        struct.pack_into("<I", ph3, 0, 4)    # p_type = PT_NOTE
+
+        ph_data = bytes(ph1) + bytes(ph2) + bytes(ph3)
+
+        # total header: 64 + 3*56 = 232
+        hdr_end = len(elf_hdr) + len(ph_data)
+        hsqs_pos = hdr_end + 50  # well past the ELF headers
+        padding = b"x" * 50
+        data = bytes(elf_hdr) + ph_data + padding + b"hsqs" + b"x" * 30
+        data = data[:-8] + b"XXXXXXXX"
+        appimage.write_bytes(data)
+        # elf_end = 150, hsqs at hdr_end+50 > 150, search from 150
+        # hsqs found at hsqs_pos, no valid superblock, but idx > elf_end -> first_valid = hsqs_pos
+        assert _appimage_offset(appimage) == hsqs_pos
 
 
 # =============================================================================
@@ -412,7 +534,7 @@ class TestExtractUnsquashfs:
 
 
 # =============================================================================
-# appimage.py — _find_elf_deps (unit)
+# _elf_utils — find_elf + get_libs_patchelf (unit)
 # =============================================================================
 
 
@@ -447,7 +569,10 @@ class TestFindElfDeps:
             return m
 
         with patch.object(subprocess, "run", side_effect=_run_side):
-            deps = _find_elf_deps(tmp_path / "bin")
+            executables = find_elf(tmp_path / "bin")
+            deps = []
+            for elf in executables:
+                deps.extend(get_libs_patchelf(elf))
 
         # good_app was processed successfully, bad_app exception was caught
         assert "ssl" in deps
@@ -499,11 +624,12 @@ class TestAnalyzeAppimage:
 
     @patch("app2nix.core.analyzers.appimage.shutil.which")
     @patch("app2nix.core.analyzers.appimage._extract_fuse")
-    @patch("app2nix.core.analyzers.appimage._find_elf_deps")
+    @patch("app2nix.core.analyzers.appimage.find_elf")
+    @patch("app2nix.core.analyzers.appimage.get_libs_patchelf")
     @patch("app2nix.core.analyzers.appimage.tempfile.mkdtemp")
     @patch("app2nix.core.analyzers.appimage.shutil.rmtree")
     def test_successful_analysis(
-        self, mock_rmtree, mock_mkdtemp, mock_elf_deps, mock_fuse, mock_which, tmp_path
+        self, mock_rmtree, mock_mkdtemp, mock_patchelf, mock_find_elf, mock_fuse, mock_which, tmp_path
     ):
         """Should return a PackageInfo with correct fields on success."""
         mock_which.return_value = "/usr/bin/unsquashfs"
@@ -515,7 +641,8 @@ class TestAnalyzeAppimage:
         exe = tmp_path / "squashfs-root" / "usr" / "bin" / "myapp"
         exe.write_text("#!/bin/bash")
         exe.chmod(0o755)
-        mock_elf_deps.return_value = ["ssl", "c", "z"]
+        mock_find_elf.return_value = [exe]
+        mock_patchelf.return_value = ["ssl", "c", "z"]
 
         appimage_path = str(tmp_path / "test-app.AppImage")
         Path(appimage_path).write_text("dummy")
@@ -632,6 +759,8 @@ class TestAnalyzeSnap:
             if "unsquashfs" in cmd:
                 sq = Path(cmd[cmd.index("-d") + 1])
                 sq.mkdir(parents=True, exist_ok=True)
+                # Create a binary so find_elf discovers it
+                (sq / "myapp").write_text("dummy")
                 mock.returncode = 0
             elif "file" in cmd:
                 mock.stdout = "ELF 64-bit LSB executable"
@@ -645,6 +774,40 @@ class TestAnalyzeSnap:
         with patch.object(subprocess, "run", side_effect=mock_run):
             info = analyze_snap(snap_path)
 
+        assert info.format == "snap"
+        assert "z" in info.dependencies
+        assert "ssl3" in info.dependencies
+
+    def test_snap_yaml_read_exception(self, tmp_path):
+        """_parse_snap_yaml should silently handle read failures."""
+        snap_path = str(tmp_path / "my-snap.snap")
+        Path(snap_path).write_text("dummy")
+
+        def mock_run(cmd, **kwargs):
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                sq = Path(cmd[cmd.index("-d") + 1])
+                sq.mkdir(parents=True, exist_ok=True)
+                # Create unreadable snap.yaml
+                meta = sq / "meta"
+                meta.mkdir(exist_ok=True)
+                yaml = meta / "snap.yaml"
+                yaml.write_text("name: bad\n")
+                import os as _os
+                _os.chmod(str(yaml), 0o000)
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_snap(snap_path)
+
+        import os as _os2
+        yaml_file = tmp_path / "squashfs-root" / "meta" / "snap.yaml"
+        if yaml_file.exists():
+            _os2.chmod(str(yaml_file), 0o644)
         assert info.format == "snap"
 
     def test_find_squashfs_offset(self, tmp_path):
@@ -872,9 +1035,10 @@ class TestAnalyzeFlatpak:
             call_count += 1
             mock = MagicMock()
             if "unsquashfs" in cmd:
-                # Create the squashfs-root directory
                 sq = Path(cmd[-2]) if len(cmd) > 2 else tmp_path / "squashfs-root"
                 sq.mkdir(parents=True, exist_ok=True)
+                # Create a binary so find_elf discovers it
+                (sq / "myapp").write_text("dummy")
                 mock.returncode = 0
             elif "file" in cmd:
                 mock.stdout = "ELF 64-bit LSB executable"
@@ -889,6 +1053,8 @@ class TestAnalyzeFlatpak:
             info = analyze_flatpak(flatpak_path)
 
         assert info.format == "flatpak"
+        assert "ssl" in info.dependencies
+        assert "c" in info.dependencies
 
     def test_parse_metadata_from_squashfs_root(self, tmp_path):
         """Should parse metadata from squashfs-root/metadata."""
@@ -926,6 +1092,53 @@ class TestAnalyzeFlatpak:
 
         assert info.name == "org.yaml.app"
         assert info.version == "3.0"
+
+    def test_metadata_read_exception(self, tmp_path):
+        """_parse_metadata should silently handle read errors."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+
+        def mock_run(cmd, **kwargs):
+            mock = MagicMock()
+            if "unsquashfs" in cmd:
+                sq = Path(cmd[-2]) if len(cmd) > 2 else tmp_path / "squashfs-root"
+                sq.mkdir(parents=True, exist_ok=True)
+                # Create unreadable metadata file
+                metadata = sq / "metadata"
+                metadata.write_text("name=Broken")
+                import os as _os
+                _os.chmod(str(metadata), 0o000)
+                mock.returncode = 0
+            else:
+                mock.stdout = ""
+                mock.stderr = ""
+            return mock
+
+        with patch.object(subprocess, "run", side_effect=mock_run):
+            info = analyze_flatpak(flatpak_path)
+
+        assert info.format == "flatpak"
+        import os as _os2
+        # Restore permissions for cleanup
+        meta = tmp_path / "squashfs-root" / "metadata"
+        if meta.exists():
+            _os2.chmod(str(meta), 0o644)
+
+    def test_manifest_read_exception(self, tmp_path):
+        """_find_manifest should silently handle unreadable files."""
+        flatpak_path = str(tmp_path / "my-app.flatpak")
+        Path(flatpak_path).write_text("dummy")
+        # Create a manifest that raises on read
+        manifest = tmp_path / "app.json"
+        manifest.write_text('{"id": "test"}')
+        import os as _os
+        _os.chmod(str(manifest), 0o000)
+
+        with patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "unsquashfs")):
+            info = analyze_flatpak(flatpak_path)
+
+        _os.chmod(str(manifest), 0o644)
+        assert info.format == "flatpak"
 
     def test_extract_lib_name(self):
         """Test extract_lib_name helper."""
@@ -1060,8 +1273,11 @@ class TestUniversalAnalyzerDetectFormat:
     def test_dot_tar(self):
         assert self.analyzer.detect_format("archive.tar") == ".tar"
 
+    def test_dot_zip(self):
+        assert self.analyzer.detect_format("archive.zip") == ".zip"
+
     def test_unknown_format(self):
-        assert self.analyzer.detect_format("archive.zip") is None
+        assert self.analyzer.detect_format("archive.xyz") is None
 
     def test_no_extension(self):
         assert self.analyzer.detect_format("Makefile") is None
@@ -1074,6 +1290,12 @@ class TestUniversalAnalyzerDetectFormat:
         """Should match .tar.gz before falling through to .gz suffix."""
         assert self.analyzer.detect_format("file.tar.gz") == ".tar.gz"
 
+    def test_detect_txz(self):
+        assert self.analyzer.detect_format("archive.txz") == ".tar.xz"
+
+    def test_detect_tbz2(self):
+        assert self.analyzer.detect_format("archive.tbz2") == ".tar.bz2"
+
 
 class TestUniversalAnalyzerAnalyze:
     def setup_method(self):
@@ -1084,10 +1306,22 @@ class TestUniversalAnalyzerAnalyze:
             self.analyzer.analyze("/nonexistent/path.deb")
 
     def test_raises_on_unsupported_format(self, tmp_path):
-        p = tmp_path / "archive.zip"
+        p = tmp_path / "archive.xyz"
         p.write_text("data")
         with pytest.raises(UnsupportedFormatError, match="Unsupported format"):
             self.analyzer.analyze(str(p))
+
+    def test_routes_to_zip_handler(self, tmp_path):
+        p = tmp_path / "package.zip"
+        p.write_text("data")
+        with patch("app2nix.core.analyzer.analyze_zip") as mock_zip:
+            mock_zip.return_value = PackageInfo(
+                name="test", version="1.0", format="zip"
+            )
+            self.analyzer._format_map = {".zip": ("zip", mock_zip)}
+            result = self.analyzer.analyze(str(p))
+        assert result.format == "zip"
+        mock_zip.assert_called_once_with(str(p))
 
     def test_routes_to_deb_handler(self, tmp_path):
         p = tmp_path / "package.deb"
@@ -1138,5 +1372,86 @@ class TestUniversalAnalyzerAnalyze:
         assert result.format == "tarball"
 
     def test_supported_formats_has_all_expected_keys(self):
-        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar"}
+        expected = {".deb", ".rpm", ".appimage", ".flatpak", ".snap", ".tar.gz", ".tgz", ".tar", ".tar.bz2", ".tar.xz", ".zip"}
         assert set(SUPPORTED_FORMATS.keys()) == expected
+
+
+# =============================================================================
+# zipfile_analyzer.py — analyze_zip with mocked subprocess
+# =============================================================================
+
+
+class TestAnalyzeZip:
+    @patch("app2nix.core.analyzers.zipfile_analyzer.tempfile.mkdtemp")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.find_elf")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.get_libs_patchelf")
+    def test_basic_zip_analysis(self, mock_patchelf, mock_find_elf, mock_mkdtemp, tmp_path):
+        """Should extract ZIP, find ELF binaries, and collect dependencies."""
+        import zipfile
+        workdir = tmp_path / "workdir"
+        workdir.mkdir()
+        mock_mkdtemp.return_value = str(workdir)
+
+        zip_path = tmp_path / "my-app.zip"
+        with zipfile.ZipFile(str(zip_path), "w") as zf:
+            zf.writestr("dummy.txt", "dummy")
+
+        # Simulate ELF found inside workdir
+        exe = workdir / "usr" / "bin" / "myapp"
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_text("elf")
+        mock_find_elf.return_value = [exe]
+        mock_patchelf.return_value = {"ssl", "c", "z"}
+
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "my-app"
+        assert info.version == "1.0"
+        assert info.format == "zip"
+        assert sorted(info.dependencies) == ["c", "ssl", "z"]
+        mock_find_elf.assert_called_once()
+        mock_patchelf.assert_called_once_with(exe)
+
+    def test_zip_with_real_archive(self, tmp_path):
+        """Test with a real ZIP archive (no ELF binaries)."""
+        import zipfile
+
+        zip_path = tmp_path / "simple.zip"
+        with zipfile.ZipFile(str(zip_path), "w") as zf:
+            zf.writestr("data/readme.txt", "Hello world")
+            zf.writestr("data/config.json", '{"key": "value"}')
+
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "simple"
+        assert info.version == "1.0"
+        assert info.format == "zip"
+        assert info.dependencies == []
+        assert info.executables == []
+
+    def test_zip_cleanup_on_failure(self, tmp_path):
+        """Temp directory should be cleaned up even on error."""
+        zip_path = tmp_path / "broken.zip"
+        zip_path.write_text("not a valid zip")
+
+        with pytest.raises(zipfile.BadZipFile):
+            analyze_zip(str(zip_path))
+
+    @patch("app2nix.core.analyzers.zipfile_analyzer.find_elf")
+    @patch("app2nix.core.analyzers.zipfile_analyzer.get_libs_patchelf")
+    def test_zip_empty_archive(self, mock_patchelf, mock_find_elf, tmp_path):
+        """Should handle empty ZIP gracefully."""
+        import zipfile
+
+        zip_path = tmp_path / "empty.zip"
+        with zipfile.ZipFile(str(zip_path), "w"):
+            pass  # empty archive
+
+        mock_find_elf.return_value = []
+
+        info = analyze_zip(str(zip_path))
+
+        assert info.name == "empty"
+        assert info.format == "zip"
+        assert info.dependencies == []
+        assert info.executables == []

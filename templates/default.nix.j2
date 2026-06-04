@@ -9,16 +9,16 @@ pkgs.stdenv.mkDerivation {
 
   nativeBuildInputs = with pkgs; [
     autoPatchelfHook
-    {% for dep in native_deps %}
+    {%- for dep in native_deps %}
     {{ dep }}
-    {% endfor %}
+    {%- endfor %}
   ];
 
   buildInputs = with pkgs; [
     stdenv.cc.cc.lib
-    {% for dep in build_deps %}
+    {%- for dep in build_deps %}
     {{ dep }}
-    {% endfor %}
+    {%- endfor %}
   ];
 
   installPhase = ''
@@ -30,6 +30,7 @@ pkgs.stdenv.mkDerivation {
   meta = with pkgs.lib; {
     description = "{{ description }}";
     platforms = [ "{{ platform }}" ];
+    mainProgram = "{{ name }}";
     license = licenses.unfree;
     maintainers = [];
   };

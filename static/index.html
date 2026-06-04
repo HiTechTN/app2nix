@@ -608,7 +608,7 @@
         <div class="container py-5" style="position:relative;z-index:1">
             <div class="row align-items-center">
                 <div class="col-lg-6">
-                    <div class="badge bg-primary mb-3">v1.0.0 - Now Universal</div>
+                    <div class="badge bg-primary mb-3">v3.0.1 - Now Universal</div>
                     <h1 class="display-3 fw-bold mb-4">
                         Convert <span class="text-gradient">Any Package</span><br>to NixOS
                     </h1>
@@ -765,8 +765,8 @@
                             <div class="drop-zone" id="dropZone">
                                 <i class="bi bi-cloud-upload display-4 text-muted d-block mb-2"></i>
                                 <p class="mb-1 fw-medium">Drop a package here, or click to browse</p>
-                                <p class="text-muted small mb-0">.deb .rpm .AppImage .flatpak .tar.gz</p>
-                                <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.flatpak,.tar.gz" hidden>
+                                <p class="text-muted small mb-0">.deb .rpm .AppImage .flatpak .snap .tar.gz .tar.xz .tar.bz2</p>
+                                <input type="file" id="fileInput" accept=".deb,.rpm,.AppImage,.appimage,.flatpak,.snap,.tar.gz,.tgz,.tar,.tar.xz,.tar.bz2" hidden>
                             </div>
 
                             <div class="file-info" id="fileInfo">
@@ -919,9 +919,9 @@
                     
                     <div class="card bg-darker border-secondary">
                         <div class="card-body">
-                            <h6>Download from URL</h6>
-                            <code class="d-block text-muted small">POST /download</code>
-                            <pre class="mb-0 text-warning">curl -X POST -H "Content-Type: application/json" -d '{"url":"https://..."}' http://localhost:8000/download</pre>
+                            <h6>Generate from URL</h6>
+                            <code class="d-block text-muted small">POST /generate</code>
+                            <pre class="mb-0 text-warning">curl -X POST -F "url=https://example.com/package.deb" http://localhost:8000/generate</pre>
                         </div>
                     </div>
                 </div>
@@ -1258,11 +1258,9 @@ python main.py --url https://example.com/package.deb
 
                 const formData = new FormData();
                 formData.append('url', url);
-
-                const res = await fetch(getApiUrl() + '/download', {
+                const res = await fetch(getApiUrl() + '/generate', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url})
+                    body: formData
                 });
                 if (!res.ok) {
                     const errorBody = await res.text().catch(() => '');
@@ -1283,7 +1281,15 @@ python main.py --url https://example.com/package.deb
                 document.getElementById('statusText').textContent = 'Conversion complete!';
 
                 const convTime = ((Date.now() - conversionStartTime) / 1000).toFixed(1);
-                showResult({name: data.name, version: data.version, format: 'url', arch: 'amd64'}, '', data.nix_dependencies || [], null, null, convTime, 0);
+                showResult(
+                    {name: data.name, version: data.version, format: 'url', arch: data.architecture || 'x86_64'},
+                    data.content || '',
+                    data.unresolved_deps || [],
+                    data.install_guide || '',
+                    data.auto_install_script || '',
+                    convTime,
+                    data.unresolved_deps ? data.unresolved_deps.length : 0
+                );
             } catch (err) {
                 setStep('upload', 'error');
                 addLog('Error: ' + err.message, 'error');
@@ -1331,9 +1337,13 @@ python main.py --url https://example.com/package.deb
 
                 const [infoRes, nixRes] = await Promise.all([analyzePromise, generatePromise]);
 
-                if (!infoRes.ok || !nixRes.ok) {
+                if (!infoRes.ok) {
                     const errorBody = await infoRes.text().catch(() => '');
                     throw new Error('Server error ' + infoRes.status + ': ' + errorBody.substring(0, 200));
+                }
+                if (!nixRes.ok) {
+                    const errorBody = await nixRes.text().catch(() => '');
+                    throw new Error('Server error ' + nixRes.status + ': ' + errorBody.substring(0, 200));
                 }
 
                 const info = await infoRes.json();

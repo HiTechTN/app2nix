@@ -91,7 +91,7 @@ class TestPackageNotFound:
             ["convert", str(tmp_path / "nonexistent.deb"), "--output-dir", str(tmp_path)],
         )
         assert result.exit_code != 0
-        assert "File not found" in result.output
+        assert "Not found" in result.output
 
 
 # =============================================================================

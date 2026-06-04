@@ -12,11 +12,11 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        packages.default = pkgs.callPackage ./derivation.nix {};
-        packages.{{ app_name }} = pkgs.callPackage ./derivation.nix {};
+        packages.default = pkgs.callPackage ./default.nix {};
+        packages.{{ app_name }} = pkgs.callPackage ./default.nix {};
         apps.default = {
           type = "app";
-          program = "${pkgs.callPackage ./derivation.nix {}}/bin/{{ app_name }}";
+          program = "${pkgs.callPackage ./default.nix {}}/bin/{{ app_name }}";
         };
       }
     );

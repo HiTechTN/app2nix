@@ -6,6 +6,7 @@ from app2nix.core.analyzers.flatpak import analyze_flatpak
 from app2nix.core.analyzers.rpm import analyze_rpm
 from app2nix.core.analyzers.snap import analyze_snap
 from app2nix.core.analyzers.tarball import analyze_tarball
+from app2nix.core.analyzers.zipfile_analyzer import analyze_zip
 from app2nix.exceptions import UnsupportedFormatError
 from app2nix.models import PackageInfo
 
@@ -18,7 +19,26 @@ SUPPORTED_FORMATS = {
     ".tar.gz": ("tarball", analyze_tarball),
     ".tgz": ("tarball", analyze_tarball),
     ".tar": ("tarball", analyze_tarball),
+    ".tar.bz2": ("tarball", analyze_tarball),
+    ".tar.xz": ("tarball", analyze_tarball),
+    ".zip": ("zip", analyze_zip),
 }
+
+
+def detect_format(filename: str) -> str | None:
+    """Detect package format from filename. Returns extension key or None."""
+    name = filename.lower()
+    for ext in (".tar.gz", ".tar.bz2", ".tar.xz"):
+        if name.endswith(ext):
+            return ext
+    if name.endswith(".tgz"):
+        return ".tar.gz"
+    if name.endswith(".txz"):
+        return ".tar.xz"
+    if name.endswith(".tbz2"):
+        return ".tar.bz2"
+    ext = Path(name).suffix
+    return ext if ext in SUPPORTED_FORMATS else None
 
 
 class UniversalAnalyzer:
@@ -26,11 +46,7 @@ class UniversalAnalyzer:
         self._format_map = SUPPORTED_FORMATS
 
     def detect_format(self, filename: str) -> str | None:
-        name = filename.lower()
-        if name.endswith(".tar.gz") or name.endswith(".tgz"):
-            return ".tar.gz"
-        ext = Path(name).suffix
-        return ext if ext in self._format_map else None
+        return detect_format(filename)
 
     def analyze(self, package_path: str) -> PackageInfo:
         path = Path(package_path)

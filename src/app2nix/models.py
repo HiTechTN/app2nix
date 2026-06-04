@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "unknown"]
+PackageFormat = Literal["deb", "rpm", "appimage", "flatpak", "snap", "tarball", "zip", "unknown"]
 
 _SANITIZE_RE = re.compile(r"[^a-zA-Z0-9._-]")
 
@@ -38,22 +38,3 @@ class ConversionResult(BaseModel):
     validation_passed: bool = True
     validation_error: str | None = None
 
-class AnalyzeResponse(BaseModel):
-    name: str
-    version: str
-    format: str
-    architecture: str
-    libraries: list[str]
-    nix_dependencies: list[str]
-    unresolved: list[str] = Field(default_factory=list)
-
-class GenerateResponse(BaseModel):
-    name: str
-    version: str
-    architecture: str
-    content: str
-    flake_content: str | None = None
-    install_guide: str = ""
-    auto_install_script: str = ""
-    validation_passed: bool = True
-    unresolved_deps: list[str] = Field(default_factory=list)

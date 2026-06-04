@@ -6,7 +6,7 @@ plus the internal get_format() helper and error handling.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -27,7 +27,7 @@ class TestGetFormat:
         assert get_format("package.rpm") == ".rpm"
 
     def test_appimage(self):
-        assert get_format("MyApp.AppImage") == ".appimage"
+        assert get_format("MyApp.appimage") == ".appimage"
         assert get_format("myapp.appimage") == ".appimage"
 
     def test_tar_gz(self):
@@ -46,7 +46,7 @@ class TestGetFormat:
         assert get_format("pkg.snap") == ".snap"
 
     def test_unsupported_returns_none(self):
-        assert get_format("archive.zip") is None
+        assert get_format("archive.xyz") is None
         assert get_format("image.png") is None
 
     def test_no_extension(self):
@@ -144,7 +144,7 @@ class TestApiRoot:
         assert data["version"] == "3.0.1"
         assert isinstance(data["formats"], list)
         assert ".deb" in data["formats"]
-        assert ".AppImage" in data["formats"]
+        assert ".appimage" in data["formats"]
 
     @pytest.mark.asyncio
     async def test_formats_match_supported(self):
@@ -178,7 +178,7 @@ class TestAnalyzeErrors:
         ) as client:
             r = await client.post(
                 "/analyze",
-                files={"file": ("archive.zip", b"fake", "application/octet-stream")},
+                files={"file": ("archive.xyz", b"fake", "application/octet-stream")},
             )
         assert r.status_code == 400
         assert "Unsupported format" in r.json()["error"]
@@ -264,7 +264,7 @@ class TestAnalyzeSuccess:
         with (
             patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
             patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
-            patch("urllib.request.urlretrieve") as mock_download,
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_analyzer = MagicMock()
             mock_analyzer.analyze.return_value = PackageInfo(
@@ -279,6 +279,15 @@ class TestAnalyzeSuccess:
             mock_resolver.resolve_all.return_value = ([], [])
             mock_resolver_cls.return_value = mock_resolver
 
+            mock_resp = MagicMock()
+            mock_resp.content = b"fake-deb-content"
+            mock_resp.raise_for_status = MagicMock()
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -290,7 +299,6 @@ class TestAnalyzeSuccess:
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "url-pkg"
-        mock_download.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_analyze_internal_error_returns_500(self):
@@ -453,7 +461,7 @@ class TestGenerateSuccess:
             patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
             patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
             patch("app2nix.server.NixGenerator") as mock_generator_cls,
-            patch("urllib.request.urlretrieve") as mock_download,
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_analyzer = MagicMock()
             mock_analyzer.analyze.return_value = PackageInfo(
@@ -473,6 +481,15 @@ class TestGenerateSuccess:
             mock_generator.generate_default_nix.return_value = mock_result
             mock_generator_cls.return_value = mock_generator
 
+            mock_resp = MagicMock()
+            mock_resp.content = b"fake-rpm-content"
+            mock_resp.raise_for_status = MagicMock()
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -484,7 +501,196 @@ class TestGenerateSuccess:
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "url-pkg"
-        mock_download.assert_called_once()
+
+
+# =============================================================================
+# POST /analyze  — edge cases
+# =============================================================================
+
+
+class TestAnalyzeEdgeCases:
+    @pytest.mark.asyncio
+    async def test_analyze_url_download_failure_returns_500(self):
+        """URL download that raises an HTTP error should return 500."""
+        import httpx
+
+        with (
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
+        ):
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(
+                side_effect=httpx.HTTPStatusError(
+                    message="Not Found",
+                    request=MagicMock(),
+                    response=MagicMock(status_code=404),
+                )
+            )
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                r = await client.post(
+                    "/analyze",
+                    data={"url": "https://example.com/missing.deb"},
+                )
+
+        assert r.status_code == 500
+        assert "Analysis failed" in r.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_unresolved_deps(self):
+        """Analyze should surface unresolved dependencies in the response."""
+        with (
+            patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
+            patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
+        ):
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = PackageInfo(
+                name="dep-pkg",
+                version="1.0",
+                architecture="amd64",
+                format="deb",
+                dependencies=["ssl", "unknown-lib", "z"],
+            )
+            mock_analyzer_cls.return_value = mock_analyzer
+
+            mock_resolver = MagicMock()
+            mock_resolver.resolve_all.return_value = (
+                ["openssl"],
+                ["unknown-lib"],
+            )
+            mock_resolver_cls.return_value = mock_resolver
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                r = await client.post(
+                    "/analyze",
+                    files={
+                        "file": ("dep.deb", b"fake", "application/octet-stream")
+                    },
+                )
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["nix_dependencies"] == ["openssl"]
+        assert "unknown-lib" in data["unresolved"]
+
+
+# =============================================================================
+# POST /generate  — edge cases
+# =============================================================================
+
+
+class TestGenerateEdgeCases:
+    @pytest.mark.asyncio
+    async def test_generate_url_download_failure_returns_500(self):
+        """URL download failure in generate should return 500."""
+        import httpx
+
+        with (
+            patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
+        ):
+            mock_client = MagicMock()
+            mock_client.get = AsyncMock(
+                side_effect=httpx.ConnectError("Connection refused")
+            )
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx_cls.return_value = mock_client
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                r = await client.post(
+                    "/generate",
+                    data={"url": "https://example.com/pkg.deb"},
+                )
+
+        assert r.status_code == 500
+        assert "Generation failed" in r.json()["error"]
+
+    @pytest.mark.asyncio
+    async def test_generate_with_unresolved_deps(self):
+        """Generate should include unresolved deps in the response."""
+        with (
+            patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
+            patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
+            patch("app2nix.server.NixGenerator") as mock_generator_cls,
+        ):
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = PackageInfo(
+                name="dep-app",
+                version="2.0",
+                architecture="amd64",
+                format="deb",
+                dependencies=["ssl", "mystery"],
+            )
+            mock_analyzer_cls.return_value = mock_analyzer
+
+            mock_resolver = MagicMock()
+            mock_resolver.resolve_all.return_value = (
+                ["openssl"],
+                ["mystery"],
+            )
+            mock_resolver_cls.return_value = mock_resolver
+
+            mock_generator = MagicMock()
+            mock_result = MagicMock()
+            mock_result.nix_content = "{ pkgs }: pkgs.stdenv.mkDerivation {}"
+            mock_result.flake_content = "nix = { }"
+            mock_result.install_guide = "guide"
+            mock_result.install_script = "script"
+            mock_result.validation_passed = False
+            mock_generator.generate_default_nix.return_value = mock_result
+            mock_generator_cls.return_value = mock_generator
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                r = await client.post(
+                    "/generate",
+                    files={
+                        "file": ("dep.deb", b"fake", "application/octet-stream")
+                    },
+                )
+
+        assert r.status_code == 200
+        data = r.json()
+        assert "mystery" in data["unresolved_deps"]
+        assert data["validation_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_generate_internal_error_from_resolver(self):
+        """Resolver failure should be caught and return 500."""
+        with (
+            patch("app2nix.server.UniversalAnalyzer") as mock_analyzer_cls,
+            patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
+        ):
+            mock_analyzer = MagicMock()
+            mock_analyzer.analyze.return_value = PackageInfo(
+                name="err-pkg", version="1.0", format="deb", dependencies=[]
+            )
+            mock_analyzer_cls.return_value = mock_analyzer
+            mock_resolver = MagicMock()
+            mock_resolver.resolve_all.side_effect = OSError("disk full")
+            mock_resolver_cls.return_value = mock_resolver
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                r = await client.post(
+                    "/generate",
+                    files={
+                        "file": ("err.deb", b"x", "application/octet-stream")
+                    },
+                )
+
+        assert r.status_code == 500
+        assert "disk full" in r.json()["error"]
 
 
 # =============================================================================

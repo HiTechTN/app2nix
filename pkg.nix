@@ -41,6 +41,9 @@ pkgs.stdenv.mkDerivation {
       --add-flags "-m" \
       --add-flags "app2nix" \
       --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.squashfsTools}/bin \
+      --prefix PATH : ${pkgs.rpm}/bin \
+      --prefix PATH : ${pkgs.cpio}/bin \
       --prefix PATH : ${pkgs.dpkg}/bin \
       --prefix PATH : ${pkgs.patchelf}/bin \
       --prefix PATH : ${pkgs.file}/bin
@@ -49,7 +52,13 @@ pkgs.stdenv.mkDerivation {
       --add-flags "-m" \
       --add-flags "app2nix" \
       --add-flags "serve" \
-      --set PYTHONPATH "$out/lib/python3/site-packages"
+      --set PYTHONPATH "$out/lib/python3/site-packages" \
+      --prefix PATH : ${pkgs.squashfsTools}/bin \
+      --prefix PATH : ${pkgs.rpm}/bin \
+      --prefix PATH : ${pkgs.cpio}/bin \
+      --prefix PATH : ${pkgs.dpkg}/bin \
+      --prefix PATH : ${pkgs.patchelf}/bin \
+      --prefix PATH : ${pkgs.file}/bin
   '';
   meta = {
     description = "Universal Package to NixOS Converter";

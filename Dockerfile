@@ -1,12 +1,12 @@
 # ---- Build stage ----
-FROM python:3.12-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
-COPY pyproject.toml uv.lock README.md ./
-RUN pip install uv && uv sync --no-dev --frozen
+COPY pyproject.toml README.md ./
+RUN pip install . --no-deps
 
 # ---- Runtime stage ----
-FROM python:3.12-slim AS runtime
+FROM python:3.11-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dpkg \

@@ -18,8 +18,14 @@ def analyze_tarball(tarball_path: str) -> PackageInfo:
         for exe in executables:
             all_libs.update(get_libs_patchelf(exe))
 
+        name = path.name
+        for suffix in [".tar.gz", ".tar.xz", ".tar.bz2", ".tgz", ".tar"]:
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+
         return PackageInfo(
-            name=path.stem.replace(".tar.gz", "").replace(".tgz", "").replace(".tar", ""),
+            name=name,
             version="1.0",
             architecture="x86_64",
             format="tarball",

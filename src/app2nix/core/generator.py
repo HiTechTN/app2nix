@@ -4,7 +4,6 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from app2nix.config import settings
 from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
@@ -20,7 +19,7 @@ INSTALL_PHASE_MAP = {
     "rpm": (
         'rpm_file=$(find $src -name "*.rpm" 2>/dev/null | head -1); '
         'if [ -n "$rpm_file" ]; then '
-        "  rpm2cpio \"$rpm_file\" | cpio -idmv; "
+        '  mkdir -p $out; cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames; '
         'else '
         '  echo "ERROR: no .rpm file found in $src"; exit 1; '
         "fi"
@@ -30,15 +29,35 @@ INSTALL_PHASE_MAP = {
         'if [ -n "$appimage" ]; then '
         '  chmod +x "$appimage"; '
         '  "$appimage" --appimage-extract 2>/dev/null; '
-        "  if [ -d squashfs-root ]; then "
-        "    cp -r squashfs-root/* $out/; "
-        "    rm -rf squashfs-root; "
+        '  if [ -d squashfs-root ]; then '
+        '    cp -r squashfs-root/* $out/; '
+        '    rm -rf squashfs-root; '
+        '  elif command -v unsquashfs >/dev/null 2>&1; then '
+        '    unsquashfs -d $out/squashfs-root "$appimage" 2>/dev/null && '
+        '    cp -r squashfs-root/* $out/ && rm -rf squashfs-root || '
+        '    { echo "ERROR: unsquashfs extraction failed"; exit 1; }; '
         '  else '
-        '    echo "ERROR: appimage-extract failed"; exit 1; '
-        "  fi; "
+        '    echo "ERROR: neither --appimage-extract nor unsquashfs worked"; exit 1; '
+        '  fi'
         'else '
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
-        "fi"
+        'fi'
+    ),
+    "zip": (
+        'zip_file=$(find $src -name "*.zip" 2>/dev/null | head -1); '
+        'if [ -n "$zip_file" ]; then '
+        '  unzip -o "$zip_file" -d $out; '
+        'else '
+        '  echo "ERROR: no .zip file found in $src"; exit 1; '
+        'fi'
+    ),
+    "7z": (
+        'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
+        'if [ -n "$sz_file" ]; then '
+        '  7z x "$sz_file" -o$out -y; '
+        'else '
+        '  echo "ERROR: no .7z file found in $src"; exit 1; '
+        'fi'
     ),
 }
 
@@ -51,10 +70,27 @@ DEFAULT_INSTALL = (
     "fi"
 )
 
+ARCH_TO_NIX_PLATFORM = {
+    "amd64": "x86_64-linux",
+    "x86_64": "x86_64-linux",
+    "arm64": "aarch64-linux",
+    "aarch64": "aarch64-linux",
+    "armhf": "armv7l-linux",
+    "armv7l": "armv7l-linux",
+    "i386": "i686-linux",
+    "i686": "i686-linux",
+}
+
+
+def _arch_to_nix_platform(arch: str | None) -> str:
+    if not arch:
+        return "x86_64-linux"
+    return ARCH_TO_NIX_PLATFORM.get(arch.lower(), "x86_64-linux")
+
 
 @dataclass
 class NixGenerator:
-    templates_dir: Path = Path("templates")
+    templates_dir: Path = Path(__file__).resolve().parent.parent.parent.parent / "templates"
 
     def _get_env(self) -> Environment:
         return Environment(loader=FileSystemLoader(str(self.templates_dir)))
@@ -66,21 +102,25 @@ class NixGenerator:
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 
         if resolved_deps is None:
-            resolver = DependencyResolver(settings.cache_db.expanduser())
+            resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = [f"pkgs.{d}" for d in (resolved_deps or [])]
+        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
-        native_deps = ["autoPatchelfHook"]
+        native_deps = []
         if info.format == "deb":
             native_deps.append("dpkg")
+        elif info.format == "rpm":
+            native_deps.extend(["rpm", "cpio"])
+        elif info.format == "appimage":
+            native_deps.append("squashfsTools")
 
         content = template.render(
             name=info.name,
             version=info.version,
             src_expr="./.",
             description=info.description or f"{info.name} package converted for NixOS",
-            platform=info.architecture,
+            platform=_arch_to_nix_platform(info.architecture),
             native_deps=native_deps,
             build_deps=build_deps,
             install_phase=install_phase,
@@ -106,10 +146,10 @@ class NixGenerator:
         template = env.get_template("flake.nix.j2")
 
         if resolved_deps is None:
-            resolver = DependencyResolver(settings.cache_db.expanduser())
+            resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        build_deps = [f"pkgs.{d}" for d in (resolved_deps or [])]
+        build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
         install_phase = INSTALL_PHASE_MAP.get(info.format, DEFAULT_INSTALL)
 
@@ -157,7 +197,11 @@ cd ~/nix-packages/{info.name}
 ## 3. Create default.nix with the generated content
 
 ## 4. Install
-### User install
+### User install (flakes)
+```bash
+nix profile install ./default.nix
+```
+### User install (legacy)
 ```bash
 NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
 ```
@@ -181,6 +225,10 @@ VERSION="{info.version}"
 mkdir -p ~/nix-packages/$PACKAGE
 cd ~/nix-packages/$PACKAGE
 # Copy the generated default.nix here
-NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+if command -v nix profile >/dev/null 2>&1; then
+  nix profile install ./default.nix
+else
+  NIXPKGS_ALLOW_UNFREE=1 nix-env -i -f default.nix
+fi
 echo "Installed $PACKAGE v$VERSION"
 """

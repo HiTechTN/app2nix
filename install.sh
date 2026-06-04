@@ -126,9 +126,49 @@ check_docker() {
 }
 
 is_nixos() {
-    grep -qi '^ID=nixos' /etc/os-release 2>/dev/null ||
+    grep -qi '^ID=nixos\|^ID=glfos' /etc/os-release 2>/dev/null ||
     test -f /etc/NIXOS ||
     command -v nixos-rebuild >/dev/null 2>&1
+}
+
+install_nixos() {
+    log "NixOS detected — installing via nix profile..."
+    mkdir -p "$BIN_DIR"
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+
+    if command -v git >/dev/null 2>&1; then
+        if [ -d .git ]; then
+            log "Existing installation found — updating..."
+            git fetch origin -q
+            git checkout -f -B master origin/master -q
+        else
+            git clone --depth=1 https://github.com/${REPO}.git . 2>/dev/null || {
+                git init -q
+                git remote add origin https://github.com/${REPO}.git
+                git fetch origin -q --depth=1
+                git checkout -f -B master origin/master -q
+            }
+        fi
+    else
+        local tmpdir; tmpdir=$(mktemp -d)
+        curl -sL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz -C "$tmpdir"
+        cp -r "$tmpdir"/app2nix-*/* "$INSTALL_DIR/"
+        cp -r "$tmpdir"/app2nix-*/.[!.]* "$INSTALL_DIR/" 2>/dev/null || true
+        rm -rf "$tmpdir"
+    fi
+
+    nix profile install "path:${INSTALL_DIR}#app2nix-gui" 2>/dev/null || \
+    nix profile install "github:${REPO}" 2>/dev/null || {
+        warn "Could not install via nix profile. Falling back to Python installation."
+        install_user
+        return
+    }
+
+    ok "NixOS installation complete!"
+    echo
+    info "app2nix is now available in your PATH"
+    info "Run: app2nix --help"
 }
 
 install_docker() {
@@ -341,18 +381,41 @@ fi
 SERVER
     chmod +x "$BIN_DIR/app2nix-server"
 
-    cat > "$BIN_DIR/app2nix-gui" << SERVER
+    # Create launch_gui.py for NixOS compatibility
+    cat > "$INSTALL_DIR/launch_gui.py" << 'LAUNCHGUI'
+#!/usr/bin/env python3
+"""Launcher for app2nix GUI on NixOS — adds source to path before importing."""
+import sys
+from pathlib import Path
+
+src = Path(__file__).resolve().parent / "src"
+if src.is_dir():
+    sys.path.insert(0, str(src))
+
+from app2nix.gui import run_gui
+
+run_gui()
+LAUNCHGUI
+
+    cat > "$BIN_DIR/app2nix-gui" << 'GUIWRAP'
 #!/usr/bin/env bash
 # app2nix-gui - Graphical interface for app2nix
-INSTALL_DIR="\$HOME/.local/app2nix"
-PYTHON_VENV="\$INSTALL_DIR/.venv/bin/python"
-if [ -f "\$PYTHON_VENV" ]; then
-    exec "\$PYTHON_VENV" -m app2nix gui "\$@"
-else
-    echo "Error: Python venv not found at \$INSTALL_DIR" >&2
+INSTALL_DIR="$HOME/.local/app2nix"
+if [ ! -f "$INSTALL_DIR/launch_gui.py" ]; then
+    echo "Error: app2nix not found at $INSTALL_DIR" >&2
     exit 1
 fi
-SERVER
+# On NixOS, PyQt6 from pip lacks patched shared libraries — use nix-shell
+if command -v nix-shell >/dev/null 2>&1 && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null; then
+    exec nix-shell -p python3Packages.pyqt6 python3Packages.starlette python3Packages.uvicorn \
+         python3Packages.python-multipart python3Packages.httpx python3Packages.pydantic \
+         python3Packages.pydantic-settings python3Packages.jinja2 python3Packages.typer \
+         python3Packages.rich python3Packages.itsdangerous stdenv.cc.cc.lib \
+         --run "exec python3 $INSTALL_DIR/launch_gui.py $*"
+else
+    exec "$INSTALL_DIR/.venv/bin/python" -m app2nix gui "$@"
+fi
+GUIWRAP
     chmod +x "$BIN_DIR/app2nix-gui"
 }
 
@@ -429,9 +492,16 @@ main() {
             fi
             ;;
         restart)
-            stop
-            sleep 1
-            start
+            if check_docker; then
+                stop_docker
+                sleep 1
+                start_docker
+            else
+                pkill -f "app2nix.*serve" 2>/dev/null
+                sleep 1
+                cd "$INSTALL_DIR" 2>/dev/null && .venv/bin/python -m app2nix serve &>/dev/null &
+                ok "Server restarted at http://localhost:8000"
+            fi
             ;;
         logs|l)
             if check_docker; then
@@ -440,6 +510,9 @@ main() {
                 journalctl -u app2nix 2>/dev/null || docker logs app2nix 2>/dev/null
             fi
             ;;
+        nixos|nix)
+            install_nixos
+            ;;
         help|-h|--help)
             show_help
             ;;
@@ -447,8 +520,8 @@ main() {
             print_banner | sed "s/VERSION_PLACEHOLDER/$VERSION/g"
             echo
             if is_nixos; then
-                log "NixOS detected — installing natively"
-                install_user
+                log "NixOS/GLF-OS detected — installing natively"
+                install_nixos
             elif check_docker; then
                 install_docker
             else
@@ -457,7 +530,7 @@ main() {
             ;;
         *)
             error "Unknown option: $arg"
-            echo "Use: curl ... | bash docker|system|user|upgrade|uninstall|start|stop|restart|logs|help"
+            echo "Use: curl ... | bash docker|nixos|system|user|upgrade|uninstall|start|stop|restart|logs|help"
             exit 1
             ;;
     esac

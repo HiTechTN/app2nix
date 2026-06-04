@@ -24,32 +24,39 @@ API information endpoint.
 ```json
 {
   "message": "app2nix API",
-  "version": "1.0.0"
+  "version": "3.0.1",
+  "formats": [".deb", ".rpm", ".AppImage", ".appimage", ".tar.gz", ".tgz", ".tar", ".tar.xz", ".tar.bz2", ".flatpak", ".snap"]
 }
 ```
 
 ### POST /analyze
 
-Analyze a package file.
+Analyze a package file or URL.
 
 **Request:**
 - Content-Type: `multipart/form-data`
-- Body: `file` - Package file
+- Body: `file` - Package file, OR `url` - URL to download
 
 **Response:**
 ```json
 {
   "name": "myapp",
   "version": "1.0.0",
+  "format": "deb",
   "architecture": "amd64",
   "libraries": ["libgtk-3", "libdrm"],
-  "nix_dependencies": ["gtk3", "libdrm"]
+  "nix_dependencies": ["gtk3", "libdrm"],
+  "unresolved": []
 }
 ```
 
-**Example:**
+**Examples:**
 ```bash
+# From file
 curl -X POST -F "file=@package.deb" http://localhost:8000/analyze
+
+# From URL
+curl -X POST -F "url=https://example.com/package.deb" http://localhost:8000/analyze
 ```
 
 ### POST /generate
@@ -58,143 +65,54 @@ Generate Nix expression from package.
 
 **Request:**
 - Content-Type: `multipart/form-data`
-- Body: `file` - Package file
+- Body: `file` - Package file, OR `url` - URL to download
 
 **Response:**
 ```json
 {
   "name": "myapp",
   "version": "1.0.0",
-  "content": "{ pkgs ? import <nixpkgs> {} }:\n\npkgs.stdenv.mkDerivation {...}"
+  "architecture": "x86_64",
+  "content": "{ pkgs ? import <nixpkgs> {} }: ...",
+  "flake_content": "{ description = \"...\"; ... }",
+  "install_guide": "# Installation Guide ...",
+  "auto_install_script": "#!/bin/bash ...",
+  "validation_passed": true,
+  "unresolved_deps": []
 }
 ```
 
-**Example:**
+**Examples:**
 ```bash
-curl -X POST -F "file=@package.deb" http://localhost:8000/generate > default.nix
-```
+# From file
+curl -X POST -F "file=@package.deb" http://localhost:8000/generate
 
-### POST /download
-
-Download and analyze package from URL.
-
-**Request:**
-- Content-Type: `application/json`
-- Body: `{"url": "https://example.com/package.deb"}`
-
-**Response:**
-```json
-{
-  "name": "myapp",
-  "version": "1.0.0",
-  "nix_dependencies": ["gtk3", "libdrm"]
-}
-```
-
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"url":"https://download.example.com/app.deb"}' \
-  http://localhost:8000/download
+# From URL
+curl -X POST -F "url=https://example.com/package.deb" http://localhost:8000/generate
 ```
 
 ## Error Responses
 
 | Status | Description |
 |--------|-------------|
-| 400 | Invalid file format |
-| 422 | Missing file |
+| 400 | Invalid file format or missing input |
+| 413 | File too large |
 | 500 | Internal server error |
 
 **Error Example:**
 ```json
 {
-  "detail": "File must be .deb"
+  "error": "Unsupported format. Supported: .deb, .rpm, ..."
 }
 ```
 
-## Python Client
+## Supported Formats
 
-```python
-import requests
-
-class App2nixClient:
-    def __init__(self, base_url="http://localhost:8000"):
-        self.base_url = base_url
-    
-    def analyze(self, file_path):
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(f"{self.base_url}/analyze", files=files)
-        return response.json()
-    
-    def generate(self, file_path):
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(f"{self.base_url}/generate", files=files)
-        return response.json()
-    
-    def download(self, url):
-        response = requests.post(
-            f"{self.base_url}/download",
-            json={"url": url}
-        )
-        return response.json()
-
-# Usage
-client = App2nixClient()
-info = client.analyze("package.deb")
-nix = client.generate("package.deb")
-```
-
-## JavaScript Client
-
-```javascript
-const API_URL = 'http://localhost:8000';
-
-async function analyze(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await fetch(`${API_URL}/analyze`, {
-        method: 'POST',
-        body: formData
-    });
-    return response.json();
-}
-
-async function generate(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await fetch(`${API_URL}/generate`, {
-        method: 'POST',
-        body: formData
-    });
-    return response.json();
-}
-
-// Usage
-const fileInput = document.getElementById('file');
-fileInput.addEventListener('change', async () => {
-    const info = await analyze(fileInput.files[0]);
-    console.log(info);
-});
-```
-
-## Rate Limits
-
-No rate limits by default. For production, consider adding rate limiting:
-
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-
-@app.post("/analyze")
-@limiter.limit("10/minute")
-async def analyze_package(file: UploadFile = File(...)):
-    ...
-```
+| Format | Extension(s) | Description |
+|--------|-------------|-------------|
+| Debian | `.deb` | Debian/Ubuntu packages |
+| RPM | `.rpm` | Red Hat/Fedora packages |
+| AppImage | `.AppImage`, `.appimage` | Portable Linux apps |
+| Flatpak | `.flatpak` | Flatpak bundles |
+| Snap | `.snap` | Snap packages |
+| Tarball | `.tar.gz`, `.tgz`, `.tar`, `.tar.xz`, `.tar.bz2` | Compressed archives |

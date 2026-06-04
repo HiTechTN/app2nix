@@ -1,15 +1,13 @@
 import difflib
-import sqlite3
-from pathlib import Path
 
 from app2nix.models import ResolvedDependency
 
 DEP_MAP = {
     "webkit2gtk-4.1": "webkitgtk_4_1",
-    "webkit2gtk-4.0": "webkitgtk_4_0",
+    "webkit2gtk-4.0": "webkitgtk_4_1",
     "webkit2gtk-6.0": "webkitgtk_6_0",
     "javascriptcoregtk-4.1": "webkitgtk_4_1",
-    "javascriptcoregtk-4.0": "webkitgtk_4_0",
+    "javascriptcoregtk-4.0": "webkitgtk_4_1",
     "javascriptcoregtk-6.0": "webkitgtk_6_0",
     "soup-3.0": "libsoup_3",
     "soup-2.4": "libsoup_2_4",
@@ -35,7 +33,7 @@ DEP_MAP = {
     "lzma": "xz",
     "xz": "xz",
     "gcrypt": "libgcrypt",
-    "gpg-error": "libgcrypt",
+    "gpg-error": "libgpg-error",
     "gnutls": "gnutls",
     "nettle": "nettle",
     "ssl": "openssl",
@@ -156,29 +154,92 @@ DEP_MAP = {
     "toml": "toml",
     "poppler": "poppler",
     "pixman": "pixman",
+    "c": "glibc",
+    "m": "glibc",
+    "pthread": "glibc",
+    "rt": "glibc",
+    "resolv": "glibc",
+    "dl": "glibc",
+    "gcc_s": "gcc.cc.lib",
+    "stdc++": "gcc.cc.lib",
+    "atomic": "libatomic",
+    "gdk_pixbuf-2.0": "gdk-pixbuf",
+    "gio-2.0": "glib",
+    "glib-2.0": "glib",
+    "gmodule-2.0": "glib",
+    "gobject-2.0": "glib",
+    "atk-1.0": "atk",
+    "atk-bridge-2.0": "at-spi2-atk",
+    "atspi": "at-spi2-core",
+    "X11-xcb": "xorg.libX11",
+    "Xcomposite": "libXcomposite",
+    "Xfixes": "libXfixes",
+    "Xrender": "libXrender",
+    "xcb-render": "xorg.libxcb",
+    "xcb-shm": "xorg.libxcb",
+    "avahi-client": "avahi",
+    "avahi-common": "avahi",
+    "brotlicommon": "brotli",
+    "brotlidec": "brotli",
+    "bsd": "libbsd",
+    "cairo-gobject": "cairo",
+    "colord": "colord",
+    "com_err": "e2fsprogs",
+    "enchant-2": "enchant2",
+    "epoxy": "libepoxy",
+    "fribidi": "fribidi",
+    "gmp": "gmp",
+    "gssapi_krb5": "krb5",
+    "gstallocators-1.0": "gst-plugins-base",
+    "gstapp-1.0": "gst-plugins-base",
+    "gstfft-1.0": "gst-plugins-base",
+    "gstgl-1.0": "gst-plugins-base",
+    "gstpbutils-1.0": "gst-plugins-base",
+    "gudev-1.0": "libgudev",
+    "hogweed": "nettle",
+    "hyphen": "hyphen",
+    "idn2": "libidn2",
+    "jbig": "jbigkit",
+    "keyutils": "keyutils",
+    "krb5": "krb5",
+    "krb5support": "krb5",
+    "lcms2": "lcms2",
+    "lz4": "lz4",
+    "mount": "util-linux",
+    "openjp2": "openjpeg",
+    "orc-0.4": "orc",
+    "p11-kit": "p11-kit",
+    "pangocairo-1.0": "pango",
+    "pangoft2-1.0": "pango",
+    "png16": "libpng",
+    "psl": "libpsl",
+    "rest-0.7": "rest",
+    "rsvg-2": "librsvg",
+    "soup-gnome-2.4": "libsoup_2_4",
+    "tasn1": "libtasn1",
+    "thai": "libthai",
+    "unistring": "libunistring",
+    "wayland-cursor": "wayland",
+    "wayland-egl": "wayland",
+    "wayland-server": "wayland",
+    "webpdemux": "libwebp",
+    "woff2common": "woff2",
+    "woff2dec": "woff2",
+    "nssutil3": "nss",
+    "smime3": "nss",
+    "dbus-glib-1": "dbus-glib",
+    "dbusmenu-glib": "libdbusmenu-glib",
+    "dbusmenu-gtk": "libdbusmenu-gtk",
+    "gstvideo-1.0": "gst-plugins-base",
+    "gstbase-1.0": "gst-plugins-base",
+    "gstaudio-1.0": "gst-plugins-base",
+    "gsttag-1.0": "gst-plugins-base",
 }
 
 
 class DependencyResolver:
-    def __init__(self, cache_path: Path):
-        self.cache_path = cache_path
-        self._init_cache()
-
-    def _init_cache(self) -> None:
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with sqlite3.connect(self.cache_path) as db:
-                db.execute("""
-                    CREATE TABLE IF NOT EXISTS resolved (
-                        lib_name TEXT PRIMARY KEY,
-                        nixpkg TEXT,
-                        source TEXT,
-                        confidence REAL,
-                        cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-        except Exception:
-            pass
+    def __init__(self, cache_path=None):
+        pass
 
     def resolve_sync(self, lib_name: str) -> ResolvedDependency:
         lib_base = lib_name.split(".so")[0]
@@ -203,50 +264,15 @@ class DependencyResolver:
             confidence=0.0, source="unknown",
         )
 
-    async def resolve_async(self, lib_name: str) -> ResolvedDependency:
-        sync_result = self.resolve_sync(lib_name)
-        if sync_result.nixpkg:
-            return sync_result
-
-        import json
-
-        import httpx
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                body = json.dumps({
-                    "query": {
-                        "multi_match": {
-                            "query": f"lib{lib_name}",
-                            "fields": ["package_attr_name^9", "package_pname^6"],
-                        }
-                    },
-                    "size": 1,
-                })
-                resp = await client.request(
-                    "GET",
-                    "https://search.nixos.org/backend/latest-42-nixos-24.05/_search",
-                    content=body,
-                    headers={"Content-Type": "application/json"},
-                )
-                if resp.status_code == 200:
-                    hits = resp.json().get("hits", {}).get("hits", [])
-                    if hits:
-                        pkg = hits[0]["_source"]["package_attr_name"]
-                        return ResolvedDependency(
-                            original=lib_name, nixpkg=pkg,
-                            confidence=0.6, source="api",
-                        )
-        except Exception:
-            pass
-
-        return sync_result
-
     def resolve_all(self, libs: list[str]) -> tuple[list[str], list[str]]:
         resolved, unresolved = [], []
+        seen = set()
         for lib in libs:
             r = self.resolve_sync(lib)
             if r.nixpkg:
-                resolved.append(r.nixpkg)
+                if r.nixpkg not in seen:
+                    seen.add(r.nixpkg)
+                    resolved.append(r.nixpkg)
             else:
                 unresolved.append(lib)
         return resolved, unresolved
