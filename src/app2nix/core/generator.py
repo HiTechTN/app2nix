@@ -35,6 +35,7 @@ _FIXUP_PHASE = (
 
 INSTALL_PHASE_MAP = {
     "deb": (
+        'mkdir -p $out; '
         'deb_file=$(find $src -name "*.deb" -o -name "*.ipk" 2>/dev/null | head -1); '
         'if [ -n "$deb_file" ]; then '
         "  dpkg-deb -x \"$deb_file\" $out; "
@@ -43,37 +44,39 @@ INSTALL_PHASE_MAP = {
         "fi"
     ),
     "rpm": (
+        'mkdir -p $out; '
         'rpm_file=$(find $src -name "*.rpm" 2>/dev/null | head -1); '
         'if [ -n "$rpm_file" ]; then '
-        '  mkdir -p $out; cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames 2>/dev/null; '
+        '  cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames 2>/dev/null; '
         'else '
         '  echo "ERROR: no .rpm file found in $src"; exit 1; '
         "fi"
     ),
     "appimage": (
+        'mkdir -p $out; extracted=0; '
         'appimage=$(find $src -name "*.AppImage" -o -name "*.appimage" 2>/dev/null | head -1); '
         'if [ -n "$appimage" ]; then '
-        '  chmod +x "$appimage"; '
-        '  if command -v unsquashfs >/dev/null 2>&1; then '
-        '    unsquashfs -d $out/squashfs-root "$appimage" 2>/dev/null && '
-        '    cp -r squashfs-root/* $out/ || '
-        '    { "$appimage" --appimage-extract 2>/dev/null && '
-        '      [ -d squashfs-root ] && cp -r squashfs-root/* $out/ && rm -rf squashfs-root; } || '
-        '    { echo "ERROR: AppImage extraction failed"; exit 1; }; '
-        '    rm -rf squashfs-root 2>/dev/null || true; '
-        '  else '
+        '  chmod +x "$appimage" 2>/dev/null || true; '
+        '  for off in $(grep -a -b -o "hsqs" "$appimage" 2>/dev/null | cut -d: -f1); do '
+        '    if [ "$extracted" = 0 ] && unsquashfs -o "$off" -d squashfs-root "$appimage" 2>/dev/null && [ -d squashfs-root ]; then '
+        '      cp -r squashfs-root/* $out/ && rm -rf squashfs-root && extracted=1 && break; '
+        '    fi; '
+        '  done; '
+        '  if [ "$extracted" = 0 ]; then '
         '    "$appimage" --appimage-extract 2>/dev/null; '
         '    if [ -d squashfs-root ]; then '
-        '      cp -r squashfs-root/* $out/; rm -rf squashfs-root; '
-        '    else '
-        '      echo "ERROR: cannot extract AppImage (no unsquashfs, FUSE failed)"; exit 1; '
+        '      cp -r squashfs-root/* $out/ && rm -rf squashfs-root && extracted=1; '
         '    fi; '
-        '  fi'
+        '  fi; '
+        '  if [ "$extracted" = 0 ]; then '
+        '    echo "ERROR: AppImage extraction failed"; exit 1; '
+        '  fi; '
         'else '
         '  echo "ERROR: no AppImage file found in $src"; exit 1; '
         'fi'
     ),
     "zip": (
+        'mkdir -p $out; '
         'zip_file=$(find $src -name "*.zip" 2>/dev/null | head -1); '
         'if [ -n "$zip_file" ]; then '
         '  unzip -o "$zip_file" -d $out; '
@@ -82,6 +85,7 @@ INSTALL_PHASE_MAP = {
         "fi"
     ),
     "7z": (
+        'mkdir -p $out; '
         'sz_file=$(find $src -name "*.7z" 2>/dev/null | head -1); '
         'if [ -n "$sz_file" ]; then '
         '  7z x "$sz_file" -o$out -y; '
