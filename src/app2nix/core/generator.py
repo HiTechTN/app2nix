@@ -34,6 +34,19 @@ _FIXUP_PHASE = (
     # Make sure all executables in $out/bin are executable
     'if [ -d "$out/bin" ]; then '
     'for f in "$out"/bin/*; do [ -f "$f" ] && chmod +x "$f"; done; fi; '
+    # Create bin/ symlinks for top-level ELF executables (AppImage root-level layout)
+    'mkdir -p $out/bin; '
+    'for f in "$out"/*; do '
+    '  if [ -f "$f" ] && [ -x "$f" ] && ! echo "$f" | grep -q ".so" && '
+    '    file -b "$f" 2>/dev/null | grep -q "ELF.*executable"; then '
+    '    ln -sf "$f" "$out/bin/$(basename "$f")"; '
+    '  fi; '
+    'done; '
+    # If AppRun exists (shell script), symlink it as pname
+    'if [ -f "$out/AppRun" ] && [ -x "$out/AppRun" ]; then '
+    '  pname=$(basename "$out" | sed "s/^[^-]*-//; s/-[0-9].*//"); '
+    '  ln -sf "$out/AppRun" "$out/bin/$pname"; '
+    'fi; '
     # Restructure and fix desktop files — ensure Categories is set
     'if [ -d "$out/usr/share/applications" ]; then mkdir -p $out/share/applications; '
     'for f in "$out"/usr/share/applications/*.desktop; do '
@@ -43,11 +56,26 @@ _FIXUP_PHASE = (
     'else '
     '  cp "$f" "$out/share/applications/$b"; '
     'fi; done; fi; '
+    # Also handle desktop files at $out/ root level (common in AppImage extracts)
+    'for f in "$out"/*.desktop; do '
+    '  if [ -f "$f" ]; then '
+    '    b=$(basename "$f"); mkdir -p $out/share/applications; '
+    '    if grep -q "^Categories=[ ]*$" "$f" 2>/dev/null; then '
+    '      sed "s/^Categories=[ ]*$/Categories=Utility;/" "$f" > "$out/share/applications/$b"; '
+    '    else '
+    '      cp "$f" "$out/share/applications/$b"; '
+    '    fi; '
+    '  fi; '
+    'done; '
     # Restructure icons
     'if [ -d "$out/usr/share/icons" ]; then mkdir -p $out/share; '
     'cp -r "$out/usr/share/icons" "$out/share/" 2>/dev/null || true; fi; '
     # Clean up temporary extracted paths
-    'rm -rf "$out/usr" 2>/dev/null || true; rm -rf "$out/squashfs-root" 2>/dev/null || true; rm -rf "$out/home" 2>/dev/null || true; rm -rf "$out/etc" 2>/dev/null || true'
+    'rm -rf "$out/usr" 2>/dev/null || true; rm -rf "$out/squashfs-root" 2>/dev/null || true; rm -rf "$out/home" 2>/dev/null || true; rm -rf "$out/etc" 2>/dev/null || true; '
+    # Remove dangling symlinks (pointed under $out/usr/ which is now gone)
+    'for f in "$out"/*; do '
+    '  if [ -L "$f" ] && [ ! -e "$f" ]; then rm -f "$f"; fi; '
+    'done'
 )
 
 
@@ -157,6 +185,17 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
+        # Pick the best candidate for mainProgram: the first executable that
+        # isn't a crashpad handler, sandbox, or library helper.
+        execs = info.executables or []
+        main_exe = info.name
+        for exe in execs:
+            base = Path(exe).name
+            if base in ("AppRun",) or base.endswith(".so"):
+                continue
+            main_exe = base
+            break
+
         build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
         native_deps = []
@@ -170,6 +209,7 @@ class NixGenerator:
         content = template.render(
             name=info.name,
             version=info.version,
+            main_program=main_exe,
             src_expr="./.",
             description=info.description or f"{info.name} package converted for NixOS",
             platform=_arch_to_nix_platform(info.architecture),

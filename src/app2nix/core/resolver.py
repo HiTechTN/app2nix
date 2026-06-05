@@ -60,6 +60,7 @@ DEP_MAP = {
     "opus": "libopus",
     "vorbis": "libvorbis",
     "sndfile": "libsndfile",
+    "ffmpeg": "ffmpeg",
     "avcodec": "ffmpeg",
     "avformat": "ffmpeg",
     "avutil": "ffmpeg",
