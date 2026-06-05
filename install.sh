@@ -158,8 +158,12 @@ install_nixos() {
         rm -rf "$tmpdir"
     fi
 
+    if nix profile list 2>/dev/null | grep -q app2nix; then
+        nix profile remove app2nix 2>/dev/null || true
+        nix profile remove app2nix-gui 2>/dev/null || true
+    fi
     nix profile install "path:${INSTALL_DIR}#app2nix-gui" 2>/dev/null || \
-    nix profile install "github:${REPO}" 2>/dev/null || {
+    nix profile install "github:${REPO}#app2nix-gui" 2>/dev/null || {
         warn "Could not install via nix profile. Falling back to Python installation."
         install_user
         return
@@ -411,7 +415,7 @@ if command -v nix-shell >/dev/null 2>&1 && grep -qi '^ID=nixos' /etc/os-release 
          python3Packages.python-multipart python3Packages.httpx python3Packages.pydantic \
          python3Packages.pydantic-settings python3Packages.jinja2 python3Packages.typer \
          python3Packages.rich python3Packages.itsdangerous stdenv.cc.cc.lib \
-         --run "unset QT_PLUGIN_PATH; exec python3 $INSTALL_DIR/launch_gui.py $*"
+         --run "unset QT_PLUGIN_PATH; export QT_LOGGING_RULES='*.debug=false;qt.*.debug=false'; exec python3 $INSTALL_DIR/launch_gui.py $*"
 else
     exec "$INSTALL_DIR/.venv/bin/python" -m app2nix gui "$@"
 fi

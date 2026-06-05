@@ -51,6 +51,7 @@ pkgs.stdenv.mkDerivation {
       --add-flags "app2nix.gui" \
       --set PYTHONPATH "$out/lib/python3/site-packages" \
       --unset QT_PLUGIN_PATH \
+      --set QT_LOGGING_RULES "*.debug=false;qt.*.debug=false" \
       --prefix PATH : ${pkgs.squashfsTools}/bin \
       --prefix PATH : ${pkgs.rpm}/bin \
       --prefix PATH : ${pkgs.cpio}/bin \
