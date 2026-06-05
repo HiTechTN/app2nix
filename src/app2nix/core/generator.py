@@ -8,11 +8,29 @@ from app2nix.core.resolver import DependencyResolver
 from app2nix.models import ConversionResult, PackageInfo
 
 _FIXUP_PHASE = (
-    # Copy executables from subdirectories into $out/bin/ so they appear in PATH
+    # Copy executables and resolve symlinks from subdirectories into $out/bin/ so they appear in PATH
     'if [ -d "$out/usr/bin" ]; then mkdir -p $out/bin; '
-    'for f in "$out"/usr/bin/*; do [ -f "$f" ] && [ -x "$f" ] && cp "$f" "$out/bin/"; done; fi; '
+    'for f in "$out"/usr/bin/*; do '
+    '  b=$(basename "$f"); '
+    '  if [ -f "$f" ] && [ -x "$f" ]; then cp "$f" "$out/bin/"; '
+    '  elif [ -L "$f" ]; then '
+    '    target=$(readlink "$f"); '
+    '    case "$target" in /*) target="$out$target";; esac; '
+    '    if [ -f "$target" ] && [ -x "$target" ]; then cp "$target" "$out/bin/$b"; '
+    '    fi; '
+    '  fi; '
+    'done; fi; '
     'if [ -d "$out/sbin" ]; then mkdir -p $out/bin; '
-    'for f in "$out"/sbin/*; do [ -f "$f" ] && [ -x "$f" ] && cp "$f" "$out/bin/"; done; fi; '
+    'for f in "$out"/sbin/*; do '
+    '  b=$(basename "$f"); '
+    '  if [ -f "$f" ] && [ -x "$f" ]; then cp "$f" "$out/bin/"; '
+    '  elif [ -L "$f" ]; then '
+    '    target=$(readlink "$f"); '
+    '    case "$target" in /*) target="$out$target";; esac; '
+    '    if [ -f "$target" ] && [ -x "$target" ]; then cp "$target" "$out/bin/$b"; '
+    '    fi; '
+    '  fi; '
+    'done; fi; '
     # Make sure all executables in $out/bin are executable
     'if [ -d "$out/bin" ]; then '
     'for f in "$out"/bin/*; do [ -f "$f" ] && chmod +x "$f"; done; fi; '
@@ -47,7 +65,7 @@ INSTALL_PHASE_MAP = {
         'mkdir -p $out; '
         'rpm_file=$(find $src -name "*.rpm" 2>/dev/null | head -1); '
         'if [ -n "$rpm_file" ]; then '
-        '  cd $out; rpm2cpio --not-lead "$rpm_file" | cpio -idmv --no-absolute-filenames 2>/dev/null; '
+        '  cd $out; rpm2cpio "$rpm_file" 2>/dev/null | cpio -idmv --no-absolute-filenames 2>/dev/null; '
         'else '
         '  echo "ERROR: no .rpm file found in $src"; exit 1; '
         "fi"

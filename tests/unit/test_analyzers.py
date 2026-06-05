@@ -949,7 +949,11 @@ class TestExtractDepsViaCpio:
             m.returncode = 0
             m.stdout = ""
             m.stderr = ""
-            # First call is for ``cpio -idmv`` — succeed
+            # Call for ``file -b`` from find_elf — fake ELF detection
+            if cmd[0] == "file":
+                m.stdout = "ELF 64-bit executable"
+                return m
+            # Call for ``cpio -idmv`` — succeed
             if cmd[0] == "cpio":
                 return m
             # Subsequent calls are for ``patchelf --print-needed`` — crash
@@ -957,6 +961,7 @@ class TestExtractDepsViaCpio:
             raise RuntimeError("patchelf simulation crash")
 
         with (
+            patch("app2nix.core.analyzers.rpm._find_rpm2cpio", return_value="rpm2cpio"),
             patch("app2nix.core.analyzers.rpm.tempfile.TemporaryDirectory") as mock_td,
             patch.object(subprocess, "Popen") as mock_popen,
             patch.object(subprocess, "run", side_effect=mock_subprocess_run),

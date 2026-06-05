@@ -37,33 +37,58 @@ def _parse_rpm_filename(stem: str) -> tuple[str, str, str]:
     return name, version, arch
 
 
+def _find_rpm() -> str:
+    """Locate rpm binary."""
+    import shutil
+    path = shutil.which("rpm")
+    if path:
+        return path
+    try:
+        result = subprocess.run(
+            ["nix", "shell", "nixpkgs#rpm", "-c", "which", "rpm"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            path = result.stdout.strip()
+            if path:
+                return path
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return ""
+
+
 def analyze_rpm(rpm_path: str) -> PackageInfo:
     path = Path(rpm_path)
     name, version, arch = path.stem, "1.0", "x86_64"
 
-    try:
-        info_out = subprocess.check_output(
-            ["rpm", "-qp", "--queryformat", "%{NAME}\\t%{VERSION}\\t%{ARCH}\\n", rpm_path],
-            stderr=subprocess.DEVNULL, text=True,
-        )
-        parts = info_out.strip().split("\t")
-        if len(parts) == 3:
-            name, version, arch = parts
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        name, version, arch = _parse_rpm_filename(path.stem)
+    rpm_bin = _find_rpm()
+    if rpm_bin:
+        try:
+            info_out = subprocess.check_output(
+                [rpm_bin, "-qp", "--queryformat", "%{NAME}\\t%{VERSION}\\t%{ARCH}\\n", rpm_path],
+                stderr=subprocess.DEVNULL, text=True,
+            )
+            parts = info_out.strip().split("\t")
+            if len(parts) == 3:
+                name, version, arch = parts
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            name, version, arch = _parse_rpm_filename(path.stem)
 
     deps: list[str] = []
-    try:
-        req_out = subprocess.check_output(
-            ["rpm", "-qp", "--requires", rpm_path],
-            stderr=subprocess.DEVNULL, text=True,
-        )
-        for line in req_out.splitlines():
-            lib = line.strip().split()[0]
-            name_only = extract_lib_name(lib)
-            if name_only:
-                deps.append(name_only)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if rpm_bin:
+        try:
+            req_out = subprocess.check_output(
+                [rpm_bin, "-qp", "--requires", rpm_path],
+                stderr=subprocess.DEVNULL, text=True,
+            )
+            for line in req_out.splitlines():
+                lib = line.strip().split()[0]
+                name_only = extract_lib_name(lib)
+                if name_only:
+                    deps.append(name_only)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            deps = _extract_deps_via_cpio(rpm_path)
+    else:
         deps = _extract_deps_via_cpio(rpm_path)
 
     return PackageInfo(
@@ -76,12 +101,36 @@ def analyze_rpm(rpm_path: str) -> PackageInfo:
     )
 
 
+def _find_rpm2cpio() -> str:
+    """Locate rpm2cpio binary."""
+    import shutil
+    path = shutil.which("rpm2cpio")
+    if path:
+        return path
+    # Try via nix shell
+    try:
+        result = subprocess.run(
+            ["nix", "shell", "nixpkgs#rpm", "-c", "which", "rpm2cpio"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            path = result.stdout.strip()
+            if path:
+                return path
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return ""
+
+
 def _extract_deps_via_cpio(rpm_path: str) -> list[str]:
     deps: set[str] = set()
+    rpm2cpio_bin = _find_rpm2cpio()
+    if not rpm2cpio_bin:
+        return sorted(deps)
     with tempfile.TemporaryDirectory(prefix="app2nix_rpm_") as tmpdir:
         try:
             cpio_proc = subprocess.Popen(
-                ["rpm2cpio", rpm_path],
+                [rpm2cpio_bin, rpm_path],
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             )
             subprocess.run(
