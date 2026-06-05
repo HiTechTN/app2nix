@@ -411,7 +411,7 @@ if command -v nix-shell >/dev/null 2>&1 && grep -qi '^ID=nixos' /etc/os-release 
          python3Packages.python-multipart python3Packages.httpx python3Packages.pydantic \
          python3Packages.pydantic-settings python3Packages.jinja2 python3Packages.typer \
          python3Packages.rich python3Packages.itsdangerous stdenv.cc.cc.lib \
-         --run "exec python3 $INSTALL_DIR/launch_gui.py $*"
+         --run "unset QT_PLUGIN_PATH; exec python3 $INSTALL_DIR/launch_gui.py $*"
 else
     exec "$INSTALL_DIR/.venv/bin/python" -m app2nix gui "$@"
 fi
