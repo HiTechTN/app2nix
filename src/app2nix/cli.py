@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import glob as _glob
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
@@ -81,6 +82,19 @@ def _resolve_packages(raw: list[str]) -> list[Path]:
     return sorted(result)
 
 
+def _source_name(package: Path) -> str:
+    suffix = package.suffix or ""
+    return f"source_package{suffix}"
+
+
+def _stage_package(package: Path, output_dir: Path) -> str:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    staged = output_dir / _source_name(package)
+    if package.resolve() != staged.resolve():
+        shutil.copy2(package, staged)
+    return "./" + staged.name
+
+
 def _convert_single(
     package: Path,
     *,
@@ -153,7 +167,8 @@ def _convert_single(
 
         # default.nix ----------------------------------------------------
         generator = NixGenerator()
-        gen_result = generator.generate_default_nix(info)
+        src_expr = _stage_package(package, output_dir)
+        gen_result = generator.generate_default_nix(info, src_expr=src_expr)
 
         if validate and gen_result.validation_error:
             if not quiet:

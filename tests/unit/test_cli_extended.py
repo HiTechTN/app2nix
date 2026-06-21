@@ -470,7 +470,9 @@ class TestConvertFullFlow:
         assert result.exit_code == 0
         nix_file = out_dir / "default.nix"
         assert nix_file.exists()
+        assert (out_dir / "source_package.deb").exists()
         content = nix_file.read_text()
+        assert "src = ./source_package.deb;" in content
         assert "mkDerivation" in content
         assert "basic" in content.lower()
 

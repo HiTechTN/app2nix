@@ -168,14 +168,66 @@ def _arch_to_nix_platform(arch: str | None) -> str:
     return ARCH_TO_NIX_PLATFORM.get(arch.lower(), "x86_64-linux")
 
 
+def _is_helper_executable(name: str) -> bool:
+    ignored = {
+        "AppRun",
+        "AppRun.wrapped",
+        "chrome-sandbox",
+        "chrome_crashpad_handler",
+        "download.sh",
+    }
+    return (
+        name in ignored
+        or name.endswith(".so")
+        or name.endswith(".node")
+        or name.endswith(".gyp")
+        or name.endswith("NetworkProcess")
+        or name.endswith("WebProcess")
+    )
+
+
+def _select_main_program(info: PackageInfo) -> str:
+    execs = info.executables or []
+    preferred = info.name
+    normalized_preferred = preferred.replace("-", "")
+    for exe in execs:
+        base = Path(exe).name
+        if _is_helper_executable(base):
+            continue
+        if base == preferred or base.replace("-", "") == normalized_preferred:
+            return base
+    for exe in execs:
+        base = Path(exe).name
+        if _is_helper_executable(base):
+            continue
+        return base
+    return preferred
+
+
 @dataclass
 class NixGenerator:
-    templates_dir: Path = Path(__file__).resolve().parent.parent.parent.parent / "templates"
+    templates_dir: Path | None = None
+
+    def _template_root(self) -> Path:
+        if self.templates_dir is not None:
+            return self.templates_dir
+
+        module_path = Path(__file__).resolve()
+        candidates = [
+            module_path.parents[3] / "templates",
+            module_path.parents[2] / "templates",
+            module_path.parent.parent / "templates",
+            module_path.parent / "templates",
+        ]
+        for candidate in candidates:
+            if (candidate / "default.nix.j2").exists():
+                return candidate
+        raise FileNotFoundError("Nix templates not found")
 
     def _get_env(self) -> Environment:
-        return Environment(loader=FileSystemLoader(str(self.templates_dir)))
+        return Environment(loader=FileSystemLoader(str(self._template_root())))
 
-    def generate_default_nix(self, info: PackageInfo, resolved_deps: list[str] | None = None, unresolved: list[str] | None = None) -> ConversionResult:
+    def generate_default_nix(self, info: PackageInfo, resolved_deps: list[str] | None = None, unresolved: list[str] | None = None, src_expr: str = "./source_package") -> ConversionResult:
         env = self._get_env()
         template = env.get_template("default.nix.j2")
 
@@ -185,16 +237,7 @@ class NixGenerator:
             resolver = DependencyResolver()
             resolved_deps, unresolved = resolver.resolve_all(info.dependencies)
 
-        # Pick the best candidate for mainProgram: the first executable that
-        # isn't a crashpad handler, sandbox, or library helper.
-        execs = info.executables or []
-        main_exe = info.name
-        for exe in execs:
-            base = Path(exe).name
-            if base in ("AppRun",) or base.endswith(".so"):
-                continue
-            main_exe = base
-            break
+        main_exe = _select_main_program(info)
 
         build_deps = sorted({f"pkgs.{d}" for d in (resolved_deps or [])})
         unresolved = unresolved or []
@@ -210,7 +253,7 @@ class NixGenerator:
             name=info.name,
             version=info.version,
             main_program=main_exe,
-            src_expr="./.",
+            src_expr=src_expr,
             description=info.description or f"{info.name} package converted for NixOS",
             platform=_arch_to_nix_platform(info.architecture),
             native_deps=native_deps,

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app2nix.core.generator import NixGenerator, _arch_to_nix_platform
+from app2nix.core.generator import NixGenerator, _arch_to_nix_platform, _select_main_program
 from app2nix.models import PackageInfo
 
 
@@ -30,6 +30,38 @@ def test_generate_default_nix_valid_syntax(generator, sample_deb_info):
     assert "mkDerivation" in result.nix_content
     assert "autoPatchelfHook" in result.nix_content
     assert "makeSetupHook" not in result.nix_content
+    assert "src = ./source_package;" in result.nix_content
+
+
+def test_generate_default_nix_custom_src_expr(generator, sample_deb_info):
+    result = generator.generate_default_nix(sample_deb_info, src_expr="./pkg/test.deb")
+    assert "src = ./pkg/test.deb;" in result.nix_content
+
+
+def test_select_main_program_skips_helpers_before_fallback():
+    info = PackageInfo(
+        name="zcode",
+        version="1.0",
+        format="deb",
+        executables=[
+            "opt/ZCode/chrome-sandbox",
+            "opt/ZCode/zcode",
+        ],
+    )
+    assert _select_main_program(info) == "zcode"
+
+
+def test_select_main_program_prefers_package_name():
+    info = PackageInfo(
+        name="squirreldisk",
+        version="1.0",
+        format="appimage",
+        executables=[
+            "AppRun.wrapped",
+            "usr/bin/squirrel-disk",
+        ],
+    )
+    assert _select_main_program(info) == "squirrel-disk"
 
 
 def test_generate_default_nix_no_broken_template(generator, sample_deb_info):

@@ -95,6 +95,12 @@ class TestSettingsEnvOverride:
         s = Settings(secret_key="my-test-key")
         assert s.secret_key == "my-test-key"
 
+    def test_empty_secret_key_falls_back_to_generated_value(self):
+        s = Settings(secret_key="")
+        assert isinstance(s.secret_key, str)
+        assert len(s.secret_key) == 64
+        int(s.secret_key, 16)
+
 
 # ---------------------------------------------------------------------------
 # get_settings() caching

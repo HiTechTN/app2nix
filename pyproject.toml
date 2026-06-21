@@ -6,7 +6,11 @@ build-backend = "hatchling.build"
 packages = ["src/app2nix"]
 
 [tool.hatch.build]
-include = ["src/app2nix/gui/templates/**", "src/app2nix/gui/translations/**"]
+include = [
+    "src/app2nix/gui/templates/**",
+    "src/app2nix/gui/translations/**",
+    "templates/**",
+]
 
 [project]
 name = "app2nix"

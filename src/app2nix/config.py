@@ -2,6 +2,7 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -18,6 +19,12 @@ class Settings(BaseSettings):
     nix_timeout: int = 10
 
     model_config = {"env_file": ".env", "env_prefix": "APP2NIX_"}
+
+    @model_validator(mode="after")
+    def _ensure_secret_key(self) -> "Settings":
+        if not self.secret_key:
+            self.secret_key = secrets.token_hex(32)
+        return self
 
 
 @lru_cache

@@ -3,7 +3,11 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 COPY pyproject.toml README.md ./
-RUN pip install . --no-deps
+COPY src/ ./src/
+COPY templates/ ./templates/
+RUN python -m venv /app/.venv \
+    && /app/.venv/bin/python -m pip install --no-cache-dir --upgrade pip \
+    && /app/.venv/bin/python -m pip install --no-cache-dir .
 
 # ---- Runtime stage ----
 FROM python:3.11-slim AS runtime
@@ -14,16 +18,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cpio \
     patchelf \
     file \
+    tar \
+    gzip \
+    bzip2 \
+    xz-utils \
+    unzip \
+    p7zip-full \
+    squashfs-tools \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY --from=builder /build/.venv /app/.venv
+COPY --from=builder /app/.venv /app/.venv
 COPY src/ /app/src/
 COPY static/ /app/static/
+COPY templates/ /app/templates/
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV APP2NIX_SECRET_KEY=""
+ENV PYTHONPATH="/app/src"
 ENV APP2NIX_DEBUG=false
 
 RUN useradd -m -u 1000 app2nix
