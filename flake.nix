@@ -2,9 +2,9 @@
   description = "app2nix - Universal Linux Application Installer for NixOS";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    nixpkgs.url = "github:NixOS/nixpkgs/64c08a7ca051951c8eae34e3e3cb1e202fe36786";
+    flake-utils.url = "github:numtide/flake-utils/11707dc2f618dd54ca8739b309ec4fc024de578b";
+    rust-overlay.url = "github:oxalica/rust-overlay/e93ad0df1073b2c969a8f0c1f10b84e870469d40";
   };
 
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
@@ -65,7 +65,7 @@
           buildAndTestSubdir = "crates/cli";
           installPhase = ''
             mkdir -p $out/bin
-            cp target/release/app2nix $out/bin/
+            cp $(find target -path "*/release/app2nix" -type f -executable -print -quit) $out/bin/
             mkdir -p $out/share/app2nix/templates
             cp templates/* $out/share/app2nix/templates/
           '';

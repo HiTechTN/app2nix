@@ -1,5 +1,7 @@
-use std::fs;
+use std::fs::{self, File};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+use std::process::{Command, Stdio};
 
 #[cfg(test)]
 mod tests;
@@ -12,6 +14,47 @@ pub struct DefaultExtractor;
 impl DefaultExtractor {
     pub fn new() -> Self {
         Self
+    }
+
+    fn validate_appimage_source(path: &Path) -> Result<()> {
+        let mut file = File::open(path).map_err(|e| {
+            App2NixError::ExtractionFailed(format!("failed to open AppImage: {}", e))
+        })?;
+
+        let mut header = [0u8; 4];
+        file.read_exact(&mut header).map_err(|e| {
+            App2NixError::ExtractionFailed(format!("failed to read AppImage header: {}", e))
+        })?;
+
+        if header != *b"\x7fELF" {
+            return Err(App2NixError::ExtractionFailed(
+                "AppImage source is not an ELF executable".into(),
+            ));
+        }
+
+        let len = file
+            .metadata()
+            .map_err(|e| App2NixError::ExtractionFailed(format!("failed to stat AppImage: {}", e)))?
+            .len();
+        let search_len = len.min(64 * 1024);
+        let mut tail = vec![0u8; search_len as usize];
+        file.seek(SeekFrom::Start(len - search_len)).map_err(|e| {
+            App2NixError::ExtractionFailed(format!("failed to seek AppImage tail: {}", e))
+        })?;
+        file.read_exact(&mut tail).map_err(|e| {
+            App2NixError::ExtractionFailed(format!("failed to read AppImage tail: {}", e))
+        })?;
+
+        if !tail
+            .windows(3)
+            .any(|window| window == b"AI\x02" || window == b"AI\x01")
+        {
+            return Err(App2NixError::ExtractionFailed(
+                "AppImage source does not contain an AppImage runtime marker".into(),
+            ));
+        }
+
+        Ok(())
     }
 
     fn extract_deb(package: &PackageInfo, dest: &str) -> Result<Vec<ExtractedFile>> {
@@ -46,18 +89,30 @@ impl DefaultExtractor {
             .is_ok();
 
         if has_rpm2cpio {
-            let status = std::process::Command::new("sh")
-                .args([
-                    "-c",
-                    &format!(
-                        "rpm2cpio '{}' | cpio -idmv -D '{}'",
-                        package.source_path, dest
-                    ),
-                ])
-                .status()
+            let mut rpm2cpio = Command::new("rpm2cpio")
+                .arg(&package.source_path)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
                 .map_err(|e| App2NixError::ExtractionFailed(format!("rpm2cpio failed: {}", e)))?;
 
-            if !status.success() {
+            let rpm2cpio_stdout = rpm2cpio.stdout.take().ok_or_else(|| {
+                App2NixError::ExtractionFailed("rpm2cpio stdout unavailable".into())
+            })?;
+
+            let cpio_status = Command::new("cpio")
+                .args(["-idmv", "-D", dest])
+                .stdin(Stdio::from(rpm2cpio_stdout))
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map_err(|e| App2NixError::ExtractionFailed(format!("cpio failed: {}", e)))?;
+
+            let rpm2cpio_status = rpm2cpio.wait().map_err(|e| {
+                App2NixError::ExtractionFailed(format!("rpm2cpio wait failed: {}", e))
+            })?;
+
+            if !cpio_status.success() || !rpm2cpio_status.success() {
                 return Err(App2NixError::ExtractionFailed(
                     "rpm2cpio extraction failed".into(),
                 ));
@@ -90,6 +145,7 @@ impl DefaultExtractor {
 
     fn extract_appimage(package: &PackageInfo, dest: &str) -> Result<Vec<ExtractedFile>> {
         use std::os::unix::fs::PermissionsExt;
+        Self::validate_appimage_source(Path::new(&package.source_path))?;
         let path = Path::new(&package.source_path);
         let mut perms = fs::metadata(&package.source_path)
             .map_err(|e| App2NixError::ExtractionFailed(e.to_string()))?

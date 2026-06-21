@@ -266,7 +266,13 @@ chmod +x $out/bin/{bin_name}
 
         let mut vars = String::from("  preFixup = ''\n");
         for (key, val) in &opts.env_vars {
-            vars.push_str(&format!("    export {}={}\n", key, val));
+            let key = sanitize_env_key(key);
+            let value = shell_quote(val);
+            vars.push_str(&format!(
+                "    export {}={}\n",
+                key,
+                escape_nix_indented(&value)
+            ));
         }
         vars.push_str("  '';\n");
         vars
@@ -349,6 +355,54 @@ pub fn sanitize_name(name: &str) -> String {
         .collect::<String>()
         .trim_matches('-')
         .to_string()
+}
+
+fn shell_quote(value: &str) -> String {
+    let mut quoted = String::from("$'");
+    for c in value.chars() {
+        match c {
+            '\\' => quoted.push_str("\\\\"),
+            '\'' => quoted.push_str("\\'"),
+            '\n' => quoted.push_str("\\n"),
+            '\r' => quoted.push_str("\\r"),
+            '\t' => quoted.push_str("\\t"),
+            c => quoted.push(c),
+        }
+    }
+    quoted.push('\'');
+    quoted
+}
+
+fn escape_nix_indented(value: &str) -> String {
+    value.replace("''", "''''").replace("${", "\\${")
+}
+
+fn sanitize_env_key(key: &str) -> String {
+    let sanitized = key
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+
+    if sanitized.is_empty() {
+        return "_".into();
+    }
+
+    if sanitized
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+    {
+        format!("_{}", sanitized)
+    } else {
+        sanitized
+    }
 }
 
 /// Sanitize a version string for use in Nix expressions.

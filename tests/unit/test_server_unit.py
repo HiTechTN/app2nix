@@ -12,13 +12,52 @@ Complements the integration tests in tests/integration/test_server.py by coverin
 """
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app2nix.models import PackageInfo
-from app2nix.server import SUPPORTED_FORMATS, app, get_format
+from app2nix.server import (
+    SUPPORTED_FORMATS,
+    _is_blocked_hostname,
+    _validate_download_url,
+    _validate_redirect_url,
+    app,
+    get_format,
+)
+
+
+class AsyncClientContext:
+    def __init__(self, client):
+        self.client = client
+
+    async def __aenter__(self):
+        return self.client
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class AsyncStreamContext:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def mock_stream_response(mock_client, response):
+    mock_client.stream = MagicMock(return_value=AsyncStreamContext(response))
+
+
+async def iter_bytes(chunks):
+    for chunk in chunks:
+        yield chunk
+
 
 # =============================================================================
 # get_format — additional edge cases for new formats
@@ -56,17 +95,47 @@ class TestGetFormatExtended:
 
 
 class TestGetPackageFromRequestUrlFailures:
+    def test_private_url_host_is_blocked(self):
+        assert _is_blocked_hostname("127.0.0.1")
+        assert _is_blocked_hostname("169.254.169.254")
+        assert _is_blocked_hostname("localhost")
+
+    def test_validate_download_url_accepts_public_https(self):
+        with patch("app2nix.server.socket.getaddrinfo", return_value=[(None, None, None, None, ("93.184.216.34", 443))]):
+            url = _validate_download_url("https://example.com/package.deb")
+        assert url.scheme == "https"
+        assert url.host == "example.com"
+
+    def test_validate_download_url_rejects_private_ip(self):
+        with pytest.raises(ValueError, match="not allowed"):
+            _validate_download_url("http://127.0.0.1:8000/package.deb")
+
+    def test_validate_download_url_rejects_credentials(self):
+        with pytest.raises(ValueError, match="credentials"):
+            _validate_download_url("https://user:pass@example.com/package.deb")
+
+    def test_validate_download_url_rejects_private_dns_resolution(self):
+        with patch("app2nix.server.socket.getaddrinfo", return_value=[(None, None, None, None, ("127.0.0.1", 443))]):
+            with pytest.raises(ValueError, match="blocked"):
+                _validate_download_url("https://evil.example/package.deb")
+
+    def test_validate_redirect_url_rejects_private_redirect(self):
+        with patch("app2nix.server.socket.getaddrinfo", return_value=[(None, None, None, None, ("93.184.216.34", 443))]):
+            base = _validate_download_url("https://example.com/package.deb")
+        with pytest.raises(ValueError, match="not allowed"):
+            _validate_redirect_url("http://127.0.0.1/package.deb", base)
+
     @pytest.mark.asyncio
     async def test_url_download_http_error_returns_error(self):
         """When the URL returns an HTTP error, the endpoint should return 500."""
         with patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls:
             mock_resp = MagicMock()
+            mock_resp.status_code = 404
+            mock_resp.headers = {}
             mock_resp.raise_for_status.side_effect = Exception("404 Not Found")
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(return_value=mock_resp)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_stream_response(mock_client, mock_resp)
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -84,10 +153,8 @@ class TestGetPackageFromRequestUrlFailures:
         """When the URL is unreachable, the endpoint should return 500."""
         with patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls:
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(side_effect=Exception("Connection refused"))
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_client.stream = MagicMock(side_effect=Exception("Connection refused"))
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -226,13 +293,12 @@ class TestFileAndUrlPrecedence:
             patch("app2nix.server.DependencyResolver") as mock_resolver_cls,
         ):
             mock_resp = MagicMock()
-            mock_resp.content = b"url-content"
-            mock_resp.raise_for_status = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {}
+            mock_resp.aiter_bytes = lambda: iter_bytes([b"url-content"])
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(return_value=mock_resp)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_stream_response(mock_client, mock_resp)
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             mock_analyzer = MagicMock()
             mock_analyzer.analyze.return_value = PackageInfo(

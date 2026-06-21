@@ -220,7 +220,24 @@ fn test_generate_env_vars_with_values() {
     env.insert("FOO".to_string(), "bar".to_string());
     opts.env_vars = env;
     let vars = gen.generate_env_vars(&opts);
-    assert!(vars.contains("FOO=bar"));
+    assert!(vars.contains("FOO=$'bar'"));
+}
+
+#[test]
+fn test_generate_env_vars_escapes_nix_and_shell_injection() {
+    let gen = crate::DefaultNixGenerator::new();
+    let mut opts = make_opts();
+    let mut env = HashMap::new();
+    env.insert(
+        "BAD-KEY".to_string(),
+        "x''\n    export INJECTED=true\n${pkgs.bash}".to_string(),
+    );
+    opts.env_vars = env;
+    let vars = gen.generate_env_vars(&opts);
+    assert!(vars.contains("export BAD_KEY="));
+    assert!(vars.contains("\\${pkgs.bash}"));
+    assert!(!vars.contains("export INJECTED=true\n"));
+    assert!(!vars.contains("export BAD-KEY"));
 }
 
 #[test]

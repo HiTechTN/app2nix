@@ -115,3 +115,44 @@ fn test_scan_extracted_nonexistent_dir() {
     let result = DefaultExtractor::scan_extracted("/nonexistent/path");
     assert!(result.is_err() || result.unwrap().is_empty());
 }
+
+#[test]
+fn test_validate_appimage_source_rejects_text_file() {
+    let dir = std::env::temp_dir().join("app2nix_test_ext_appimage_text");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fake.AppImage");
+    fs::write(&path, b"not an appimage").unwrap();
+
+    let result = DefaultExtractor::validate_appimage_source(&path);
+    assert!(result.is_err());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn test_validate_appimage_source_rejects_elf_without_marker() {
+    let dir = std::env::temp_dir().join("app2nix_test_ext_appimage_elf_no_marker");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fake.AppImage");
+    fs::write(&path, &[0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00]).unwrap();
+
+    let result = DefaultExtractor::validate_appimage_source(&path);
+    assert!(result.is_err());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn test_validate_appimage_source_accepts_elf_with_marker() {
+    let dir = std::env::temp_dir().join("app2nix_test_ext_appimage_marker");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fake.AppImage");
+    let mut data = vec![0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00];
+    data.extend_from_slice(b"AI\x02");
+    fs::write(&path, data).unwrap();
+
+    let result = DefaultExtractor::validate_appimage_source(&path);
+    assert!(result.is_ok());
+    let _ = fs::remove_dir_all(&dir);
+}

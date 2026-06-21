@@ -6,13 +6,44 @@ plus the internal get_format() helper and error handling.
 """
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app2nix.models import PackageInfo
 from app2nix.server import SUPPORTED_FORMATS, app, get_format
+
+
+class AsyncClientContext:
+    def __init__(self, client):
+        self.client = client
+
+    async def __aenter__(self):
+        return self.client
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class AsyncStreamContext:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def mock_stream_response(mock_client, response):
+    mock_client.stream = MagicMock(return_value=AsyncStreamContext(response))
+
+
+async def iter_bytes(chunks):
+    for chunk in chunks:
+        yield chunk
 
 # =============================================================================
 # get_format  (pure-function helper)
@@ -141,7 +172,7 @@ class TestApiRoot:
             r = await client.get("/api")
         data = r.json()
         assert data["message"] == "app2nix API"
-        assert data["version"] == "3.0.1"
+        assert data["version"] == "3.1.0"
         assert isinstance(data["formats"], list)
         assert ".deb" in data["formats"]
         assert ".appimage" in data["formats"]
@@ -280,13 +311,12 @@ class TestAnalyzeSuccess:
             mock_resolver_cls.return_value = mock_resolver
 
             mock_resp = MagicMock()
-            mock_resp.content = b"fake-deb-content"
-            mock_resp.raise_for_status = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {}
+            mock_resp.aiter_bytes = lambda: iter_bytes([b"fake-deb-content"])
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(return_value=mock_resp)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_stream_response(mock_client, mock_resp)
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -482,13 +512,12 @@ class TestGenerateSuccess:
             mock_generator_cls.return_value = mock_generator
 
             mock_resp = MagicMock()
-            mock_resp.content = b"fake-rpm-content"
-            mock_resp.raise_for_status = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {}
+            mock_resp.aiter_bytes = lambda: iter_bytes([b"fake-rpm-content"])
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(return_value=mock_resp)
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_stream_response(mock_client, mock_resp)
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -518,16 +547,14 @@ class TestAnalyzeEdgeCases:
             patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(
+            mock_client.stream = MagicMock(
                 side_effect=httpx.HTTPStatusError(
                     message="Not Found",
                     request=MagicMock(),
                     response=MagicMock(status_code=404),
                 )
             )
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -595,12 +622,8 @@ class TestGenerateEdgeCases:
             patch("app2nix.server.httpx.AsyncClient") as mock_httpx_cls,
         ):
             mock_client = MagicMock()
-            mock_client.get = AsyncMock(
-                side_effect=httpx.ConnectError("Connection refused")
-            )
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx_cls.return_value = mock_client
+            mock_client.stream = MagicMock(side_effect=httpx.ConnectError("Connection refused"))
+            mock_httpx_cls.return_value = AsyncClientContext(mock_client)
 
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"

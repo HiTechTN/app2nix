@@ -31,6 +31,7 @@ jobs:
           components: clippy, rustfmt
           cache: "true"
       - run: cargo check --workspace
+      - run: cargo test --workspace
       - run: cargo fmt --check
       - run: cargo clippy --workspace
 
