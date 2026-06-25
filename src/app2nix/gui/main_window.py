@@ -104,6 +104,10 @@ def _guess_category(pkg_name: str) -> str:
     return "Utility;"
 
 
+def _ready_status_text() -> str:
+    return tr("status.ready_detail", "Ready • Select a package file to begin")
+
+
 
 def _detect_format(path: str) -> str | None:
     name = path.lower()
@@ -222,10 +226,12 @@ class InstallWorker(QThread):
                 )
             else:
                 self.progress.emit("Installing (user profile)...")
-                self._run_cmd(
-                    ["nix", "profile", "install", str(result_link)],
-                    env=env,
-                )
+            self._run_cmd(
+                ["sudo", "-S", "nix", "profile", "install", str(result_link)],
+                stdin_data=self._sudo_password + "\n",
+                env=env,
+            )
+
 
             try:
                 self._install_desktop_files()
@@ -858,7 +864,7 @@ class App2NixWindow(QWidget):
         root.addWidget(self.progress_bar)
 
         # -- Status bar ----------------------------------------------------
-        self.status_bar = QLabel(tr("status.ready", "Ready"))
+        self.status_bar = QLabel(_ready_status_text())
         self.status_bar.setObjectName("statusBar")
         root.addWidget(self.status_bar)
 
@@ -1716,7 +1722,7 @@ class App2NixWindow(QWidget):
         self.gen_flake_btn.setEnabled(False)
         self.install_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
-        self.status_bar.setText(tr("status.ready", "Ready"))
+        self.status_bar.setText(_ready_status_text())
 
     def _toggle_theme(self):
         self._theme_mode = "dark" if self._theme_mode == "light" else "light"
